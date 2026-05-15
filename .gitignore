@@ -1,0 +1,40 @@
+
+# Node modules
+/frontend/node_modules/*
+/backend/node_modules/*
+
+# Build outputs
+/frontend/dist/
+
+# Dependency lock files (optional, keep if not shared)
+/frontend/package-lock.json
+
+# Python virtual environments and caches
+/backend/.venv/
+/backend/.pytest_cache/
+/backend/app/**/__pycache__/
+/backend/alembic/__pycache__/
+/backend/alembic/versions/__pycache__/
+/backend/scripts/__pycache__/
+/backend/tests/__pycache__/
+
+# Compiled Python files
+*.pyc
+
+# Alembic migration cache
+backend/alembic/versions/*.pyc
+
+# Environment files
+.env
+backend/.env
+backend/.env.example
+
+# VSCode settings
+.vscode/
+
+# OS files
+.DS_Store
+
+# Ignore everything in public except .gitkeep (if you want to keep the folder)
+frontend/public/*
+!frontend/public/.gitkeep

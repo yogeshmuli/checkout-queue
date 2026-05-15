@@ -1,0 +1,150 @@
+import { ArrowRight, CheckCircle2, ScanLine, Star, Zap } from 'lucide-react';
+import { motion as Motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+
+import brandLogo from '../../assets/images/equilateral_logo.png';
+import { useAuthStore } from '../../store/authStore.js';
+import { motionPresets } from './motionPresets.js';
+import { getUserScope } from './roleUtils.js';
+
+const badges = [
+  { text: 'Zero Queue Waiting', Icon: CheckCircle2 },
+  { text: 'Fast Checkout Flow', Icon: Zap },
+  { text: 'Reliable Operations', Icon: Star },
+];
+
+export function Landing() {
+  const navigate = useNavigate();
+  const { accessToken, user } = useAuthStore();
+
+  const userScope = getUserScope(user);
+  const showWorkspace = Boolean(accessToken && user);
+  const workspacePath = userScope === 'admin' ? '/app/admin' : '/app/staff';
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-white via-red-50 to-white font-sans selection:bg-red-100 selection:text-red-900">
+      <div className="pointer-events-none absolute right-0 top-0 h-[800px] w-[800px] -translate-y-1/2 translate-x-1/2 rounded-full bg-gradient-to-bl from-red-100/50 to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-0 h-[600px] w-[600px] translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-tr from-orange-100/30 to-transparent blur-3xl" />
+
+      <header className="relative z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-3">
+          <img src={brandLogo} alt="Checkout Queue logo" className="h-[100px]  rounded-xl border border-white/80 bg-white p-1 object-contain shadow-soft" />
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Checkout Queue</p>
+            <p className="text-sm font-semibold text-slate-900">Smart Billing Lines</p>
+          </div>
+        </div>
+        <Motion.button
+          {...motionPresets.fadeInDown}
+          {...motionPresets.subtleButton}
+          type="button"
+          onClick={() => navigate(showWorkspace ? workspacePath : '/app/login')}
+          className="inline-flex items-center gap-2 rounded-xl border border-brand-red/30 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-soft hover:bg-white"
+        >
+          <ScanLine size={16} />
+          {showWorkspace ? 'Open Workspace' : 'Login'}
+        </Motion.button>
+      </header>
+
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-7xl flex-col items-center justify-center gap-12 px-6 pb-10 lg:flex-row lg:gap-20">
+        <Motion.section {...motionPresets.fadeInLeft} className="w-full max-w-2xl">
+          <Motion.h1
+            {...motionPresets.fadeInUp}
+            transition={{ ...motionPresets.fadeInUp.transition, delay: 0.2 }}
+            className="mb-6 text-[clamp(3.2rem,6vw,5rem)] font-black leading-[1.1] tracking-tight text-slate-900"
+          >
+            Welcome to <br />
+            <span className="relative inline-block text-brand-red">
+              Checkout Queue
+              <svg className="absolute -bottom-1 left-0 -z-10 h-3 w-full text-red-200" viewBox="0 0 100 10" preserveAspectRatio="none">
+                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
+              </svg>
+            </span>
+          </Motion.h1>
+
+          <Motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="mb-10 flex flex-wrap gap-3"
+          >
+            {badges.map((badge) => (
+              <span key={badge.text} className="flex cursor-default items-center gap-2 rounded-full border border-gray-100 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:border-red-200 hover:text-red-600">
+                <badge.Icon size={16} className="text-red-500" />
+                {badge.text}
+              </span>
+            ))}
+          </Motion.div>
+
+          <Motion.div
+            {...motionPresets.fadeInUp}
+            transition={{ ...motionPresets.fadeInUp.transition, delay: 0.6 }}
+            className="mb-12 space-y-6 text-lg font-medium leading-relaxed text-gray-600"
+          >
+            <p>
+              <strong className="text-slate-900">Checkout Queue streamlines retail counters</strong> by reducing waiting time and making token handling predictable.
+            </p>
+            <p>
+              Customers can join from QR quickly, while staff and admins get structured dashboards to operate counters and manage store traffic.
+            </p>
+            <p>
+              Use one platform for live queue visibility, faster service transitions, and a cleaner checkout experience.
+            </p>
+          </Motion.div>
+
+          <Motion.button
+            {...motionPresets.buttonSpring}
+            type="button"
+            onClick={() => navigate('/app/customer')}
+            className="group relative overflow-hidden rounded-2xl bg-brand-red px-8 py-4 text-lg font-bold text-white shadow-xl shadow-red-500/30"
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              Launch Customer Flow
+              <ArrowRight size={20} className="transition-transform duration-300 group-hover:translate-x-1" />
+            </span>
+            <div className="absolute inset-0 origin-left scale-x-0 bg-gradient-to-r from-red-600 to-red-500 transition-transform duration-300 group-hover:scale-x-100" />
+          </Motion.button>
+        </Motion.section>
+
+        <Motion.section {...motionPresets.heroVisualIn} className="relative hidden flex-1 lg:block">
+          <div className="relative mx-auto h-[500px] w-[500px]">
+            <div className="absolute inset-0 z-20 overflow-hidden rounded-full border-[12px] border-white bg-gradient-to-br from-brand-red to-red-400 shadow-2xl">
+              <div className="flex h-full items-center justify-center">
+                <div className="rounded-3xl bg-white/90 px-10 py-8 text-center text-ink shadow-brand">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Realtime Queue</p>
+                  <p className="mt-2 text-3xl font-black text-brand-red">Optimized</p>
+                </div>
+              </div>
+            </div>
+
+            <Motion.div {...motionPresets.floatUpDown} className="absolute -right-10 -top-10 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600">
+                  <CheckCircle2 size={22} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase text-gray-400">Status</div>
+                  <div className="text-sm font-black text-slate-800">Live</div>
+                </div>
+              </div>
+            </Motion.div>
+
+            <Motion.div {...motionPresets.floatDownUp} className="absolute -bottom-5 -left-5 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <Zap size={22} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase text-gray-400">Speed</div>
+                  <div className="text-sm font-black text-slate-800">Instant</div>
+                </div>
+              </div>
+            </Motion.div>
+
+            <div className="absolute inset-0 z-0 scale-110 rounded-full bg-red-500 opacity-20 blur-[100px]" />
+          </div>
+        </Motion.section>
+      </main>
+    </div>
+  );
+}
