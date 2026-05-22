@@ -20,4 +20,6 @@ class Store(TimestampMixin, Base):
 
     checkout_sections = relationship("CheckoutSection", back_populates="store", cascade="all, delete-orphan")
     queue_tokens = relationship("QueueToken", back_populates="store", cascade="all, delete-orphan")
-
+    config = relationship("StoreConfig", back_populates="store", cascade="all, delete-orphan", uselist=False)
+    calendar_days = relationship("StoreCalendarDay", back_populates="store", cascade="all, delete-orphan")
+    holidays = relationship("StoreHoliday", back_populates="store", cascade="all, delete-orphan")

@@ -1,4 +1,4 @@
-import { Camera, QrCode, RefreshCw, Store } from 'lucide-react';
+import { ArrowLeft, Camera, QrCode, RefreshCw, Store } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import QrScanner from 'qr-scanner';
 import { Link, useNavigate } from 'react-router-dom';
@@ -193,11 +193,20 @@ export function StoreSectionSelect() {
   return (
     <main className="min-h-screen animate-fadeIn px-4 py-5">
       <section className="mx-auto max-w-md animate-slideUp">
-        <header className="glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
+        <header className="customer-sticky-header glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/30 text-white"
+              aria-label="Go back"
+              title="Go back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <Link to="/app/customer" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Customer home">
               <img src={brandLogo} alt="Checkout Queue logo" className="h-full w-full object-cover" />
-            </div>
+            </Link>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Customer check-in</p>
               <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Select store </h1>

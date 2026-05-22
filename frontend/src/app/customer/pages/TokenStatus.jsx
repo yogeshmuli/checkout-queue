@@ -1,6 +1,6 @@
-import { Clock3, TicketCheck } from 'lucide-react';
+import { ArrowLeft, Clock3, TicketCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import brandLogo from '../../../assets/images/equilateral_logo.png';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
@@ -16,6 +16,7 @@ export function TokenStatus() {
   const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState('');
   const { lastToken, setLastToken } = useQueueStore();
+  const navigate = useNavigate();
   const liveWaitMinutes = useMemo(() => getWaitMinutes(lastToken?.calling_time), [lastToken]);
   const parsedTokenId = Number(tokenId);
   const canCancel = lastToken?.status === 'WAITING' || lastToken?.status === 'CALLED';
@@ -84,11 +85,20 @@ export function TokenStatus() {
   return (
     <main className="min-h-screen px-4 py-5  animate-fadeIn">
       <section className="mx-auto max-w-md animate-slideUp">
-        <header className="glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
+        <header className="customer-sticky-header glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
           <div className="flex items-start gap-3">
-            <div className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-white/30 text-white"
+              aria-label="Go back"
+              title="Go back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <Link to="/app/customer" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Customer home">
               <img src={brandLogo} alt="Checkout Queue logo" className="h-full w-full object-cover" />
-            </div>
+            </Link>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">QR checkout queue</p>
               <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Token status</h1>

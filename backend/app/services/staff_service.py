@@ -33,8 +33,19 @@ class StaffService:
         self.repository.refresh(user)
         return user
 
-    def list_staff(self, include_inactive: bool = False, store_id: int | None = None) -> list[User]:
-        return self.repository.list_staff(include_inactive=include_inactive, store_id=store_id)
+    def list_staff(
+        self,
+        include_inactive: bool = False,
+        store_id: int | None = None,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+    ) -> list[User]:
+        return self.repository.list_staff(
+            include_inactive=include_inactive,
+            store_id=store_id,
+            section_id=section_id,
+            counter_id=counter_id,
+        )
 
     def get_staff(self, staff_id: int) -> User:
         user = self.repository.get_staff_by_id(staff_id)

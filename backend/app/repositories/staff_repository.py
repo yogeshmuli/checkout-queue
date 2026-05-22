@@ -16,12 +16,22 @@ class StaffRepository:
         self.db.flush()
         return user
 
-    def list_staff(self, include_inactive: bool = False, store_id: int | None = None) -> list[User]:
+    def list_staff(
+        self,
+        include_inactive: bool = False,
+        store_id: int | None = None,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+    ) -> list[User]:
         statement = select(User).order_by(User.id.asc())
         if not include_inactive:
             statement = statement.where(User.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(User.store_id == store_id)
+        if section_id is not None:
+            statement = statement.where(User.section_id == section_id)
+        if counter_id is not None:
+            statement = statement.where(User.assigned_counter_id == counter_id)
         return list(self.db.scalars(statement).all())
 
     def get_staff_by_id(self, staff_id: int) -> User | None:

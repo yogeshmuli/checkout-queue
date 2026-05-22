@@ -72,6 +72,7 @@ checkout-que/
 │   │   ├── models/
 │   │   │   ├── user.py
 │   │   │   ├── store.py
+│   │   │   ├── store_config.py
 │   │   │   ├── calendar.py
 │   │   │   ├── checkout_section.py
 │   │   │   ├── counter.py
@@ -82,6 +83,7 @@ checkout-que/
 │   │   │   └── ml_model_metadata.py
 │   │   ├── schemas/
 │   │   │   ├── store.py
+│   │   │   ├── store_config.py
 │   │   │   ├── calendar.py
 │   │   │   ├── checkout_section.py
 │   │   │   ├── counter.py
@@ -95,6 +97,7 @@ checkout-que/
 │   │   │   ├── api.py
 │   │   │   ├── auth_routes.py
 │   │   │   ├── store_routes.py
+│   │   │   ├── store_config_routes.py
 │   │   │   ├── calendar_routes.py
 │   │   │   ├── section_routes.py
 │   │   │   ├── staff_routes.py
@@ -108,6 +111,7 @@ checkout-que/
 │   │   ├── services/
 │   │   │   ├── auth_service.py
 │   │   │   ├── store_service.py
+│   │   │   ├── store_config_service.py
 │   │   │   ├── calendar_service.py
 │   │   │   ├── section_service.py
 │   │   │   ├── staff_service.py
@@ -122,6 +126,7 @@ checkout-que/
 │   │   ├── repositories/
 │   │   │   ├── auth_repository.py
 │   │   │   ├── store_repository.py
+│   │   │   ├── store_config_repository.py
 │   │   │   ├── calendar_repository.py
 │   │   │   ├── section_repository.py
 │   │   │   ├── counter_repository.py
@@ -414,13 +419,21 @@ Main APIs:
 - Predict checkout service time
 - Fall back to rule-based prediction if ML is unavailable
 
-The ML model should predict checkout service time for a customer. Full queue wait time should be calculated separately using:
+The ML model should predict checkout service duration for a customer token. It should not directly own the full queue wait estimate. Queue wait time should continue to be calculated by the queue scheduling service using:
 
 - Customers ahead in queue.
 - Active counters.
 - Current serving tokens.
 - Predicted service time per waiting customer.
 - Recent cancellation/no-show behavior.
+
+The first ML implementation should be hybrid:
+
+- Use ML only when enough completed checkout history and a trained model are available.
+- Fall back to the store's rule-based service-time configuration when ML is disabled, unavailable, stale, under-trained, or fails at runtime.
+- Train from completed queue tokens where `service_started_at` and `completed_at` are present.
+- Use actual service duration from `completed_at - service_started_at` as the target value.
+- Use PostgreSQL-backed repositories as the only source for application training data.
 
 ## 6. Suggested Database Tables
 
@@ -430,11 +443,12 @@ The ML model should predict checkout service time for a customer. Full queue wai
 | `user_store_access` | User-to-store role mapping for admins, managers, and cashiers |
 | `refresh_tokens` | Hashed refresh tokens for revocation and session lifecycle |
 | `stores` | Store profile, store number, contact details |
-| `store_calendars` | Working days and open/close time |
+| `store_configs` | Store-level token prefix and rule-based service-time settings |
+| `store_calendar_days` | Store weekly working days, open/close time, and timezone |
 | `store_holidays` | Holiday dates |
 | `store_events` | Promotion, sale, and peak-event dates |
 | `checkout_sections` | Checkout sections with enum-backed type: regular, express, self-checkout, returns, priority |
-| `counter_types` | Counter type counts and active/inactive counters |
+| `counter_types` | Counter type counts and active/inactive counters, constrained to regular, express, self-checkout, returns/exchange, or priority behavior |
 | `queue_tokens` | Customer checkout queue entries |
 | `queue_status_events` | Token state transitions for audit and analytics |
 | `alert_configs` | Wait-time, token-ahead, utilization, and escalation settings |
@@ -454,6 +468,7 @@ Suggested endpoint groups:
 
 ```text
 /api/v1/stores
+/api/v1/stores/{store_id}/config
 /api/v1/auth
 /api/v1/stores/{store_id}/calendar
 /api/v1/stores/{store_id}/sections
@@ -504,6 +519,8 @@ GET    /api/v1/stores
 GET    /api/v1/stores/{store_id}
 PATCH  /api/v1/stores/{store_id}
 DELETE /api/v1/stores/{store_id}
+GET    /api/v1/stores/{store_id}/config
+PUT    /api/v1/stores/{store_id}/config
 POST   /api/v1/stores/{store_id}/sections
 POST   /api/v1/stores/{store_id}/staff
 GET    /api/v1/analytics/stores/{store_id}
@@ -525,6 +542,7 @@ Implemented frontend routing:
 /app
 /app/admin
 /app/admin/stores
+/app/admin/store-config
 /app/admin/sections
 /app/admin/counters
 /app/admin/staff
@@ -540,7 +558,7 @@ Frontend API handling should be centralized under `src/api/` so pages and compon
 Current frontend implementation:
 
 - `AdminApp` provides the admin portal shell and dashboard view.
-- `AdminStores` connects to the implemented store APIs.
+- Admin store, section, counter, staff, queue, store config, and calendar pages connect to their implemented APIs.
 - `StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
 - `CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
 - `RoleRedirect` lets a user open the admin, staff, or customer workspace and keeps the preferred role in Zustand/local storage.
@@ -552,8 +570,9 @@ Current frontend implementation:
 ```text
 React Join Queue Page
   -> POST /api/v1/queue/join
-    -> queue_routes.py
+      -> queue_routes.py
       -> queue_service.py
+        -> calendar_repository.py checks store hours and active holidays
         -> queue_repository.py checks duplicate active token
         -> prediction_service.py calculates estimated wait
         -> queue_repository.py saves token
@@ -611,15 +630,13 @@ Used when the store has a trained model with enough completed samples.
 Inputs:
 
 - Item count or basket size.
-- People waiting.
-- Total items in queue.
-- Average items per customer.
-- Active counters.
-- Counter utilization rate.
-- Recent cancellation/no-show rate.
+- Cart type.
+- Customer type.
+- Store, section, and assigned counter.
 - Check-in hour.
 - Day of week.
-- Promotion/sale day flag.
+- Weekend flag.
+- Store calendar or promotion/sale day flag when available.
 - Checkout section type.
 
 Output:
@@ -627,7 +644,9 @@ Output:
 - Predicted service time for the customer.
 - Prediction metadata such as method, model version, and confidence-related fields where available.
 
-The queue wait estimate should combine predicted service times for customers ahead of the current customer and divide expected workload across active counters.
+The prediction service should return only service-duration data. `QueueService` should then combine predicted or fallback service times with the current per-counter lane schedule to calculate `calling_time` and estimated wait.
+
+The first implementation should use scikit-learn with a local model artifact store. A later version can move model artifacts to object storage and add scheduled retraining.
 
 ## 11. Background Jobs
 

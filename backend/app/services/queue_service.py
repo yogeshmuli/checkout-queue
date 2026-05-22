@@ -1,10 +1,12 @@
 import math
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.queue_token import QueueToken, QueueTokenStatus
+from app.models.store_config import StoreConfig
 from app.repositories.queue_repository import QueueRepository
 from app.schemas.queue import (
     CounterQueueResponse,
@@ -47,6 +49,8 @@ class QueueService:
         store = self.repository.get_store(payload.store_id)
         if store is None or not store.is_active:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active store not found")
+        if not self._is_store_open_for_queue(payload.store_id):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Store is closed for queue joining")
 
         if payload.section_id is not None:
             section = self.repository.get_section(payload.section_id)
@@ -57,6 +61,7 @@ class QueueService:
         if active_token is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active token already exists for phone")
 
+        store_config = self._get_store_config(payload.store_id)
         counters = self.repository.list_active_counters(payload.store_id, payload.section_id)
         if not counters:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No active counters available")
@@ -69,7 +74,7 @@ class QueueService:
 
         selected_counter = min(counters, key=lambda c: self._normalize_to_utc(c.next_available_time))
         calling_time = max(now, self._normalize_to_utc(selected_counter.next_available_time))
-        service_minutes = self._estimate_service_minutes(payload.item_count)
+        service_minutes = self._estimate_service_minutes(payload.item_count, store_config)
         service_time = timedelta(minutes=service_minutes)
         wait_minutes = max(0, math.ceil((calling_time - now).total_seconds() / 60))
 
@@ -79,7 +84,7 @@ class QueueService:
         # Reserve the selected counter slot for this token.
         selected_counter.next_available_time = calling_time + service_time
 
-        token_number = self._generate_token_number(payload.store_id, payload.section_id)
+        token_number = self._generate_token_number(payload.store_id, payload.section_id, store_config)
 
         token = QueueToken(
             store_id=payload.store_id,
@@ -335,9 +340,12 @@ class QueueService:
         )
 
  
-    def _estimate_service_minutes(self, item_count: int | None) -> int:
-        item_based_service_time = self.BASE_SERVICE_MINUTES + ((item_count or 0) * self.PER_ITEM_SERVICE_MINUTES)
-        service_time = max(self.MIN_SERVICE_MINUTES, math.ceil(item_based_service_time))
+    def _estimate_service_minutes(self, item_count: int | None, config: StoreConfig | None = None) -> int:
+        base_service_minutes = config.base_service_minutes if config is not None else self.BASE_SERVICE_MINUTES
+        per_item_service_minutes = config.per_item_service_minutes if config is not None else self.PER_ITEM_SERVICE_MINUTES
+        min_service_minutes = config.min_service_minutes if config is not None else self.MIN_SERVICE_MINUTES
+        item_based_service_time = base_service_minutes + ((item_count or 0) * per_item_service_minutes)
+        service_time = max(min_service_minutes, math.ceil(item_based_service_time))
         return service_time
 
     def _calculate_counter_position(
@@ -372,9 +380,16 @@ class QueueService:
             return value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc)
 
-    def _generate_token_number(self, store_id: int, section_id: int | None) -> str:
+    def _generate_token_number(
+        self,
+        store_id: int,
+        section_id: int | None,
+        config: StoreConfig | None = None,
+    ) -> str:
         existing_token_count = self.repository.count_tokens_for_numbering(store_id, section_id)
-        prefix = f"S{section_id}" if section_id is not None else f"ST{store_id}"
+        prefix = config.token_id_prefix if config is not None and config.token_id_prefix else None
+        if prefix is None:
+            prefix = f"S{section_id}" if section_id is not None else f"ST{store_id}"
         return f"{prefix}-{existing_token_count + 1:03d}"
 
     def _rebuild_counter_schedule(self, counter_id: int, reference_time: datetime | None = None) -> None:
@@ -418,8 +433,37 @@ class QueueService:
     def _token_service_minutes(self, token: QueueToken) -> int:
         if token.service_time_minutes is not None:
             return max(1, token.service_time_minutes)
-        return self._estimate_service_minutes(token.item_count)
-        
+        return self._estimate_service_minutes(token.item_count, self._get_store_config(token.store_id))
+
+    def _get_store_config(self, store_id: int) -> StoreConfig | None:
+        return self.repository.get_store_config(store_id)
+
+    def _is_store_open_for_queue(self, store_id: int) -> bool:
+        days = self.repository.list_calendar_days(store_id)
+        if not days:
+            return True
+
+        timezone_name = days[0].timezone or "Asia/Kolkata"
+        try:
+            store_tz = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            store_tz = ZoneInfo("Asia/Kolkata")
+
+        local_now = datetime.now(timezone.utc).astimezone(store_tz)
+        if self.repository.get_active_holiday(store_id, local_now.date()) is not None:
+            return False
+
+        day = next((calendar_day for calendar_day in days if calendar_day.weekday == local_now.weekday()), None)
+        if day is None:
+            return True
+        if not day.is_open:
+            return False
+
+        local_time = local_now.time().replace(tzinfo=None)
+        if day.open_time <= day.close_time:
+            return day.open_time <= local_time <= day.close_time
+        return local_time >= day.open_time or local_time <= day.close_time
+
     def purge_queue(self, store_id: int, section_id: int | None) -> None:
         '''Utility to purge all waiting tokens for a given lane (store+section) - used for testing and stale token cleanup'''
         counters = self.repository.list_active_counters(store_id, section_id)

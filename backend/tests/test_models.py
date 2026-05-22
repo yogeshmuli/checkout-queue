@@ -5,6 +5,9 @@ from app.core.database import Base
 def test_core_checkout_tables_are_registered() -> None:
     expected_tables = {
         "stores",
+        "store_calendar_days",
+        "store_configs",
+        "store_holidays",
         "checkout_sections",
         "counters",
         "queue_tokens",

@@ -1,8 +1,20 @@
-from sqlalchemy import ForeignKey, String, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+import enum
 from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import Enum as SqlAlchemyEnum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.core.database import Base
 from app.models.base import TimestampMixin
+
+
+class CounterType(str, enum.Enum):
+    REGULAR = "REGULAR"
+    EXPRESS = "EXPRESS"
+    SELF_CHECKOUT = "SELF_CHECKOUT"
+    RETURNS_EXCHANGE = "RETURNS_EXCHANGE"
+    PRIORITY = "PRIORITY"
 
 
 class Counter(TimestampMixin, Base):
@@ -14,7 +26,10 @@ class Counter(TimestampMixin, Base):
         index=True,
         nullable=False,
     )
-    counter_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    counter_type: Mapped[CounterType] = mapped_column(
+        SqlAlchemyEnum(CounterType, name="checkout_counter_type"),
+        nullable=False,
+    )
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
@@ -24,4 +39,3 @@ class Counter(TimestampMixin, Base):
     section = relationship("CheckoutSection", back_populates="counters")
     assigned_users = relationship("User", back_populates="assigned_counter")
     active_tokens = relationship("QueueToken", back_populates="assigned_counter")
-

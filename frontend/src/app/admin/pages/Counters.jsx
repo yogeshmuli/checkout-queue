@@ -1,5 +1,6 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { createCounter, deleteCounter, listCounters, updateCounter } from '../../../api/counterApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
@@ -17,14 +18,27 @@ const emptyCounter = {
 };
 
 const FIELD_LIMITS = {
-  counter_type: 50,
   name: 100,
 };
+
+const COUNTER_TYPE_OPTIONS = [
+  { label: 'Select counter type', value: '' },
+  { label: 'Regular', value: 'REGULAR' },
+  { label: 'Express', value: 'EXPRESS' },
+  { label: 'Self Checkout', value: 'SELF_CHECKOUT' },
+  { label: 'Returns / Exchange', value: 'RETURNS_EXCHANGE' },
+  { label: 'Priority', value: 'PRIORITY' },
+];
 
 const COUNTERS_PER_PAGE = 8;
 const FIELD_ORDER = ['store_id', 'section_id', 'counter_type', 'name'];
 
+function getCounterTypeLabel(counterType) {
+  return COUNTER_TYPE_OPTIONS.find((option) => option.value === counterType)?.label || counterType;
+}
+
 export function Counters() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [counters, setCounters] = useState([]);
   const [stores, setStores] = useState([]);
   const [sections, setSections] = useState([]);
@@ -39,6 +53,8 @@ export function Counters() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
+  const storeFilter = searchParams.get('store_id') || '';
+  const sectionFilter = searchParams.get('section_id') || '';
 
   const sectionById = useMemo(() => {
     const map = new Map();
@@ -82,10 +98,44 @@ export function Counters() {
       })),
   ];
 
+  const storeFilterOptions = [
+    { label: 'All stores', value: '' },
+    ...stores.map((store) => ({
+      label: `${store.name} (${store.store_number})`,
+      value: String(store.id),
+    })),
+  ];
+
+  const sectionFilterOptions = [
+    { label: 'All sections', value: '' },
+    ...sections
+      .filter((section) => !storeFilter || String(section.store_id) === storeFilter)
+      .map((section) => ({
+        label: `${section.name} (${storeNameById.get(String(section.store_id)) || `#${section.store_id}`})`,
+        value: String(section.id),
+      })),
+  ];
+
+  function setCounterFilter(field, value) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) {
+        next.set(field, value);
+      } else {
+        next.delete(field);
+      }
+      if (field === 'store_id') {
+        next.delete('section_id');
+      }
+      return next;
+    });
+    setPage(1);
+  }
+
   function toPayload(values) {
     return {
       section_id: Number(values.section_id),
-      counter_type: values.counter_type.trim(),
+      counter_type: values.counter_type,
       name: values.name.trim() || null,
       is_active: values.is_active,
     };
@@ -102,10 +152,8 @@ export function Counters() {
       errors.section_id = 'Section is required.';
     }
 
-    if (!values.counter_type.trim()) {
+    if (!values.counter_type) {
       errors.counter_type = 'Counter type is required.';
-    } else if (values.counter_type.trim().length > FIELD_LIMITS.counter_type) {
-      errors.counter_type = `Counter type must be at most ${FIELD_LIMITS.counter_type} characters.`;
     }
 
     if (values.name.trim().length > FIELD_LIMITS.name) {
@@ -198,18 +246,24 @@ export function Counters() {
     }
   }
 
-  async function loadCounters() {
+  const loadCounters = useCallback(async () => {
     setLoading(true);
     setMessage('');
     try {
-      setCounters(await listCounters({ include_inactive: true }));
+      setCounters(
+        await listCounters({
+          include_inactive: true,
+          ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
+          ...(sectionFilter ? { section_id: Number(sectionFilter) } : {}),
+        })
+      );
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
-  }
+  }, [sectionFilter, storeFilter]);
 
   async function loadStores() {
     try {
@@ -231,6 +285,9 @@ export function Counters() {
 
   useEffect(() => {
     loadCounters();
+  }, [loadCounters]);
+
+  useEffect(() => {
     loadStores();
     loadSections();
   }, []);
@@ -328,7 +385,8 @@ export function Counters() {
     const section = sectionById.get(String(counter.section_id));
     const sectionName = section?.name || '';
     const storeName = section ? storeNameById.get(String(section.store_id)) || '' : '';
-    const haystack = `${counter.name || ''} ${counter.counter_type || ''} ${sectionName} ${storeName}`.toLowerCase();
+    const counterTypeLabel = getCounterTypeLabel(counter.counter_type);
+    const haystack = `${counter.name || ''} ${counter.counter_type || ''} ${counterTypeLabel} ${sectionName} ${storeName}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
@@ -342,9 +400,10 @@ export function Counters() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[620px_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
       {isFormOpen ? (
-        <section className="rounded-lg border border-line bg-white p-5">
+        <section id="counter-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#counter-directory" label="Back to counters" />
           <SectionHeader eyebrow="Counter setup" title={editingCounterId ? 'Update counter' : 'Create counter'} />
           <form className="mt-5 space-y-4" onSubmit={submitCounter}>
             <div>
@@ -385,16 +444,24 @@ export function Counters() {
               />
             </div>
 
-            <Field
-              label="Counter type"
-              value={form.counter_type}
-              onChange={(value) => setFormField('counter_type', value)}
-              error={formErrors.counter_type}
-              maxLength={FIELD_LIMITS.counter_type}
-              inputRef={(el) => {
-                fieldRefs.current.counter_type = el;
-              }}
-            />
+            <div>
+              <Select
+                label="Counter type"
+                value={form.counter_type}
+                options={COUNTER_TYPE_OPTIONS}
+                onChange={(value) => setFormField('counter_type', value)}
+              />
+              {formErrors.counter_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.counter_type}</p> : null}
+              <input
+                ref={(el) => {
+                  fieldRefs.current.counter_type = el;
+                }}
+                tabIndex={-1}
+                className="absolute h-0 w-0 opacity-0"
+                aria-hidden="true"
+                readOnly
+              />
+            </div>
 
             <Field
               label="Counter name"
@@ -444,20 +511,23 @@ export function Counters() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-line bg-white">
+      <section id="counter-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Counter directory</p>
             <h2 className="mt-1 text-xl font-semibold">Configured counters</h2>
           </div>
           <div className="flex items-center gap-2">
+            {isFormOpen ? <MobilePanelJump href="#counter-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
+              title="Create counter"
+              aria-label="Create counter"
             >
               <Plus size={16} />
-              Create counter
+              <span className="hidden sm:inline">Create counter</span>
             </button>
             <button type="button" onClick={loadCounters} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh counters">
               <RefreshCw size={18} />
@@ -466,18 +536,22 @@ export function Counters() {
         </div>
 
         <div className="border-b border-line p-5">
-          <label className="block">
-            <span className="text-sm font-medium text-charcoal">Search counters</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Search by counter, type, section, or store"
-              className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-            />
-          </label>
+          <div className="grid gap-3 lg:grid-cols-[280px_320px_1fr]">
+            <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setCounterFilter('store_id', value)} />
+            <Select label="Filter by section" value={sectionFilter} options={sectionFilterOptions} onChange={(value) => setCounterFilter('section_id', value)} />
+            <label className="block">
+              <span className="text-sm font-medium text-charcoal">Search counters</span>
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search by counter, type, section, or store"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="divide-y divide-brand-soft">
@@ -498,7 +572,7 @@ export function Counters() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold">{counter.name || `Counter #${counter.id}`}</h3>
-                      <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{counter.counter_type}</span>
+                      <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{getCounterTypeLabel(counter.counter_type)}</span>
                       <span className={`rounded-full px-2 py-1 text-xs ${counter.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
                         {counter.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -508,6 +582,12 @@ export function Counters() {
                       Section: {sectionName}
                       {storeName ? ` | Store: ${storeName}` : ''}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {section ? <ResourceLink to={`/app/admin/sections?store_id=${section.store_id}`} label="Store sections" /> : null}
+                      <ResourceLink to={`/app/admin/counters?section_id=${counter.section_id}`} label="Section counters" />
+                      <ResourceLink to={`/app/admin/staff?counter_id=${counter.id}`} label="Staff" />
+                      <ResourceLink to={`/app/admin/queue?counter_id=${counter.id}`} label="Queue" />
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     <button
@@ -599,6 +679,28 @@ export function Counters() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MobilePanelJump({ href, label, compact = false }) {
+  return (
+    <a
+      href={href}
+      className={`${compact ? '' : 'mb-4 '}inline-flex h-10 items-center justify-center rounded-lg border border-line px-3 text-sm font-medium text-charcoal lg:hidden`}
+      title={label}
+      aria-label={label}
+    >
+      <span className="sm:hidden">Form</span>
+      <span className="hidden sm:inline">{label}</span>
+    </a>
+  );
+}
+
+function ResourceLink({ to, label }) {
+  return (
+    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
+      {label}
+    </Link>
   );
 }
 

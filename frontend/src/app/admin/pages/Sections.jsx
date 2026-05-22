@@ -1,5 +1,6 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { createSection, deleteSection, listSections, updateSection } from '../../../api/sectionApi.js';
@@ -35,6 +36,7 @@ function getSectionTypeLabel(sectionType) {
 }
 
 export function Sections() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sections, setSections] = useState([]);
   const [stores, setStores] = useState([]);
   const [form, setForm] = useState(emptySection);
@@ -48,6 +50,7 @@ export function Sections() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
+  const storeFilter = searchParams.get('store_id') || '';
 
   const storeNameById = useMemo(() => {
     const map = new Map();
@@ -64,6 +67,27 @@ export function Sections() {
       value: String(store.id),
     })),
   ];
+
+  const storeFilterOptions = [
+    { label: 'All stores', value: '' },
+    ...stores.map((store) => ({
+      label: `${store.name} (${store.store_number})`,
+      value: String(store.id),
+    })),
+  ];
+
+  function setStoreFilter(value) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) {
+        next.set('store_id', value);
+      } else {
+        next.delete('store_id');
+      }
+      return next;
+    });
+    setPage(1);
+  }
 
   function toPayload(values) {
     return {
@@ -164,18 +188,23 @@ export function Sections() {
     }
   }
 
-  async function loadSections() {
+  const loadSections = useCallback(async () => {
     setLoading(true);
     setMessage('');
     try {
-      setSections(await listSections({ include_inactive: true }));
+      setSections(
+        await listSections({
+          include_inactive: true,
+          ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
+        })
+      );
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
-  }
+  }, [storeFilter]);
 
   async function loadStores() {
     try {
@@ -188,6 +217,9 @@ export function Sections() {
 
   useEffect(() => {
     loadSections();
+  }, [loadSections]);
+
+  useEffect(() => {
     loadStores();
   }, []);
 
@@ -296,9 +328,10 @@ export function Sections() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[620px_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
       {isFormOpen ? (
-        <section className="rounded-lg border border-line bg-white p-5">
+        <section id="section-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#section-directory" label="Back to sections" />
           <SectionHeader eyebrow="Section setup" title={editingSectionId ? 'Update section' : 'Create section'} />
           <form className="mt-5 space-y-4" onSubmit={submitSection}>
             <div>
@@ -387,20 +420,23 @@ export function Sections() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-line bg-white">
+      <section id="section-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Section directory</p>
             <h2 className="mt-1 text-xl font-semibold">Configured sections</h2>
           </div>
           <div className="flex items-center gap-2">
+            {isFormOpen ? <MobilePanelJump href="#section-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
+              title="Create section"
+              aria-label="Create section"
             >
               <Plus size={16} />
-              Create section
+              <span className="hidden sm:inline">Create section</span>
             </button>
             <button type="button" onClick={loadSections} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh sections">
               <RefreshCw size={18} />
@@ -409,18 +445,21 @@ export function Sections() {
         </div>
 
         <div className="border-b border-line p-5">
-          <label className="block">
-            <span className="text-sm font-medium text-charcoal">Search sections</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Search by section name, type, or store"
-              className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-            />
-          </label>
+          <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
+            <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={setStoreFilter} />
+            <label className="block">
+              <span className="text-sm font-medium text-charcoal">Search sections</span>
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search by section name, type, or store"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="divide-y divide-brand-soft">
@@ -445,6 +484,12 @@ export function Sections() {
                     {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
                   </div>
                   <p className="mt-1 text-sm text-charcoal">Store: {storeNameById.get(String(section.store_id)) || `#${section.store_id}`}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <ResourceLink to={`/app/admin/sections?store_id=${section.store_id}`} label="Store sections" />
+                    <ResourceLink to={`/app/admin/counters?section_id=${section.id}`} label="Counters" />
+                    <ResourceLink to={`/app/admin/staff?section_id=${section.id}`} label="Staff" />
+                    <ResourceLink to={`/app/admin/queue?section_id=${section.id}`} label="Queue" />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <button
@@ -536,6 +581,28 @@ export function Sections() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MobilePanelJump({ href, label, compact = false }) {
+  return (
+    <a
+      href={href}
+      className={`${compact ? '' : 'mb-4 '}inline-flex h-10 items-center justify-center rounded-lg border border-line px-3 text-sm font-medium text-charcoal lg:hidden`}
+      title={label}
+      aria-label={label}
+    >
+      <span className="sm:hidden">Form</span>
+      <span className="hidden sm:inline">{label}</span>
+    </a>
+  );
+}
+
+function ResourceLink({ to, label }) {
+  return (
+    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
+      {label}
+    </Link>
   );
 }
 

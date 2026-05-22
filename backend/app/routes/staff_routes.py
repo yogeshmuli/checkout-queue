@@ -29,10 +29,17 @@ def create_staff(
 def list_staff(
     include_inactive: bool = Query(default=False),
     store_id: int | None = Query(default=None),
+    section_id: int | None = Query(default=None),
+    counter_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*staff_admin_roles)),
 ) -> list[StaffResponse]:
-    return StaffService(db).list_staff(include_inactive=include_inactive, store_id=store_id)
+    return StaffService(db).list_staff(
+        include_inactive=include_inactive,
+        store_id=store_id,
+        section_id=section_id,
+        counter_id=counter_id,
+    )
 
 
 @router.get("/{staff_id}", response_model=StaffResponse)

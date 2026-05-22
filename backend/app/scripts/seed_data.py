@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.store import Store
 from app.core.database import SessionLocal
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
-from app.models.counter import Counter
+from app.models.counter import Counter, CounterType
 from app.models.user import User, UserRole
 from app.core.security import hash_password
 from datetime import datetime, timezone
@@ -37,7 +37,7 @@ def seed():
         # Create a counter
         counter = Counter(
             section_id=section.id,
-            counter_type="REGULAR",
+            counter_type=CounterType.REGULAR,
             name="Counter 1",
             is_active=True,
             next_available_time=datetime.now(timezone.utc),

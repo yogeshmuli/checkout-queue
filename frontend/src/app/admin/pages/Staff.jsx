@@ -1,5 +1,6 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { listCounters } from '../../../api/counterApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
@@ -28,6 +29,8 @@ const FIELD_LIMITS = {
   phone: 10,
 };
 
+const DEFAULT_STAFF_PASSWORD = 'Ganesh@123';
+
 const ROLE_OPTIONS = [
   { label: 'Cashier', value: 'CASHIER' },
   { label: 'Manager', value: 'MANAGER' },
@@ -39,6 +42,7 @@ const STAFF_PER_PAGE = 8;
 const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'section_id', 'assigned_counter_id'];
 
 export function Staff() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [staff, setStaff] = useState([]);
   const [stores, setStores] = useState([]);
   const [sections, setSections] = useState([]);
@@ -54,6 +58,9 @@ export function Staff() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
+  const storeFilter = searchParams.get('store_id') || '';
+  const sectionFilter = searchParams.get('section_id') || '';
+  const counterFilter = searchParams.get('counter_id') || '';
 
   const storeNameById = useMemo(() => {
     const map = new Map();
@@ -120,6 +127,67 @@ export function Staff() {
       }),
   ];
 
+  const storeFilterOptions = [
+    { label: 'All stores', value: '' },
+    ...stores.map((store) => ({
+      label: `${store.name} (${store.store_number})`,
+      value: String(store.id),
+    })),
+  ];
+
+  const sectionFilterOptions = [
+    { label: 'All sections', value: '' },
+    ...sections
+      .filter((section) => !storeFilter || String(section.store_id) === storeFilter)
+      .map((section) => ({
+        label: `${section.name} (${storeNameById.get(String(section.store_id)) || `#${section.store_id}`})`,
+        value: String(section.id),
+      })),
+  ];
+
+  const counterFilterOptions = [
+    { label: 'All counters', value: '' },
+    ...counters
+      .filter((counter) => {
+        if (sectionFilter) {
+          return String(counter.section_id) === sectionFilter;
+        }
+        if (storeFilter) {
+          const counterSection = sectionById.get(String(counter.section_id));
+          return counterSection && String(counterSection.store_id) === storeFilter;
+        }
+        return true;
+      })
+      .map((counter) => {
+        const counterLabel = counter.name || `Counter #${counter.id}`;
+        const sectionName = sectionNameById.get(String(counter.section_id)) || `Section #${counter.section_id}`;
+        return {
+          label: `${counterLabel} (${sectionName})`,
+          value: String(counter.id),
+        };
+      }),
+  ];
+
+  function setStaffFilter(field, value) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) {
+        next.set(field, value);
+      } else {
+        next.delete(field);
+      }
+      if (field === 'store_id') {
+        next.delete('section_id');
+        next.delete('counter_id');
+      }
+      if (field === 'section_id') {
+        next.delete('counter_id');
+      }
+      return next;
+    });
+    setPage(1);
+  }
+
   function sanitizePhone(value) {
     return value.replace(/\D/g, '').slice(0, FIELD_LIMITS.phone);
   }
@@ -136,8 +204,11 @@ export function Staff() {
       is_active: values.is_active,
     };
 
-    if (!editingStaffId || values.password) {
-      payload.password = values.password;
+    const password = values.password.trim();
+    if (!editingStaffId) {
+      payload.password = password || DEFAULT_STAFF_PASSWORD;
+    } else if (password) {
+      payload.password = password;
     }
 
     return payload;
@@ -152,9 +223,7 @@ export function Staff() {
       errors.email = `Email must be at most ${FIELD_LIMITS.email} characters.`;
     }
 
-    if (!editingStaffId && !values.password) {
-      errors.password = 'Password is required.';
-    } else if (values.password && values.password.length < 8) {
+    if (values.password && values.password.length < 8) {
       errors.password = 'Password must be at least 8 characters.';
     } else if (values.password.length > FIELD_LIMITS.password) {
       errors.password = `Password must be at most ${FIELD_LIMITS.password} characters.`;
@@ -263,18 +332,25 @@ export function Staff() {
     }
   }
 
-  async function loadStaff() {
+  const loadStaff = useCallback(async () => {
     setLoading(true);
     setMessage('');
     try {
-      setStaff(await listStaff({ include_inactive: true }));
+      setStaff(
+        await listStaff({
+          include_inactive: true,
+          ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
+          ...(sectionFilter ? { section_id: Number(sectionFilter) } : {}),
+          ...(counterFilter ? { counter_id: Number(counterFilter) } : {}),
+        })
+      );
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
-  }
+  }, [counterFilter, sectionFilter, storeFilter]);
 
   async function loadLookups() {
     try {
@@ -294,6 +370,9 @@ export function Staff() {
 
   useEffect(() => {
     loadStaff();
+  }, [loadStaff]);
+
+  useEffect(() => {
     loadLookups();
   }, []);
 
@@ -402,9 +481,10 @@ export function Staff() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[620px_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
       {isFormOpen ? (
-        <section className="rounded-lg border border-line bg-white p-5">
+        <section id="staff-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#staff-directory" label="Back to staff" />
           <SectionHeader eyebrow="Staff setup" title={editingStaffId ? 'Update staff' : 'Create staff'} />
           <form className="mt-5 space-y-4" onSubmit={submitStaff}>
             <Field
@@ -527,20 +607,23 @@ export function Staff() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-line bg-white">
+      <section id="staff-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Staff directory</p>
             <h2 className="mt-1 text-xl font-semibold">Configured staff</h2>
           </div>
           <div className="flex items-center gap-2">
+            {isFormOpen ? <MobilePanelJump href="#staff-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
+              title="Create staff"
+              aria-label="Create staff"
             >
               <Plus size={16} />
-              Create staff
+              <span className="hidden sm:inline">Create staff</span>
             </button>
             <button type="button" onClick={loadStaff} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh staff">
               <RefreshCw size={18} />
@@ -549,18 +632,23 @@ export function Staff() {
         </div>
 
         <div className="border-b border-line p-5">
-          <label className="block">
-            <span className="text-sm font-medium text-charcoal">Search staff</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder="Search by name, email, role, store, or section"
-              className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-            />
-          </label>
+          <div className="grid gap-3 xl:grid-cols-4">
+            <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setStaffFilter('store_id', value)} />
+            <Select label="Filter by section" value={sectionFilter} options={sectionFilterOptions} onChange={(value) => setStaffFilter('section_id', value)} />
+            <Select label="Filter by counter" value={counterFilter} options={counterFilterOptions} onChange={(value) => setStaffFilter('counter_id', value)} />
+            <label className="block">
+              <span className="text-sm font-medium text-charcoal">Search staff</span>
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search by name, email, role, store, or section"
+                className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="divide-y divide-brand-soft">
@@ -569,6 +657,7 @@ export function Staff() {
           ) : (
             visibleStaff.map((staffUser) => {
               const isEditing = editingStaffId === staffUser.id;
+              const assignedCounter = counters.find((counter) => String(counter.id) === String(staffUser.assigned_counter_id));
 
               return (
                 <div
@@ -588,6 +677,12 @@ export function Staff() {
                     <p className="mt-1 text-sm text-muted">
                       Store: {storeNameById.get(String(staffUser.store_id)) || 'None'} | Section: {sectionNameById.get(String(staffUser.section_id)) || 'None'}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {staffUser.store_id ? <ResourceLink to={`/app/admin/sections?store_id=${staffUser.store_id}`} label="Store sections" /> : null}
+                      {staffUser.section_id ? <ResourceLink to={`/app/admin/counters?section_id=${staffUser.section_id}`} label="Section counters" /> : null}
+                      {staffUser.assigned_counter_id ? <ResourceLink to={`/app/admin/staff?counter_id=${staffUser.assigned_counter_id}`} label={assignedCounter?.name || 'Counter staff'} /> : null}
+                      {staffUser.store_id ? <ResourceLink to={`/app/admin/queue?store_id=${staffUser.store_id}`} label="Queue" /> : null}
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     <button
@@ -679,6 +774,28 @@ export function Staff() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MobilePanelJump({ href, label, compact = false }) {
+  return (
+    <a
+      href={href}
+      className={`${compact ? '' : 'mb-4 '}inline-flex h-10 items-center justify-center rounded-lg border border-line px-3 text-sm font-medium text-charcoal lg:hidden`}
+      title={label}
+      aria-label={label}
+    >
+      <span className="sm:hidden">Form</span>
+      <span className="hidden sm:inline">{label}</span>
+    </a>
+  );
+}
+
+function ResourceLink({ to, label }) {
+  return (
+    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
+      {label}
+    </Link>
   );
 }
 

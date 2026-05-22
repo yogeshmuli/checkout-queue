@@ -28,12 +28,22 @@ class FakeStaffRepository:
         self.users[user.id] = user
         return user
 
-    def list_staff(self, include_inactive: bool = False, store_id: int | None = None) -> list[User]:
+    def list_staff(
+        self,
+        include_inactive: bool = False,
+        store_id: int | None = None,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+    ) -> list[User]:
         users = list(self.users.values())
         if not include_inactive:
             users = [user for user in users if user.is_active]
         if store_id is not None:
             users = [user for user in users if user.store_id == store_id]
+        if section_id is not None:
+            users = [user for user in users if user.section_id == section_id]
+        if counter_id is not None:
+            users = [user for user in users if user.assigned_counter_id == counter_id]
         return users
 
     def get_staff_by_id(self, staff_id: int) -> User | None:

@@ -2,10 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.models.counter import CounterType
+
 
 class CounterBase(BaseModel):
     section_id: int
-    counter_type: str = Field(min_length=1, max_length=50)
+    counter_type: CounterType
     name: str | None = Field(default=None, max_length=100)
     is_active: bool = True
 
@@ -16,7 +18,7 @@ class CounterCreateRequest(CounterBase):
 
 class CounterUpdateRequest(BaseModel):
     section_id: int | None = None
-    counter_type: str | None = Field(default=None, min_length=1, max_length=50)
+    counter_type: CounterType | None = None
     name: str | None = Field(default=None, max_length=100)
     is_active: bool | None = None
 
@@ -24,7 +26,7 @@ class CounterUpdateRequest(BaseModel):
 class CounterResponse(BaseModel):
     id: int
     section_id: int
-    counter_type: str
+    counter_type: CounterType
     name: str | None
     is_active: bool
     next_available_time: datetime

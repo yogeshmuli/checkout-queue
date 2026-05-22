@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
-from app.models.counter import Counter
+from app.models.counter import Counter, CounterType
 from app.schemas.counter import CounterCreateRequest, CounterUpdateRequest
 from app.services.counter_service import CounterService
 
@@ -73,13 +73,13 @@ def test_create_counter(counter_service: CounterService) -> None:
     counter = counter_service.create_counter(
         CounterCreateRequest(
             section_id=1,
-            counter_type="REGULAR",
+            counter_type=CounterType.REGULAR,
             name="Counter 1",
         )
     )
 
     assert counter.id == 1
-    assert counter.counter_type == "REGULAR"
+    assert counter.counter_type == CounterType.REGULAR
     assert counter.name == "Counter 1"
     assert counter.is_active is True
     assert isinstance(counter.next_available_time, datetime)
@@ -87,7 +87,7 @@ def test_create_counter(counter_service: CounterService) -> None:
 
 
 def test_create_counter_rejects_duplicate_name_per_section(counter_service: CounterService) -> None:
-    payload = CounterCreateRequest(section_id=1, counter_type="REGULAR", name="Counter 1")
+    payload = CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, name="Counter 1")
     counter_service.create_counter(payload)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -98,22 +98,22 @@ def test_create_counter_rejects_duplicate_name_per_section(counter_service: Coun
 
 def test_update_counter_partially_updates_fields(counter_service: CounterService) -> None:
     counter = counter_service.create_counter(
-        CounterCreateRequest(section_id=1, counter_type="REGULAR", name="Counter 1")
+        CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, name="Counter 1")
     )
 
     updated_counter = counter_service.update_counter(
         counter.id,
-        CounterUpdateRequest(section_id=2, counter_type="EXPRESS", name="Counter 2"),
+        CounterUpdateRequest(section_id=2, counter_type=CounterType.EXPRESS, name="Counter 2"),
     )
 
     assert updated_counter.section_id == 2
-    assert updated_counter.counter_type == "EXPRESS"
+    assert updated_counter.counter_type == CounterType.EXPRESS
     assert updated_counter.name == "Counter 2"
 
 
 def test_delete_counter_soft_deletes(counter_service: CounterService) -> None:
     counter = counter_service.create_counter(
-        CounterCreateRequest(section_id=1, counter_type="REGULAR", name="Counter 1")
+        CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, name="Counter 1")
     )
 
     deleted_counter = counter_service.deactivate_counter(counter.id)

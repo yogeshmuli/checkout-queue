@@ -25,7 +25,7 @@ class CounterService:
 
         counter = Counter(
             section_id=payload.section_id,
-            counter_type=payload.counter_type.strip(),
+            counter_type=payload.counter_type,
             name=normalized_name,
             is_active=payload.is_active,
             next_available_time=datetime.now(timezone.utc),
@@ -61,9 +61,6 @@ class CounterService:
         section = self.repository.get_section_by_id(next_section_id)
         if section is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
-
-        if "counter_type" in update_data and update_data["counter_type"] is not None:
-            update_data["counter_type"] = update_data["counter_type"].strip()
 
         if "name" in update_data:
             update_data["name"] = update_data["name"].strip() if update_data["name"] else None

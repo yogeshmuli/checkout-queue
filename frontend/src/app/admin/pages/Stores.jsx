@@ -1,5 +1,6 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { createStore, deleteStore, listStores, updateStore } from '../../../api/storeApi.js';
@@ -288,9 +289,10 @@ export function Stores() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[620px_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
       {isFormOpen ? (
-        <section className="rounded-lg border border-line bg-white p-5">
+        <section id="store-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#store-directory" label="Back to stores" />
           <SectionHeader eyebrow="Store setup" title={editingStoreId ? 'Update store' : 'Create store'} />
           <form className="mt-5 space-y-4" onSubmit={submitStore}>
             <Field
@@ -398,20 +400,23 @@ export function Stores() {
         </section>
       ) : null}
 
-      <section className="rounded-lg border border-line bg-white">
+      <section id="store-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Store directory</p>
             <h2 className="mt-1 text-xl font-semibold">Configured stores</h2>
           </div>
           <div className="flex items-center gap-2">
+            {isFormOpen ? <MobilePanelJump href="#store-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
-              className="inline-flex items-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-medium text-white"
+              className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
+              title="Create store"
+              aria-label="Create store"
             >
               <Plus size={16} />
-              Create store
+              <span className="hidden sm:inline">Create store</span>
             </button>
             <button type="button" onClick={loadStores} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh stores">
               <RefreshCw size={18} />
@@ -454,6 +459,14 @@ export function Stores() {
                     {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
                   </div>
                   <p className="mt-1 text-sm text-charcoal">{store.address || 'No address'}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <ResourceLink to={`/app/admin/sections?store_id=${store.id}`} label="Sections" />
+                    <ResourceLink to={`/app/admin/counters?store_id=${store.id}`} label="Counters" />
+                    <ResourceLink to={`/app/admin/staff?store_id=${store.id}`} label="Staff" />
+                    <ResourceLink to={`/app/admin/queue?store_id=${store.id}`} label="Queue" />
+                    <ResourceLink to={`/app/admin/calendar?store_id=${store.id}`} label="Calendar" />
+                    <ResourceLink to={`/app/admin/store-config?store_id=${store.id}`} label="Config" />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <button
@@ -544,6 +557,28 @@ export function Stores() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function MobilePanelJump({ href, label, compact = false }) {
+  return (
+    <a
+      href={href}
+      className={`${compact ? '' : 'mb-4 '}inline-flex h-10 items-center justify-center rounded-lg border border-line px-3 text-sm font-medium text-charcoal lg:hidden`}
+      title={label}
+      aria-label={label}
+    >
+      <span className="sm:hidden">Form</span>
+      <span className="hidden sm:inline">{label}</span>
+    </a>
+  );
+}
+
+function ResourceLink({ to, label }) {
+  return (
+    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
+      {label}
+    </Link>
   );
 }
 

@@ -1,11 +1,13 @@
 import pytest
 from fastapi import HTTPException
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
+from app.models.calendar import StoreCalendarDay, StoreHoliday
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
+from app.models.store_config import StoreConfig
 from app.schemas.queue import QueueEventRequest, QueueEventType, QueueJoinRequest
 from app.services.queue_service import QueueService
 
@@ -33,6 +35,9 @@ class FakeQueueRepository:
             ),
         }
         self.tokens: list[QueueToken] = []
+        self.store_configs: dict[int, StoreConfig] = {}
+        self.calendar_days: dict[int, list[StoreCalendarDay]] = {}
+        self.holidays: dict[tuple[int, object], StoreHoliday] = {}
         now = datetime.now(timezone.utc)
         self.counters = [
             Counter(id=1, section_id=1, counter_type="regular", name="C1", is_active=True, next_available_time=now),
@@ -41,6 +46,15 @@ class FakeQueueRepository:
 
     def get_store(self, store_id: int) -> Store | None:
         return self.stores.get(store_id)
+
+    def get_store_config(self, store_id: int) -> StoreConfig | None:
+        return self.store_configs.get(store_id)
+
+    def list_calendar_days(self, store_id: int) -> list[StoreCalendarDay]:
+        return self.calendar_days.get(store_id, [])
+
+    def get_active_holiday(self, store_id: int, holiday_date) -> StoreHoliday | None:
+        return self.holidays.get((store_id, holiday_date))
 
     def get_section(self, section_id: int) -> CheckoutSection | None:
         return self.sections.get(section_id)
@@ -166,6 +180,70 @@ def test_join_queue_rejects_duplicate_active_token(queue_service: QueueService) 
 
     with pytest.raises(HTTPException) as exc_info:
         queue_service.join_queue(payload)
+
+    assert exc_info.value.status_code == 409
+
+
+def test_join_queue_uses_store_config_for_prefix_and_service_time(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    queue_service.repository.store_configs[1] = StoreConfig(
+        store_id=1,
+        token_id_prefix="BILL",
+        base_service_minutes=2,
+        per_item_service_minutes=1.5,
+        min_service_minutes=3,
+    )
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=4)
+    )
+
+    token = queue_service.repository.tokens[0]
+    assert response.token_number == "BILL-001"
+    assert token.service_time_minutes == 8
+
+
+def test_join_queue_rejects_when_store_calendar_is_closed_today(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.calendar_days[1] = [
+        StoreCalendarDay(
+            store_id=1,
+            weekday=now.weekday(),
+            is_open=False,
+            open_time=time(0, 0),
+            close_time=time(23, 59),
+            timezone="UTC",
+        )
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210"))
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Store is closed for queue joining"
+
+
+def test_join_queue_rejects_when_today_is_active_holiday(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.calendar_days[1] = [
+        StoreCalendarDay(
+            store_id=1,
+            weekday=now.weekday(),
+            is_open=True,
+            open_time=time(0, 0),
+            close_time=time(23, 59),
+            timezone="UTC",
+        )
+    ]
+    queue_service.repository.holidays[(1, now.date())] = StoreHoliday(
+        store_id=1,
+        holiday_date=now.date(),
+        name="Closed",
+        is_active=True,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210"))
 
     assert exc_info.value.status_code == 409
 

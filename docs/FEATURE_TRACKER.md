@@ -14,6 +14,8 @@ The backend currently supports:
 - Store management APIs.
 - Section management APIs.
 - Staff management APIs.
+- Store queue configuration APIs.
+- Store calendar APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
 - React/Vite frontend scaffold with admin, staff, and customer role views.
 - Customer token status lookup and staff queue processing APIs.
@@ -293,9 +295,49 @@ Result:
 - Rejects duplicate active token for the same phone number in the same store with HTTP `409`.
 - Creates a `WAITING` queue token.
 - Calculates queue position from waiting tokens ahead.
-- Calculates estimated wait time from waiting tokens ahead, their item counts, and active counters.
+- Calculates estimated wait time from waiting tokens ahead, their item counts, active counters, and store-level service-time configuration.
+- Uses the store token prefix configuration when generating token numbers.
+- Blocks new token creation when the store calendar marks the store closed or today is an active holiday.
 - Stores the joining customer's item count so later customers get better estimates.
 - Falls back to one active counter if no counter configuration is available.
+
+### 10A. Admin Can Configure Store Queue Rules
+
+As an authorized admin or manager, I can configure token and service-time rules per store.
+
+Endpoint:
+
+```text
+GET /api/v1/stores/{store_id}/config
+PUT /api/v1/stores/{store_id}/config
+```
+
+Allowed roles:
+
+```text
+SUPER_ADMIN
+STORE_ADMIN
+MANAGER
+```
+
+Example request:
+
+```json
+{
+  "token_id_prefix": "BILL",
+  "base_service_minutes": 6,
+  "per_item_service_minutes": 0.5,
+  "min_service_minutes": 8
+}
+```
+
+Result:
+
+- Stores queue configuration in the separate `store_configs` table.
+- Auto-creates a default config for stores that do not have one yet.
+- Applies the configured token prefix to new queue tokens.
+- Applies configured base, per-item, and minimum service minutes to queue wait-time calculation.
+- Exposes a frontend admin screen at `/app/admin/store-config?store_id={store_id}`.
 
 ### 11. Staff Can Process Queue Token Events
 
@@ -418,6 +460,8 @@ Result:
 - Soft-deletes sections through `DELETE /api/v1/sections/{section_id}`.
 - Enforces store linkage in UI and backend (`store_id` is required for sections).
 - Constrains section type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
+- Supports shareable store-filtered section links with `/app/admin/sections?store_id={store_id}`.
+- Store and section rows link to related sections, counters, staff, and queue views with matching URL filters.
 
 ### 15B. Admin Can Manage Staff From Frontend
 
@@ -436,8 +480,11 @@ Result:
 - Updates staff details, role, assignment, password, and active state through `PATCH /api/v1/staff/{staff_id}`.
 - Soft-deletes staff through `DELETE /api/v1/staff/{staff_id}`.
 - Stores staff passwords only as salted hashes.
+- Uses `Ganesh@123` as the admin UI default password when the create-staff password field is left blank.
 - Validates duplicate email/phone and assignment consistency across store, section, and counter.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
+- Supports shareable staff-filtered links with `/app/admin/staff?store_id={store_id}`, `/app/admin/staff?section_id={section_id}`, and `/app/admin/staff?counter_id={counter_id}`.
+- Staff rows link back to related store sections, section counters, counter staff, and queue views.
 
 ### 15C. Admin Can Manage Counters From Frontend
 
@@ -456,8 +503,12 @@ Result:
 - Updates counter details and active state through `PATCH /api/v1/counters/{counter_id}`.
 - Soft-deletes counters through `DELETE /api/v1/counters/{counter_id}`.
 - Enforces section linkage in UI and backend (`section_id` is required for counters).
+- Constrains counter type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS_EXCHANGE`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
 - Supports store-filtered section selection in the admin form.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
+- Supports shareable section-filtered counter links with `/app/admin/counters?section_id={section_id}`.
+- Supports shareable store-filtered counter links with `/app/admin/counters?store_id={store_id}`.
+- Counter rows link to related section counters, assigned staff, and queue views.
 
 ### 16. Customer Can Create And Track Token From Frontend
 
@@ -518,6 +569,35 @@ Result:
 - Shows token number, phone number, position, wait time, assignment, calling time, and item count.
 - Lets admin call, start, complete, or cancel tokens from the admin queue screen.
 - Uses bearer-token role guards for queue management actions.
+- Queue filters are URL-backed so links from store, section, counter, and staff rows open the matching queue scope.
+
+### 19. Admin Can Configure Store Calendar
+
+As an authorized admin or manager, I can configure weekly store hours and holiday closures.
+
+Endpoint:
+
+```text
+GET /api/v1/stores/{store_id}/calendar
+PUT /api/v1/stores/{store_id}/calendar
+```
+
+Allowed roles:
+
+```text
+SUPER_ADMIN
+STORE_ADMIN
+MANAGER
+```
+
+Result:
+
+- Stores weekly hours in `store_calendar_days`.
+- Stores manually configured holiday dates in `store_holidays`.
+- Seeds stores with always-open calendar defaults so existing queue behavior is preserved.
+- Queue join rejects new tokens only when the configured calendar says the store is closed.
+- Existing active tokens and staff queue processing continue unaffected.
+- Exposes a frontend admin screen at `/app/admin/calendar?store_id={store_id}`.
 
 ## Implemented Technical Capabilities
 
@@ -549,6 +629,9 @@ python3 -m scripts.sync_database
 Implemented models:
 
 - `Store`
+- `StoreCalendarDay`
+- `StoreConfig`
+- `StoreHoliday`
 - `CheckoutSection`
 - `Counter`
 - `QueueToken`
@@ -565,6 +648,7 @@ Implemented enums:
 - `QueueTokenStatus`
 - `UserRole`
 - `CheckoutSectionType`
+- `CounterType`
 
 ### Alembic Migrations
 
@@ -577,6 +661,9 @@ Implemented migrations:
 - `030389d488c1_removed_waiting_time.py`
 - `20260514_0005_remove_staff_table_move_fields_to_users.py`
 - `20260522_0006_convert_section_type_to_enum.py`
+- `20260522_0007_add_store_configs.py`
+- `20260522_0008_convert_counter_type_to_enum.py`
+- `20260522_0009_add_store_calendar.py`
 
 ### Authentication
 
@@ -615,6 +702,10 @@ GET    /api/v1/stores
 GET    /api/v1/stores/{store_id}
 PATCH  /api/v1/stores/{store_id}
 DELETE /api/v1/stores/{store_id}
+GET    /api/v1/stores/{store_id}/config
+PUT    /api/v1/stores/{store_id}/config
+GET    /api/v1/stores/{store_id}/calendar
+PUT    /api/v1/stores/{store_id}/calendar
 ```
 
 ### Queue
@@ -670,6 +761,7 @@ DELETE /api/v1/staff/{staff_id}
 /app/login
 /app/admin
 /app/admin/stores
+/app/admin/store-config
 /app/admin/sections
 /app/admin/counters
 /app/admin/staff
@@ -682,15 +774,59 @@ DELETE /api/v1/staff/{staff_id}
 
 ## Not Implemented Yet
 
-- Store calendar APIs.
-- Counter APIs.
 - Alert configuration.
 - Alert scheduler.
 - WhatsApp/SMS integrations.
 - Analytics APIs.
 - ML training and prediction APIs.
 - Demo seed data scripts.
-- Frontend API integration for admin counters, calendar, alerts, analytics, and ML modules.
+- Frontend API integration for admin alerts, analytics, and ML modules.
+
+## Planned Feature Specs
+
+### ML-Assisted Service-Time Prediction
+
+As an admin or manager, I can enable ML-assisted service-time prediction so customer token wait estimates improve from historical completed checkout data.
+
+Planned backend behavior:
+
+- Predict checkout service duration for each token, not the full queue wait time directly.
+- Keep the current queue scheduling flow responsible for calculating `calling_time` and estimated wait from active counters, current serving tokens, and waiting tokens ahead.
+- Use completed queue tokens as training data only when `service_started_at` and `completed_at` are both available.
+- Derive actual service duration from `completed_at - service_started_at`.
+- Build model features from fields such as item count, basket size, cart type, customer type, store, section, assigned counter, day of week, weekend flag, hour of day, and store calendar context where available.
+- Use ML prediction only when enough completed history and a trained model are available.
+- Fall back to the existing rule-based store configuration when ML is disabled, unavailable, stale, under-trained, or raises an error.
+- Store the prediction source in `queue_tokens.calculation_method` with values such as `RULE_BASED`, `ML_PREDICTED`, or `ML_FALLBACK_RULE_BASED`.
+
+Planned APIs:
+
+```text
+POST /api/v1/ml/service-time/train
+GET  /api/v1/ml/service-time/status
+```
+
+Authentication:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+Allowed roles:
+
+```text
+SUPER_ADMIN
+STORE_ADMIN
+MANAGER
+```
+
+Planned implementation notes:
+
+- Add a backend `ml_engine` module for feature extraction, training, prediction, and model artifact loading.
+- Add a prediction service that `QueueService` can call when creating a token or rebuilding queue schedules.
+- Use scikit-learn for the first implementation and store model artifacts locally before introducing object storage or a model registry.
+- Keep PostgreSQL as the only application database source for training data.
+- Add tests for feature extraction, rule-based fallback, ML prediction success, missing model fallback, insufficient data fallback, and queue integration.
 
 Latest frontend verification:
 
@@ -704,5 +840,5 @@ npm run lint
 Current backend test status:
 
 ```text
-24 passed
+31 passed
 ```

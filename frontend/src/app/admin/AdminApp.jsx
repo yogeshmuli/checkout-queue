@@ -5,6 +5,7 @@ import {
   Gauge,
   LayoutDashboard,
   Menu,
+  SlidersHorizontal,
   Settings2,
   Store,
   UsersRound,
@@ -21,11 +22,13 @@ import { Dashboard } from './pages/Dashboard.jsx';
 import { Queue } from './pages/Queue.jsx';
 import { Sections } from './pages/Sections.jsx';
 import { Staff } from './pages/Staff.jsx';
+import { StoreConfig } from './pages/StoreConfig.jsx';
 import { Stores } from './pages/Stores.jsx';
 
 const navItems = [
   { label: 'Dashboard', path: '/app/admin', Icon: LayoutDashboard },
   { label: 'Stores', path: '/app/admin/stores', Icon: Store },
+  { label: 'Store Config', path: '/app/admin/store-config', Icon: SlidersHorizontal },
   { label: 'Sections', path: '/app/admin/sections', Icon: Settings2 },
   { label: 'Counters', path: '/app/admin/counters', Icon: Gauge },
   { label: 'Staff', path: '/app/admin/staff', Icon: UsersRound },
@@ -46,7 +49,7 @@ console.log('AdminApp rendered');
   return (
     <div className="min-h-screen bg-brand-blush text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-brand-deep bg-brand-red px-4 py-5 text-white lg:block">
-        <div className="mb-7 flex items-center gap-3 px-2">
+        <div className="mb-7 flex items-start gap-3 px-2 flex-col justify-center">
           <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
           <div>
             <p className="font-semibold">Admin Portal</p>
@@ -146,6 +149,7 @@ console.log('AdminApp rendered');
           <Routes>
             <Route index element={<Dashboard />} />
             <Route path="stores" element={<Stores />} />
+            <Route path="store-config" element={<StoreConfig />} />
             <Route path="sections" element={<Sections />} />
             <Route path="counters" element={<Counters />} />
             <Route path="staff" element={<Staff />} />

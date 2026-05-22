@@ -1,5 +1,6 @@
 import { CheckCircle2, Megaphone, Play, RefreshCw, Search, SlidersHorizontal, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { listCounters } from '../../../api/counterApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
@@ -51,20 +52,21 @@ function formatTime(value) {
 }
 
 export function Queue() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tokens, setTokens] = useState([]);
   const [stores, setStores] = useState([]);
   const [sections, setSections] = useState([]);
   const [counters, setCounters] = useState([]);
-  const [filters, setFilters] = useState({
-    store_id: '',
-    section_id: '',
-    counter_id: '',
-    status: '',
-    include_terminal: false,
-  });
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const filters = {
+    store_id: searchParams.get('store_id') || '',
+    section_id: searchParams.get('section_id') || '',
+    counter_id: searchParams.get('counter_id') || '',
+    status: searchParams.get('status') || '',
+    include_terminal: searchParams.get('include_terminal') === 'true',
+  };
 
   const storeNameById = useMemo(() => {
     const map = new Map();
@@ -99,7 +101,7 @@ export function Queue() {
   ];
 
   const sectionOptions = [
-    { label: filters.store_id ? 'All sections' : 'Select store first', value: '' },
+    { label: 'All sections', value: '' },
     ...sections
       .filter((section) => !filters.store_id || String(section.store_id) === filters.store_id)
       .map((section) => ({
@@ -109,9 +111,18 @@ export function Queue() {
   ];
 
   const counterOptions = [
-    { label: filters.section_id ? 'All counters' : 'Select section first', value: '' },
+    { label: 'All counters', value: '' },
     ...counters
-      .filter((counter) => !filters.section_id || String(counter.section_id) === filters.section_id)
+      .filter((counter) => {
+        if (filters.section_id) {
+          return String(counter.section_id) === filters.section_id;
+        }
+        if (filters.store_id) {
+          const counterSection = sectionById.get(String(counter.section_id));
+          return counterSection && String(counterSection.store_id) === filters.store_id;
+        }
+        return true;
+      })
       .map((counter) => ({
         label: counter.name ? `${counter.name} (${counter.counter_type})` : `Counter #${counter.id} (${counter.counter_type})`,
         value: String(counter.id),
@@ -139,14 +150,19 @@ export function Queue() {
   );
 
   function setFilter(field, value) {
-    setFilters((prev) => {
-      const next = { ...prev, [field]: value };
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) {
+        next.set(field, String(value));
+      } else {
+        next.delete(field);
+      }
       if (field === 'store_id') {
-        next.section_id = '';
-        next.counter_id = '';
+        next.delete('section_id');
+        next.delete('counter_id');
       }
       if (field === 'section_id') {
-        next.counter_id = '';
+        next.delete('counter_id');
       }
       return next;
     });
@@ -186,7 +202,7 @@ export function Queue() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters.counter_id, filters.include_terminal, filters.section_id, filters.status, filters.store_id]);
 
   useEffect(() => {
     loadLookups();

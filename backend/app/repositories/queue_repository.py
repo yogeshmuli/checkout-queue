@@ -1,10 +1,12 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.calendar import StoreCalendarDay, StoreHoliday
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
+from app.models.store_config import StoreConfig
 
 
 ACTIVE_TOKEN_STATUSES = (
@@ -34,6 +36,22 @@ class QueueRepository:
 
     def get_store(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)
+
+    def get_store_config(self, store_id: int) -> StoreConfig | None:
+        statement = select(StoreConfig).where(StoreConfig.store_id == store_id)
+        return self.db.scalar(statement)
+
+    def list_calendar_days(self, store_id: int) -> list[StoreCalendarDay]:
+        statement = select(StoreCalendarDay).where(StoreCalendarDay.store_id == store_id).order_by(StoreCalendarDay.weekday.asc())
+        return list(self.db.scalars(statement).all())
+
+    def get_active_holiday(self, store_id: int, holiday_date) -> StoreHoliday | None:
+        statement = select(StoreHoliday).where(
+            StoreHoliday.store_id == store_id,
+            StoreHoliday.holiday_date == holiday_date,
+            StoreHoliday.is_active.is_(True),
+        )
+        return self.db.scalar(statement)
 
     def list_active_stores_with_sections(self) -> list[Store]:
         statement = (
