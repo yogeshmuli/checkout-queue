@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
 
 import { fetchCurrentUser } from './api/authApi.js';
 import { AdminApp } from './app/admin/AdminApp.jsx';
 import { Landing } from './app/common/Landing.jsx';
 import { Login } from './app/common/Login.jsx';
+import { BrandHeader } from './app/common/BrandHeader.jsx';
 import { CustomerApp } from './app/customer/CustomerApp.jsx';
 import { StaffApp } from './app/staff/StaffApp.jsx';
 import { useAuthStore } from './store/authStore.js';
@@ -61,6 +63,19 @@ export default function App() {
 
   return (
     <Router>
+      <AppRoutes />
+    </Router>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const showHeader = location.pathname === '/' || location.pathname === '/app';
+
+  return (
+    <>
+      {showHeader ? <BrandHeader /> : null}
+      <ToastContainer position="top-right" autoClose={3500} newestOnTop pauseOnFocusLoss={false} theme="colored" />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/app" element={<Landing />} />
@@ -86,7 +101,7 @@ export default function App() {
         <Route path="/app/customer/*" element={<CustomerApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Router>
+    </>
   );
 }
 

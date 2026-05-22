@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getErrorMessage } from '../../api/httpClient.js';
+import { getErrorMessage, showApiErrorToast } from '../../api/httpClient.js';
 import {
   cancelToken,
   completeToken,
@@ -33,6 +33,7 @@ export function StaffApp() {
     try {
       setCounterQueue(await getCounterQueue(activeCounterId));
     } catch (error) {
+      showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
@@ -52,6 +53,7 @@ export function StaffApp() {
       await action();
       await loadCounterQueue();
     } catch (error) {
+      showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);

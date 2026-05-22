@@ -14,6 +14,8 @@ from app.schemas.queue import (
     QueueEventType,
     QueueJoinRequest,
     QueueJoinResponse,
+    QueueStoreResponse,
+    QueueStoreSectionResponse,
     QueueTokenResponse,
 )
 
@@ -123,16 +125,44 @@ class QueueService:
             token = self.repository.get_token(token_id)
         elif store_id is not None and phone_number is not None:
             token = self.repository.get_latest_token_for_phone(store_id, phone_number)
+        elif phone_number is not None:
+            token = self.repository.get_latest_token_by_phone(phone_number)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Provide token_id or both store_id and phone_number",
+                detail="Provide token_id, or phone_number, or both store_id and phone_number",
             )
 
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
 
         return self._build_token_response(token)
+
+    def list_store_sections(self) -> list[QueueStoreResponse]:
+        stores = self.repository.list_active_stores_with_sections()
+        response: list[QueueStoreResponse] = []
+
+        for store in stores:
+            active_sections = [
+                QueueStoreSectionResponse(
+                    id=section.id,
+                    name=section.name,
+                    section_type=section.section_type,
+                )
+                for section in store.checkout_sections
+                if section.is_active
+            ]
+
+            response.append(
+                QueueStoreResponse(
+                    id=store.id,
+                    store_number=store.store_number,
+                    name=store.name,
+                    sections=active_sections,
+                )
+            )
+
+        return response
 
     def get_counter_queue(self, counter_id: int) -> CounterQueueResponse:
         counter = self.repository.get_counter(counter_id)
@@ -146,6 +176,23 @@ class QueueService:
             next_available_time=self._normalize_to_utc(counter.next_available_time),
             tokens=[self._build_token_response(token) for token in tokens],
         )
+
+    def list_queue_tokens(
+        self,
+        store_id: int | None = None,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+        token_status: QueueTokenStatus | None = None,
+        include_terminal: bool = False,
+    ) -> list[QueueTokenResponse]:
+        tokens = self.repository.list_queue_tokens(
+            store_id=store_id,
+            section_id=section_id,
+            counter_id=counter_id,
+            status=token_status,
+            include_terminal=include_terminal,
+        )
+        return [self._build_token_response(token) for token in tokens]
 
     def update_counter_status(self, counter_id: int, payload: CounterStatusUpdateRequest) -> CounterQueueResponse:
         counter = self.repository.get_counter(counter_id)
@@ -173,6 +220,20 @@ class QueueService:
     def cancel_token(self, token_id: int, cancellation_reason: str | None = None) -> QueueEventResponse:
         token = self.process_queue_event(token_id, QueueTokenStatus.CANCELLED, cancellation_reason)
         return self._build_event_response(token)
+
+    def cancel_token_by_customer(self, token_id: int) -> QueueEventResponse:
+        token = self.repository.get_token(token_id)
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
+
+        if token.status in self.TERMINAL_STATUSES:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Token is already in terminal state")
+
+        if token.status == QueueTokenStatus.SERVING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Serving token cannot be cancelled by customer")
+
+        updated = self.process_queue_event(token_id, QueueTokenStatus.CANCELLED, "Cancelled by customer")
+        return self._build_event_response(updated)
 
     def handle_queue_event(self, payload: QueueEventRequest) -> QueueEventResponse:
         status_map = {

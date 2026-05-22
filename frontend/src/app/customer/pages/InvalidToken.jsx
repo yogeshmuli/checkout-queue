@@ -6,8 +6,8 @@ export function InvalidToken() {
       <section className="mx-auto max-w-md">
         <EmptyStateCard
           message="Invalid or no token present in URL."
-          ctaTo="/app/customer/create"
-          ctaLabel="Go to create token"
+          ctaTo="/app/customer/status/lookup"
+          ctaLabel="Find token by mobile"
         />
       </section>
     </main>

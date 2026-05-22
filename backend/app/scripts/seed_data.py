@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.store import Store
 from app.core.database import SessionLocal
-from app.models.checkout_section import CheckoutSection
+from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.user import User, UserRole
 from app.core.security import hash_password
@@ -28,7 +28,7 @@ def seed():
         section = CheckoutSection(
             store_id=store.id,
             name="Default Section",
-            section_type="GENERAL",
+            section_type=CheckoutSectionType.REGULAR,
             is_active=True,
         )
         db.add(section)

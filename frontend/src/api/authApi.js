@@ -1,14 +1,29 @@
-import { httpClient } from './httpClient.js';
+import { httpClient, normalizeApiError } from './httpClient.js';
 
-export function loginUser(payload) {
-  return httpClient.post('/auth/login', payload).then((response) => response.data);
+export async function loginUser(payload) {
+  try {
+    const response = await httpClient.post('/auth/login', payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function registerUser(payload) {
-  return httpClient.post('/auth/register', payload).then((response) => response.data);
+export async function registerUser(payload) {
+  try {
+    const response = await httpClient.post('/auth/register', payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function fetchCurrentUser() {
-  return httpClient.get('/auth/me').then((response) => response.data);
+export async function fetchCurrentUser() {
+  try {
+    const response = await httpClient.get('/auth/me');
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 

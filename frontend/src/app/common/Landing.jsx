@@ -2,7 +2,6 @@ import { ArrowRight, CheckCircle2, ScanLine, Star, Zap } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
-import brandLogo from '../../assets/images/equilateral_logo.png';
 import { useAuthStore } from '../../store/authStore.js';
 import { motionPresets } from './motionPresets.js';
 import { getUserScope } from './roleUtils.js';
@@ -22,32 +21,21 @@ export function Landing() {
   const workspacePath = userScope === 'admin' ? '/app/admin' : '/app/staff';
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-white via-red-50 to-white font-sans selection:bg-red-100 selection:text-red-900">
-      <div className="pointer-events-none absolute right-0 top-0 h-[800px] w-[800px] -translate-y-1/2 translate-x-1/2 rounded-full bg-gradient-to-bl from-red-100/50 to-transparent blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 left-0 h-[600px] w-[600px] translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-tr from-orange-100/30 to-transparent blur-3xl" />
+    <div className="relative min-h-screen overflow-hidden bg-white font-sans selection:bg-red-100 selection:text-red-900">
 
-      <header className="relative z-20 mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5">
-        <div className="flex items-center gap-3">
-          <img src={brandLogo} alt="Checkout Queue logo" className="h-[100px]  rounded-xl border border-white/80 bg-white p-1 object-contain shadow-soft" />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Checkout Queue</p>
-            <p className="text-sm font-semibold text-slate-900">Smart Billing Lines</p>
-          </div>
-        </div>
-        <Motion.button
-          {...motionPresets.fadeInDown}
-          {...motionPresets.subtleButton}
-          type="button"
-          onClick={() => navigate(showWorkspace ? workspacePath : '/app/login')}
-          className="inline-flex items-center gap-2 rounded-xl border border-brand-red/30 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-soft hover:bg-white"
-        >
-          <ScanLine size={16} />
-          {showWorkspace ? 'Open Workspace' : 'Login'}
-        </Motion.button>
-      </header>
-
-      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-7xl flex-col items-center justify-center gap-12 px-6 pb-10 lg:flex-row lg:gap-20">
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-7xl flex-col items-center justify-center gap-12 px-6 pb-10 pt-6 lg:flex-row lg:gap-20">
         <Motion.section {...motionPresets.fadeInLeft} className="w-full max-w-2xl">
+          <Motion.button
+            {...motionPresets.fadeInDown}
+            {...motionPresets.subtleButton}
+            type="button"
+            onClick={() => navigate(showWorkspace ? workspacePath : '/app/login')}
+            className="mb-5 inline-flex items-center gap-2 rounded-xl border border-brand-red/30 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-soft hover:bg-white"
+          >
+            <ScanLine size={16} />
+            {showWorkspace ? 'Open Workspace' : 'Login'}
+          </Motion.button>
+
           <Motion.h1
             {...motionPresets.fadeInUp}
             transition={{ ...motionPresets.fadeInUp.transition, delay: 0.2 }}
@@ -56,9 +44,7 @@ export function Landing() {
             Welcome to <br />
             <span className="relative inline-block text-brand-red">
               Checkout Queue
-              <svg className="absolute -bottom-1 left-0 -z-10 h-3 w-full text-red-200" viewBox="0 0 100 10" preserveAspectRatio="none">
-                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
-              </svg>
+            
             </span>
           </Motion.h1>
 
@@ -102,13 +88,13 @@ export function Landing() {
               Launch Customer Flow
               <ArrowRight size={20} className="transition-transform duration-300 group-hover:translate-x-1" />
             </span>
-            <div className="absolute inset-0 origin-left scale-x-0 bg-gradient-to-r from-red-600 to-red-500 transition-transform duration-300 group-hover:scale-x-100" />
+            <div className="absolute inset-0 origin-left scale-x-0 bg-red-600 transition-transform duration-300 group-hover:scale-x-100" />
           </Motion.button>
         </Motion.section>
 
         <Motion.section {...motionPresets.heroVisualIn} className="relative hidden flex-1 lg:block">
           <div className="relative mx-auto h-[500px] w-[500px]">
-            <div className="absolute inset-0 z-20 overflow-hidden rounded-full border-[12px] border-white bg-gradient-to-br from-brand-red to-red-400 shadow-2xl">
+            <div className="absolute inset-0 z-20 overflow-hidden rounded-full border-[12px] border-white bg-brand-red shadow-2xl">
               <div className="flex h-full items-center justify-center">
                 <div className="rounded-3xl bg-white/90 px-10 py-8 text-center text-ink shadow-brand">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">Realtime Queue</p>

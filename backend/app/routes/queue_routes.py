@@ -11,9 +11,11 @@ from app.schemas.queue import (
     QueueEventResponse,
     QueueJoinRequest,
     QueueJoinResponse,
+    QueueStoreResponse,
     QueueTokenResponse,
     TokenCancelRequest,
 )
+from app.models.queue_token import QueueTokenStatus
 from app.services.queue_service import QueueService
 
 router = APIRouter(prefix="/queue", tags=["queue"])
@@ -48,6 +50,30 @@ def get_token_status(
     db: Session = Depends(get_db),
 ) -> QueueTokenResponse:
     return QueueService(db).get_token_status(token_id=token_id, store_id=store_id, phone_number=phone_number)
+
+
+@router.get("/store-sections", response_model=list[QueueStoreResponse])
+def list_store_sections(db: Session = Depends(get_db)) -> list[QueueStoreResponse]:
+    return QueueService(db).list_store_sections()
+
+
+@router.get("/tokens", response_model=list[QueueTokenResponse])
+def list_queue_tokens(
+    store_id: int | None = None,
+    section_id: int | None = None,
+    counter_id: int | None = None,
+    status: QueueTokenStatus | None = None,
+    include_terminal: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(*queue_event_roles)),
+) -> list[QueueTokenResponse]:
+    return QueueService(db).list_queue_tokens(
+        store_id=store_id,
+        section_id=section_id,
+        counter_id=counter_id,
+        token_status=status,
+        include_terminal=include_terminal,
+    )
 
 
 @router.get("/counters/{counter_id}/tokens", response_model=CounterQueueResponse)
@@ -96,3 +122,11 @@ def cancel_token(
 ) -> QueueEventResponse:
     reason = payload.cancellation_reason if payload is not None else None
     return QueueService(db).cancel_token(token_id, reason)
+
+
+@router.post("/tokens/{token_id}/customer-cancel", response_model=QueueEventResponse)
+def customer_cancel_token(
+    token_id: int,
+    db: Session = Depends(get_db),
+) -> QueueEventResponse:
+    return QueueService(db).cancel_token_by_customer(token_id)

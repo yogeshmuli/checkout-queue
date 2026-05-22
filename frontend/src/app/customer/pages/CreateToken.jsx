@@ -1,9 +1,9 @@
 import { ShoppingBasket } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 import brandLogo from '../../../assets/images/equilateral_logo.png';
-import { getErrorMessage } from '../../../api/httpClient.js';
+import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { joinQueue } from '../../../api/queueApi.js';
 import { Field, Select } from '../../../app/common/FormAndStatePrimitives.jsx';
 import { useQueueStore } from '../../../store/queueStore.js';
@@ -11,6 +11,19 @@ import { defaultForm } from '../utils/customerUtils.js';
 
 export function CreateToken() {
   const [form, setForm] = useState(defaultForm);
+  const location = useLocation();
+
+  // Prefill store_id and section_id from query params if present.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const store_id = params.get('store_id');
+    const section_id = params.get('section_id');
+    setForm((f) => ({
+      ...f,
+      store_id: store_id || f.store_id,
+      section_id: section_id || f.section_id,
+    }));
+  }, [location.search]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const { setLastToken } = useQueueStore();
@@ -31,6 +44,7 @@ export function CreateToken() {
       setLastToken(token);
       navigate(`/app/customer/status/${token.token_id}`);
     } catch (error) {
+      showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
@@ -40,15 +54,17 @@ export function CreateToken() {
   return (
     <main className="min-h-screen px-4 py-5  animate-fadeIn">
       <section className="mx-auto max-w-md animate-slideUp">
-        <header className="rounded-lg bg-brand-red  text-white p-4 text-ink glass-panel border-l-4 border-brand-red">
-          <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-contain" />
-            <div>
-              <p className="text-sm text-white">QR checkout queue</p>
-              <h1 className="text-2xl font-semibold">Join billing queue</h1>
+        <header className="glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm">
+              <img src={brandLogo} alt="Checkout Queue logo" className="h-full w-full object-cover" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">QR checkout queue</p>
+              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Join billing queue</h1>
             </div>
           </div>
-          <p className="mt-3 text-sm text-white">{qrStoreLabel}</p>
+          <p className="mt-3 text-sm text-white/95">{qrStoreLabel}</p>
         </header>
 
         <form className="mt-5 space-y-4 rounded-lg bg-white p-5 text-ink shadow-soft" onSubmit={submitJoin}>

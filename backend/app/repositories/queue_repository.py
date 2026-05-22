@@ -1,5 +1,5 @@
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
@@ -35,6 +35,15 @@ class QueueRepository:
     def get_store(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)
 
+    def list_active_stores_with_sections(self) -> list[Store]:
+        statement = (
+            select(Store)
+            .where(Store.is_active.is_(True))
+            .options(selectinload(Store.checkout_sections))
+            .order_by(Store.id.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
     def get_section(self, section_id: int) -> CheckoutSection | None:
         return self.db.get(CheckoutSection, section_id)
 
@@ -51,6 +60,15 @@ class QueueRepository:
                 QueueToken.store_id == store_id,
                 QueueToken.phone_number == phone_number,
             )
+            .order_by(QueueToken.id.desc())
+            .limit(1)
+        )
+        return self.db.scalar(statement)
+
+    def get_latest_token_by_phone(self, phone_number: str) -> QueueToken | None:
+        statement = (
+            select(QueueToken)
+            .where(QueueToken.phone_number == phone_number)
             .order_by(QueueToken.id.desc())
             .limit(1)
         )
@@ -100,6 +118,33 @@ class QueueRepository:
                 ),
             )
             .order_by(QueueToken.calling_time.asc().nulls_last(), QueueToken.id.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
+    def list_queue_tokens(
+        self,
+        store_id: int | None = None,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+        status: QueueTokenStatus | None = None,
+        include_terminal: bool = False,
+    ) -> list[QueueToken]:
+        statement = select(QueueToken)
+        if store_id is not None:
+            statement = statement.where(QueueToken.store_id == store_id)
+        if section_id is not None:
+            statement = statement.where(QueueToken.section_id == section_id)
+        if counter_id is not None:
+            statement = statement.where(QueueToken.assigned_counter_id == counter_id)
+        if status is not None:
+            statement = statement.where(QueueToken.status == status)
+        elif not include_terminal:
+            statement = statement.where(QueueToken.status.in_(ACTIVE_TOKEN_STATUSES))
+
+        statement = statement.order_by(
+            QueueToken.status.asc(),
+            QueueToken.calling_time.asc().nulls_last(),
+            QueueToken.id.asc(),
         )
         return list(self.db.scalars(statement).all())
 

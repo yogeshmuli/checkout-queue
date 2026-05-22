@@ -12,10 +12,14 @@ The backend currently supports:
 - Alembic migration setup.
 - User authentication.
 - Store management APIs.
+- Section management APIs.
+- Staff management APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
 - React/Vite frontend scaffold with admin, staff, and customer role views.
 - Customer token status lookup and staff queue processing APIs.
 - Frontend integration for customer token status refresh and staff token transitions.
+- Frontend integration for admin store, section, and staff CRUD flows.
+- Counter management APIs and frontend admin counter CRUD flow.
 - QuT-inspired UI design system with red/blush/navy palette and Poppins/Inter typography.
 
 ## Implemented User Stories
@@ -390,7 +394,70 @@ Result:
 
 - Lists stores through `GET /api/v1/stores`.
 - Creates stores through `POST /api/v1/stores`.
+- Updates store details and active state through `PATCH /api/v1/stores/{store_id}`.
 - Soft-deletes stores through `DELETE /api/v1/stores/{store_id}`.
+- Applies frontend field validation aligned with backend constraints (required store number/name, max-length checks, 10-digit phone validation).
+- Includes search/filter and pagination on the admin store directory screen.
+- Warns users about unsaved form changes when leaving edit mode.
+
+### 15A. Admin Can Manage Sections From Frontend
+
+As an admin, I can create, list, update, activate/deactivate checkout sections mapped to stores.
+
+Route:
+
+```text
+/app/admin/sections
+```
+
+Result:
+
+- Lists sections through `GET /api/v1/sections`.
+- Creates sections through `POST /api/v1/sections`.
+- Updates section details and active state through `PATCH /api/v1/sections/{section_id}`.
+- Soft-deletes sections through `DELETE /api/v1/sections/{section_id}`.
+- Enforces store linkage in UI and backend (`store_id` is required for sections).
+- Constrains section type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
+
+### 15B. Admin Can Manage Staff From Frontend
+
+As an admin, I can create, list, update, activate/deactivate staff users and assign them to stores, sections, and counters.
+
+Route:
+
+```text
+/app/admin/staff
+```
+
+Result:
+
+- Lists staff through `GET /api/v1/staff`.
+- Creates staff through `POST /api/v1/staff`.
+- Updates staff details, role, assignment, password, and active state through `PATCH /api/v1/staff/{staff_id}`.
+- Soft-deletes staff through `DELETE /api/v1/staff/{staff_id}`.
+- Stores staff passwords only as salted hashes.
+- Validates duplicate email/phone and assignment consistency across store, section, and counter.
+- Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
+
+### 15C. Admin Can Manage Counters From Frontend
+
+As an admin, I can create, list, update, and activate/deactivate counters mapped to sections.
+
+Route:
+
+```text
+/app/admin/counters
+```
+
+Result:
+
+- Lists counters through `GET /api/v1/counters`.
+- Creates counters through `POST /api/v1/counters`.
+- Updates counter details and active state through `PATCH /api/v1/counters/{counter_id}`.
+- Soft-deletes counters through `DELETE /api/v1/counters/{counter_id}`.
+- Enforces section linkage in UI and backend (`section_id` is required for counters).
+- Supports store-filtered section selection in the admin form.
+- Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
 
 ### 16. Customer Can Create And Track Token From Frontend
 
@@ -404,7 +471,16 @@ Route:
 
 Result:
 
+- Shows a first-step customer screen to select store/section before opening token creation.
+- Shows active stores in a dropdown and populates section dropdown based on selected store.
+- Loads store/section options from public API `GET /api/v1/queue/store-sections`.
+- Includes active stores even when no section is configured yet (section remains optional for that case).
+- Supports browser-camera QR scanning for store payloads.
+- Supports installable PWA behavior with manifest/service-worker caching for home-screen install.
 - Calls `POST /api/v1/queue/join`.
+- Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with confirmation.
+- Allows token lookup by mobile number from customer screen and navigation between lookup and token status views.
+- Applies a shared top branding header across app routes (`/app/*`) for consistent QuT identity.
 - Displays token number, queue position, current status, calling time, estimated wait, and calculation method.
 - Polls `GET /api/v1/queue/status` every 30 seconds after token creation.
 
@@ -424,6 +500,24 @@ Result:
 - Loads counter queue through `GET /api/v1/queue/counters/{counter_id}/tokens`.
 - Starts, completes, and cancels tokens through queue transition APIs.
 - Updates counter status through `PATCH /api/v1/queue/counters/{counter_id}/status`.
+
+### 18. Admin Can View And Manage Live Queue
+
+As an admin or manager, I can view live queue tokens across stores, sections, and counters, filter the list, and move tokens through operational states.
+
+Route:
+
+```text
+/app/admin/queue
+```
+
+Result:
+
+- Lists queue tokens through `GET /api/v1/queue/tokens`.
+- Filters queue tokens by store, section, counter, and token status.
+- Shows token number, phone number, position, wait time, assignment, calling time, and item count.
+- Lets admin call, start, complete, or cancel tokens from the admin queue screen.
+- Uses bearer-token role guards for queue management actions.
 
 ## Implemented Technical Capabilities
 
@@ -470,6 +564,7 @@ Implemented enums:
 
 - `QueueTokenStatus`
 - `UserRole`
+- `CheckoutSectionType`
 
 ### Alembic Migrations
 
@@ -481,6 +576,7 @@ Implemented migrations:
 - `20260508_0004_make_counter_time_utc.py`
 - `030389d488c1_removed_waiting_time.py`
 - `20260514_0005_remove_staff_table_move_fields_to_users.py`
+- `20260522_0006_convert_section_type_to_enum.py`
 
 ### Authentication
 
@@ -526,12 +622,44 @@ DELETE /api/v1/stores/{store_id}
 ```text
 POST  /api/v1/queue/join
 GET   /api/v1/queue/status
+GET   /api/v1/queue/store-sections
+GET   /api/v1/queue/tokens
 POST  /api/v1/queue/events
 GET   /api/v1/queue/counters/{counter_id}/tokens
 PATCH /api/v1/queue/counters/{counter_id}/status
 POST  /api/v1/queue/tokens/{token_id}/start
 POST  /api/v1/queue/tokens/{token_id}/complete
 POST  /api/v1/queue/tokens/{token_id}/cancel
+```
+
+### Sections
+
+```text
+POST   /api/v1/sections
+GET    /api/v1/sections
+GET    /api/v1/sections/{section_id}
+PATCH  /api/v1/sections/{section_id}
+DELETE /api/v1/sections/{section_id}
+```
+
+### Counters
+
+```text
+POST   /api/v1/counters
+GET    /api/v1/counters
+GET    /api/v1/counters/{counter_id}
+PATCH  /api/v1/counters/{counter_id}
+DELETE /api/v1/counters/{counter_id}
+```
+
+### Staff
+
+```text
+POST   /api/v1/staff
+GET    /api/v1/staff
+GET    /api/v1/staff/{staff_id}
+PATCH  /api/v1/staff/{staff_id}
+DELETE /api/v1/staff/{staff_id}
 ```
 
 ## Implemented Frontend Routes
@@ -555,16 +683,14 @@ POST  /api/v1/queue/tokens/{token_id}/cancel
 ## Not Implemented Yet
 
 - Store calendar APIs.
-- Checkout section APIs.
 - Counter APIs.
-- Staff management APIs.
 - Alert configuration.
 - Alert scheduler.
 - WhatsApp/SMS integrations.
 - Analytics APIs.
 - ML training and prediction APIs.
 - Demo seed data scripts.
-- Frontend API integration for admin sections, counters, staff, calendar, alerts, analytics, and ML modules.
+- Frontend API integration for admin counters, calendar, alerts, analytics, and ML modules.
 
 Latest frontend verification:
 
@@ -578,5 +704,5 @@ npm run lint
 Current backend test status:
 
 ```text
-15 passed
+24 passed
 ```

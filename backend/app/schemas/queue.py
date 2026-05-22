@@ -2,6 +2,7 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
+from app.models.checkout_section import CheckoutSectionType
 from app.models.queue_token import QueueTokenStatus
 
 
@@ -99,3 +100,16 @@ class CounterStatusUpdateRequest(BaseModel):
 
 class TokenCancelRequest(BaseModel):
     cancellation_reason: str | None = Field(default=None, max_length=255)
+
+
+class QueueStoreSectionResponse(BaseModel):
+    id: int
+    name: str
+    section_type: CheckoutSectionType
+
+
+class QueueStoreResponse(BaseModel):
+    id: int
+    store_number: str
+    name: str
+    sections: list[QueueStoreSectionResponse]

@@ -25,7 +25,7 @@ export function Counter({
       <section className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-5 animate-slideUp">
         <header className="flex items-center justify-between rounded-lg bg-brand-red px-4 py-3 shadow-brand">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-contain" />
+            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
             <div>
             <p className="text-sm text-red-100">Counter console</p>
             <h1 className="text-2xl font-semibold text-white">Counter {activeCounterId}</h1>

@@ -1,10 +1,10 @@
 import { Clock3, TicketCheck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import brandLogo from '../../../assets/images/equilateral_logo.png';
-import { getErrorMessage } from '../../../api/httpClient.js';
-import { getTokenStatus } from '../../../api/queueApi.js';
+import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
+import { cancelCustomerToken, getTokenStatus } from '../../../api/queueApi.js';
 import { EmptyStateCard, StatCard } from '../../../app/common/FormAndStatePrimitives.jsx';
 import { useQueueStore } from '../../../store/queueStore.js';
 import { formatTime, getWaitMinutes, TOKEN_STATUS_REFRESH_MS } from '../utils/customerUtils.js';
@@ -13,10 +13,35 @@ import { InvalidToken } from './InvalidToken.jsx';
 export function TokenStatus() {
   const { tokenId } = useParams();
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState('');
   const { lastToken, setLastToken } = useQueueStore();
   const liveWaitMinutes = useMemo(() => getWaitMinutes(lastToken?.calling_time), [lastToken]);
   const parsedTokenId = Number(tokenId);
+  const canCancel = lastToken?.status === 'WAITING' || lastToken?.status === 'CALLED';
+  const isCancelled = lastToken?.status === 'CANCELLED';
+
+  async function handleCancelToken() {
+    if (!canCancel || cancelling) return;
+
+    const confirmed = window.confirm('Do you want to cancel this token?');
+    if (!confirmed) return;
+
+    setCancelling(true);
+    setMessage('');
+
+    try {
+      await cancelCustomerToken(parsedTokenId);
+      const token = await getTokenStatus({ token_id: parsedTokenId });
+      setLastToken(token);
+      setMessage('Token cancelled successfully.');
+    } catch (error) {
+      showApiErrorToast(error);
+      setMessage(getErrorMessage(error));
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   useEffect(() => {
     if (!tokenId || Number.isNaN(parsedTokenId)) {
@@ -35,6 +60,7 @@ export function TokenStatus() {
         setMessage('');
       } catch (error) {
         if (cancelled) return;
+        showApiErrorToast(error);
         setMessage(getErrorMessage(error));
         setLastToken(null);
       } finally {
@@ -58,15 +84,17 @@ export function TokenStatus() {
   return (
     <main className="min-h-screen px-4 py-5  animate-fadeIn">
       <section className="mx-auto max-w-md animate-slideUp">
-        <header className="rounded-lg bg-brand-red  text-white p-4 text-ink glass-panel border-l-4 border-brand-red">
-          <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-contain" />
-            <div>
-              <p className="text-sm text-white">QR checkout queue</p>
-              <h1 className="text-2xl font-semibold">Token status</h1>
+        <header className="glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm">
+              <img src={brandLogo} alt="Checkout Queue logo" className="h-full w-full object-cover" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">QR checkout queue</p>
+              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Token status</h1>
             </div>
           </div>
-          <p className="mt-3 text-sm text-white">Token ID: {parsedTokenId}</p>
+          <p className="mt-3 text-sm text-white/95">Token ID: {parsedTokenId}</p>
         </header>
 
         {loading ? (
@@ -98,6 +126,28 @@ export function TokenStatus() {
             <p className="mt-4 rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">
               Estimate method: {lastToken.calculation_method}
             </p>
+            <button
+              type="button"
+              onClick={handleCancelToken}
+              disabled={!canCancel || cancelling}
+              className="mt-4 w-full rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cancelling ? 'Cancelling token...' : 'Cancel token'}
+            </button>
+            {isCancelled ? (
+              <Link
+                to="/app/customer/create"
+                className="mt-3 block w-full rounded-lg bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white"
+              >
+                Create new token
+              </Link>
+            ) : null}
+            <Link
+              to="/app/customer/status/lookup"
+              className="mt-3 block w-full rounded-lg bg-brand-blush px-4 py-3 text-center text-sm font-semibold text-brand-red"
+            >
+              Check another token by mobile
+            </Link>
           </section>
         ) : null}
 

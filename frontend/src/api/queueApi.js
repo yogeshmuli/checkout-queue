@@ -1,31 +1,105 @@
-import { httpClient } from './httpClient.js';
+import { httpClient, normalizeApiError } from './httpClient.js';
 
-export function joinQueue(payload) {
-  return httpClient.post('/queue/join', payload).then((response) => response.data);
+export async function joinQueue(payload) {
+  try {
+    const response = await httpClient.post('/queue/join', payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function getTokenStatus(params) {
-  return httpClient.get('/queue/status', { params }).then((response) => response.data);
+export async function getTokenStatus(params) {
+  try {
+    const response = await httpClient.get('/queue/status', { params });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function getCounterQueue(counterId) {
-  return httpClient.get(`/queue/counters/${counterId}/tokens`).then((response) => response.data);
+export async function listStoreSections() {
+  try {
+    const response = await httpClient.get('/queue/store-sections');
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function updateCounterStatus(counterId, payload) {
-  return httpClient.patch(`/queue/counters/${counterId}/status`, payload).then((response) => response.data);
+export async function listQueueTokens(params = {}) {
+  try {
+    const response = await httpClient.get('/queue/tokens', { params });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function startToken(tokenId) {
-  return httpClient.post(`/queue/tokens/${tokenId}/start`).then((response) => response.data);
+export async function getCounterQueue(counterId) {
+  try {
+    const response = await httpClient.get(`/queue/counters/${counterId}/tokens`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function completeToken(tokenId) {
-  return httpClient.post(`/queue/tokens/${tokenId}/complete`).then((response) => response.data);
+export async function updateCounterStatus(counterId, payload) {
+  try {
+    const response = await httpClient.patch(`/queue/counters/${counterId}/status`, payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function cancelToken(tokenId, cancellationReason) {
-  return httpClient
-    .post(`/queue/tokens/${tokenId}/cancel`, { cancellation_reason: cancellationReason || 'Cancelled from staff console' })
-    .then((response) => response.data);
+export async function callToken(tokenId) {
+  try {
+    const response = await httpClient.post('/queue/events', {
+      token_id: tokenId,
+      event: 'CALLED',
+    });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}
+
+export async function startToken(tokenId) {
+  try {
+    const response = await httpClient.post(`/queue/tokens/${tokenId}/start`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}
+
+export async function completeToken(tokenId) {
+  try {
+    const response = await httpClient.post(`/queue/tokens/${tokenId}/complete`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}
+
+export async function cancelToken(tokenId, cancellationReason) {
+  try {
+    const response = await httpClient.post(`/queue/tokens/${tokenId}/cancel`, {
+      cancellation_reason: cancellationReason || 'Cancelled from staff console',
+    });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}
+
+export async function cancelCustomerToken(tokenId) {
+  try {
+    const response = await httpClient.post(`/queue/tokens/${tokenId}/customer-cancel`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }

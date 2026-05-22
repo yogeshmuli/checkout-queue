@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 from datetime import datetime, timedelta, timezone
 
-from app.models.checkout_section import CheckoutSection
+from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
@@ -21,14 +21,14 @@ class FakeQueueRepository:
                 id=1,
                 store_id=1,
                 name="Regular",
-                section_type="regular",
+                section_type=CheckoutSectionType.REGULAR,
                 is_active=True,
             ),
             2: CheckoutSection(
                 id=2,
                 store_id=1,
                 name="Inactive",
-                section_type="regular",
+                section_type=CheckoutSectionType.REGULAR,
                 is_active=False,
             ),
         }

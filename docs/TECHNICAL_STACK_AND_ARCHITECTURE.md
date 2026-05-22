@@ -14,6 +14,7 @@ The application will support customer checkout queue registration, cashier queue
 | --- | --- |
 | Framework | React |
 | Build Tool | Vite |
+| PWA | vite-plugin-pwa with web app manifest and service worker |
 | Language | JavaScript |
 | Routing | React Router |
 | API Client | Axios |
@@ -432,7 +433,7 @@ The ML model should predict checkout service time for a customer. Full queue wai
 | `store_calendars` | Working days and open/close time |
 | `store_holidays` | Holiday dates |
 | `store_events` | Promotion, sale, and peak-event dates |
-| `checkout_sections` | Regular, express, self-checkout, returns, priority |
+| `checkout_sections` | Checkout sections with enum-backed type: regular, express, self-checkout, returns, priority |
 | `counter_types` | Counter type counts and active/inactive counters |
 | `queue_tokens` | Customer checkout queue entries |
 | `queue_status_events` | Token state transitions for audit and analytics |

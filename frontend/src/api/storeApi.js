@@ -1,18 +1,38 @@
-import { httpClient } from './httpClient.js';
+import { httpClient, normalizeApiError } from './httpClient.js';
 
-export function listStores(params = {}) {
-  return httpClient.get('/stores', { params }).then((response) => response.data);
+export async function listStores(params = {}) {
+  try {
+    const response = await httpClient.get('/stores', { params });
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function createStore(payload) {
-  return httpClient.post('/stores', payload).then((response) => response.data);
+export async function createStore(payload) {
+  try {
+    const response = await httpClient.post('/stores', payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function updateStore(storeId, payload) {
-  return httpClient.patch(`/stores/${storeId}`, payload).then((response) => response.data);
+export async function updateStore(storeId, payload) {
+  try {
+    const response = await httpClient.patch(`/stores/${storeId}`, payload);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 
-export function deleteStore(storeId) {
-  return httpClient.delete(`/stores/${storeId}`).then((response) => response.data);
+export async function deleteStore(storeId) {
+  try {
+    const response = await httpClient.delete(`/stores/${storeId}`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
 }
 

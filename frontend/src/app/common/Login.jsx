@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../assets/images/equilateral_logo.png';
 import { loginUser } from '../../api/authApi.js';
-import { getErrorMessage } from '../../api/httpClient.js';
+import { getErrorMessage, showApiErrorToast } from '../../api/httpClient.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { getUserScope } from './roleUtils.js';
 
@@ -30,6 +30,7 @@ export function Login() {
       const scope = getUserScope(session.user);
       navigate(scope === 'admin' ? '/' : '/app/staff', { replace: true });
     } catch (error) {
+      showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
@@ -41,7 +42,7 @@ export function Login() {
       <section className="mx-auto flex min-h-screen max-w-md flex-col justify-center animate-slideUp">
         <header className="rounded-lg bg-brand-red px-4 py-3 text-white shadow-brand">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-contain" />
+            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
             <div>
               <p className="text-xs text-red-100">Checkout Queue</p>
               <h1 className="text-2xl font-semibold text-white">Sign in</h1>
