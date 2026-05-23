@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.routes import (
+    analytics_routes,
     auth_routes,
     calendar_routes,
     counter_routes,
@@ -14,6 +15,7 @@ from app.routes import (
 )
 
 api_router = APIRouter()
+api_router.include_router(analytics_routes.router)
 api_router.include_router(auth_routes.router)
 api_router.include_router(health_routes.router, tags=["health"])
 api_router.include_router(queue_routes.router)

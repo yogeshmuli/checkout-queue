@@ -824,6 +824,20 @@ GET  /api/v1/ml/stores/{store_id}/metadata
 POST /api/v1/ml/stores/{store_id}/predict-service-time
 ```
 
+### Analytics
+
+```text
+GET /api/v1/analytics/stores/{store_id}?days={days}
+```
+
+The store analytics endpoint powers the admin smart dashboard. It returns live queue totals, counter utilization, section and counter breakdowns, live section cards, active counter sessions, last-token wait and item-ahead estimates, daily token trends, weekly/hourly segments, promotion/sale analysis, customer/item segments, calendar signals, latest ML model metadata, and generated operational insights.
+
+Admin dashboard UI now supports URL-filterable store/range/view state with three tabs:
+
+- Live: section-as-zone cards with last token, active/inactive counters, active counter token assignments, estimated wait, estimated items ahead, average wait/items, total cancellations, and last-hour cancellations.
+- History: promotion-day, time/day, date-based, section, customer-type, and item-bucket analytics.
+- Foresights: ML status, model sample count, churn/utilization signals, operational insights, and active counter pressure links.
+
 ## Implemented Frontend Routes
 
 ```text
@@ -849,9 +863,8 @@ POST /api/v1/ml/stores/{store_id}/predict-service-time
 - Alert configuration.
 - Alert scheduler.
 - WhatsApp/SMS integrations.
-- Analytics APIs.
 - Demo seed data scripts.
-- Frontend API integration for admin alerts and analytics modules.
+- Frontend API integration for admin alerts.
 
 Latest frontend verification:
 
@@ -865,5 +878,5 @@ npm run lint
 Current backend test status:
 
 ```text
-35 passed
+36 passed
 ```
