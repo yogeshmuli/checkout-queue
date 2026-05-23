@@ -2,6 +2,8 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, Field
 
+from app.models.calendar import StoreCalendarEventType
+
 
 class StoreCalendarDayRequest(BaseModel):
     weekday: int = Field(ge=0, le=6)
@@ -16,10 +18,18 @@ class StoreHolidayRequest(BaseModel):
     is_active: bool = True
 
 
+class StoreCalendarEventRequest(BaseModel):
+    event_date: date
+    name: str | None = Field(default=None, max_length=150)
+    event_type: StoreCalendarEventType
+    is_active: bool = True
+
+
 class StoreCalendarUpdateRequest(BaseModel):
     timezone: str = Field(default="Asia/Kolkata", min_length=1, max_length=64)
     days: list[StoreCalendarDayRequest] = Field(min_length=7, max_length=7)
     holidays: list[StoreHolidayRequest] = Field(default_factory=list)
+    events: list[StoreCalendarEventRequest] | None = None
 
 
 class StoreCalendarDayResponse(BaseModel):
@@ -40,8 +50,19 @@ class StoreHolidayResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class StoreCalendarEventResponse(BaseModel):
+    id: int | None = None
+    event_date: date
+    name: str | None
+    event_type: StoreCalendarEventType
+    is_active: bool
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
 class StoreCalendarResponse(BaseModel):
     store_id: int
     timezone: str
     days: list[StoreCalendarDayResponse]
     holidays: list[StoreHolidayResponse]
+    events: list[StoreCalendarEventResponse]

@@ -1,9 +1,12 @@
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.calendar import StoreCalendarDay, StoreHoliday
+from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreCalendarEventType, StoreHoliday
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
+from app.models.ml_model_metadata import MLModelMetadata
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.store_config import StoreConfig
@@ -41,9 +44,30 @@ class QueueRepository:
         statement = select(StoreConfig).where(StoreConfig.store_id == store_id)
         return self.db.scalar(statement)
 
+    def get_ready_ml_model_metadata(self, store_id: int) -> MLModelMetadata | None:
+        statement = (
+            select(MLModelMetadata)
+            .where(
+                MLModelMetadata.store_id == store_id,
+                MLModelMetadata.status == "READY",
+            )
+            .order_by(MLModelMetadata.trained_at.desc().nulls_last(), MLModelMetadata.id.desc())
+            .limit(1)
+        )
+        return self.db.scalar(statement)
+
     def list_calendar_days(self, store_id: int) -> list[StoreCalendarDay]:
         statement = select(StoreCalendarDay).where(StoreCalendarDay.store_id == store_id).order_by(StoreCalendarDay.weekday.asc())
         return list(self.db.scalars(statement).all())
+
+    def get_store_timezone(self, store_id: int) -> str | None:
+        statement = (
+            select(StoreCalendarDay.timezone)
+            .where(StoreCalendarDay.store_id == store_id)
+            .order_by(StoreCalendarDay.weekday.asc())
+            .limit(1)
+        )
+        return self.db.scalar(statement)
 
     def get_active_holiday(self, store_id: int, holiday_date) -> StoreHoliday | None:
         statement = select(StoreHoliday).where(
@@ -52,6 +76,24 @@ class QueueRepository:
             StoreHoliday.is_active.is_(True),
         )
         return self.db.scalar(statement)
+
+    def has_active_promotion_event(self, store_id: int, event_date) -> bool:
+        statement = (
+            select(StoreCalendarEvent.id)
+            .where(
+                StoreCalendarEvent.store_id == store_id,
+                StoreCalendarEvent.event_date == event_date,
+                StoreCalendarEvent.event_type.in_(
+                    (
+                        StoreCalendarEventType.PROMOTION,
+                        StoreCalendarEventType.SALE,
+                    )
+                ),
+                StoreCalendarEvent.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        return self.db.scalar(statement) is not None
 
     def list_active_stores_with_sections(self) -> list[Store]:
         statement = (
@@ -120,6 +162,68 @@ class QueueRepository:
             )
             .order_by(QueueToken.calling_time.asc().nulls_last(), QueueToken.id.asc())
         )
+        return list(self.db.scalars(statement).all())
+
+    def count_section_busy_tokens_at(
+        self,
+        store_id: int,
+        section_id: int | None,
+        at_time: datetime,
+        exclude_token_id: int | None = None,
+    ) -> int:
+        statement = select(func.count(QueueToken.id)).where(
+            QueueToken.store_id == store_id,
+            QueueToken.created_at <= at_time,
+            or_(QueueToken.completed_at.is_(None), QueueToken.completed_at > at_time),
+            or_(QueueToken.cancelled_at.is_(None), QueueToken.cancelled_at > at_time),
+        )
+        if section_id is None:
+            statement = statement.where(QueueToken.section_id.is_(None))
+        else:
+            statement = statement.where(QueueToken.section_id == section_id)
+        if exclude_token_id is not None:
+            statement = statement.where(QueueToken.id != exclude_token_id)
+        return self.db.scalar(statement) or 0
+
+    def count_active_counters_for_section(self, store_id: int, section_id: int | None) -> int:
+        statement = (
+            select(func.count(Counter.id))
+            .join(CheckoutSection, CheckoutSection.id == Counter.section_id)
+            .where(
+                CheckoutSection.store_id == store_id,
+                CheckoutSection.is_active.is_(True),
+                Counter.is_active.is_(True),
+            )
+        )
+        if section_id is not None:
+            statement = statement.where(Counter.section_id == section_id)
+        return self.db.scalar(statement) or 0
+
+    def list_recent_section_terminal_tokens(
+        self,
+        store_id: int,
+        section_id: int | None,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> list[QueueToken]:
+        statement = select(QueueToken).where(
+            QueueToken.store_id == store_id,
+            QueueToken.status.in_(
+                (
+                    QueueTokenStatus.COMPLETED,
+                    QueueTokenStatus.CANCELLED,
+                    QueueTokenStatus.NO_SHOW,
+                )
+            ),
+            or_(
+                QueueToken.completed_at.between(start_time, end_time),
+                QueueToken.cancelled_at.between(start_time, end_time),
+            ),
+        )
+        if section_id is None:
+            statement = statement.where(QueueToken.section_id.is_(None))
+        else:
+            statement = statement.where(QueueToken.section_id == section_id)
         return list(self.db.scalars(statement).all())
 
     def list_tokens_for_counter(self, counter_id: int) -> list[QueueToken]:

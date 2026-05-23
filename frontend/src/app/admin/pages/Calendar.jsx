@@ -15,6 +15,13 @@ const DEFAULT_DAY = {
   close_time: '23:59',
 };
 
+const EVENT_TYPE_OPTIONS = [
+  { label: 'Promotion', value: 'PROMOTION' },
+  { label: 'Sale', value: 'SALE' },
+  { label: 'Holiday event', value: 'HOLIDAY' },
+  { label: 'Other', value: 'OTHER' },
+];
+
 function emptyDays() {
   return WEEKDAYS.map((_, weekday) => ({
     weekday,
@@ -44,13 +51,19 @@ function toForm(calendar) {
       name: holiday.name || '',
       is_active: holiday.is_active,
     })),
+    events: (calendar?.events || []).map((event) => ({
+      event_date: event.event_date,
+      name: event.name || '',
+      event_type: event.event_type || 'PROMOTION',
+      is_active: event.is_active,
+    })),
   };
 }
 
 export function Calendar() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stores, setStores] = useState([]);
-  const [form, setForm] = useState({ timezone: 'Asia/Kolkata', days: emptyDays(), holidays: [] });
+  const [form, setForm] = useState({ timezone: 'Asia/Kolkata', days: emptyDays(), holidays: [], events: [] });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const storeId = searchParams.get('store_id') || '';
@@ -84,7 +97,7 @@ export function Calendar() {
   useEffect(() => {
     async function loadCalendar() {
       if (!storeId) {
-        setForm({ timezone: 'Asia/Kolkata', days: emptyDays(), holidays: [] });
+        setForm({ timezone: 'Asia/Kolkata', days: emptyDays(), holidays: [], events: [] });
         return;
       }
 
@@ -143,6 +156,27 @@ export function Calendar() {
     }));
   }
 
+  function addEvent() {
+    setForm((prev) => ({
+      ...prev,
+      events: [...(prev.events || []), { event_date: '', name: '', event_type: 'PROMOTION', is_active: true }],
+    }));
+  }
+
+  function updateEvent(index, field, value) {
+    setForm((prev) => ({
+      ...prev,
+      events: (prev.events || []).map((eventItem, eventIndex) => (eventIndex === index ? { ...eventItem, [field]: value } : eventItem)),
+    }));
+  }
+
+  function removeEvent(index) {
+    setForm((prev) => ({
+      ...prev,
+      events: (prev.events || []).filter((_, eventIndex) => eventIndex !== index),
+    }));
+  }
+
   async function saveCalendar(event) {
     event.preventDefault();
     if (!storeId) {
@@ -153,6 +187,11 @@ export function Calendar() {
     const invalidHoliday = form.holidays.find((holiday) => !holiday.holiday_date);
     if (invalidHoliday) {
       setMessage('Holiday date is required.');
+      return;
+    }
+    const invalidEvent = (form.events || []).find((eventItem) => !eventItem.event_date);
+    if (invalidEvent) {
+      setMessage('Calendar event date is required.');
       return;
     }
 
@@ -171,6 +210,12 @@ export function Calendar() {
           holiday_date: holiday.holiday_date,
           name: holiday.name.trim() || null,
           is_active: holiday.is_active,
+        })),
+        events: (form.events || []).map((eventItem) => ({
+          event_date: eventItem.event_date,
+          name: eventItem.name.trim() || null,
+          event_type: eventItem.event_type,
+          is_active: eventItem.is_active,
         })),
       };
       setForm(toForm(await updateStoreCalendar(storeId, payload)));
@@ -256,54 +301,111 @@ export function Calendar() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-line bg-white p-5">
-        <SectionHeader
-          eyebrow="Closed dates"
-          title="Holidays"
-          action={
-            <button type="button" onClick={addHoliday} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-charcoal">
-              <CalendarPlus size={16} />
-              Add
-            </button>
-          }
-        />
+      <div className="space-y-6">
+        <section className="rounded-lg border border-line bg-white p-5">
+          <SectionHeader
+            eyebrow="Closed dates"
+            title="Holidays"
+            action={
+              <button type="button" onClick={addHoliday} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-charcoal">
+                <CalendarPlus size={16} />
+                Add
+              </button>
+            }
+          />
 
-        <div className="mt-5 space-y-3">
-          {form.holidays.length === 0 ? <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No holidays configured.</p> : null}
-          {form.holidays.map((holiday, index) => (
-            <div key={`${holiday.holiday_date}-${index}`} className="rounded-lg border border-line p-3">
-              <div className="grid gap-3">
-                <input
-                  type="date"
-                  value={holiday.holiday_date}
-                  onChange={(event) => updateHoliday(index, 'holiday_date', event.target.value)}
-                  className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-                />
-                <input
-                  value={holiday.name}
-                  onChange={(event) => updateHoliday(index, 'name', event.target.value)}
-                  placeholder="Holiday name"
-                  className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-                />
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm font-medium text-charcoal">
-                    <input
-                      type="checkbox"
-                      checked={holiday.is_active}
-                      onChange={(event) => updateHoliday(index, 'is_active', event.target.checked)}
-                      className="size-4 accent-brand-red"
-                    />
-                    Active
-                  </label>
-                  <button type="button" onClick={() => removeHoliday(index)} className="rounded-lg border border-rose-200 p-2 text-rose-700" aria-label="Remove holiday">
-                    <Trash2 size={16} />
-                  </button>
+          <div className="mt-5 space-y-3">
+            {form.holidays.length === 0 ? <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No holidays configured.</p> : null}
+            {form.holidays.map((holiday, index) => (
+              <div key={`${holiday.holiday_date}-${index}`} className="rounded-lg border border-line p-3">
+                <div className="grid gap-3">
+                  <input
+                    type="date"
+                    value={holiday.holiday_date}
+                    onChange={(event) => updateHoliday(index, 'holiday_date', event.target.value)}
+                    className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+                  />
+                  <input
+                    value={holiday.name}
+                    onChange={(event) => updateHoliday(index, 'name', event.target.value)}
+                    placeholder="Holiday name"
+                    className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+                  />
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium text-charcoal">
+                      <input
+                        type="checkbox"
+                        checked={holiday.is_active}
+                        onChange={(event) => updateHoliday(index, 'is_active', event.target.checked)}
+                        className="size-4 accent-brand-red"
+                      />
+                      Active
+                    </label>
+                    <button type="button" onClick={() => removeHoliday(index)} className="rounded-lg border border-rose-200 p-2 text-rose-700" aria-label="Remove holiday">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-line bg-white p-5">
+          <SectionHeader
+            eyebrow="Demand signals"
+            title="Promotional days"
+            action={
+              <button type="button" onClick={addEvent} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-charcoal">
+                <CalendarPlus size={16} />
+                Add
+              </button>
+            }
+          />
+
+          <div className="mt-5 space-y-3">
+            {(form.events || []).length === 0 ? <p className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">No promotional days configured.</p> : null}
+            {(form.events || []).map((eventItem, index) => (
+              <div key={`${eventItem.event_date}-${eventItem.event_type}-${index}`} className="rounded-lg border border-line p-3">
+                <div className="grid gap-3">
+                  <input
+                    type="date"
+                    value={eventItem.event_date}
+                    onChange={(event) => updateEvent(index, 'event_date', event.target.value)}
+                    className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+                  />
+                  <Select
+                    label="Type"
+                    value={eventItem.event_type}
+                    options={EVENT_TYPE_OPTIONS}
+                    onChange={(value) => updateEvent(index, 'event_type', value)}
+                  />
+                  <input
+                    value={eventItem.name}
+                    onChange={(event) => updateEvent(index, 'name', event.target.value)}
+                    placeholder="Event name"
+                    className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+                  />
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-sm font-medium text-charcoal">
+                      <input
+                        type="checkbox"
+                        checked={eventItem.is_active}
+                        onChange={(event) => updateEvent(index, 'is_active', event.target.checked)}
+                        className="size-4 accent-brand-red"
+                      />
+                      Active
+                    </label>
+                    <button type="button" onClick={() => removeEvent(index)} className="rounded-lg border border-rose-200 p-2 text-rose-700" aria-label="Remove event">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
     </form>
   );
 }

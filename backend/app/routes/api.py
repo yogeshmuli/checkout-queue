@@ -5,6 +5,7 @@ from app.routes import (
     calendar_routes,
     counter_routes,
     health_routes,
+    ml_routes,
     queue_routes,
     section_routes,
     staff_routes,
@@ -22,3 +23,4 @@ api_router.include_router(calendar_routes.router)
 api_router.include_router(section_routes.router)
 api_router.include_router(counter_routes.router)
 api_router.include_router(staff_routes.router)
+api_router.include_router(ml_routes.router)

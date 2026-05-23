@@ -16,6 +16,7 @@ The backend currently supports:
 - Staff management APIs.
 - Store queue configuration APIs.
 - Store calendar APIs.
+- ML service-time training and prediction metadata APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
 - React/Vite frontend scaffold with admin, staff, and customer role views.
 - Customer token status lookup and staff queue processing APIs.
@@ -594,10 +595,67 @@ Result:
 
 - Stores weekly hours in `store_calendar_days`.
 - Stores manually configured holiday dates in `store_holidays`.
+- Stores calendar events in `store_calendar_events`, including `PROMOTION`, `SALE`, `HOLIDAY`, and `OTHER` event types.
 - Seeds stores with always-open calendar defaults so existing queue behavior is preserved.
 - Queue join rejects new tokens only when the configured calendar says the store is closed.
 - Existing active tokens and staff queue processing continue unaffected.
 - Exposes a frontend admin screen at `/app/admin/calendar?store_id={store_id}`.
+
+### 20. Admin Can Train Store ML Service-Time Model
+
+As an authorized admin or manager, I can train and inspect a store-specific service-time model.
+
+Endpoint:
+
+```text
+POST /api/v1/ml/stores/{store_id}/train
+GET  /api/v1/ml/stores/{store_id}/metadata
+POST /api/v1/ml/stores/{store_id}/predict-service-time
+```
+
+Allowed roles:
+
+```text
+SUPER_ADMIN
+STORE_ADMIN
+MANAGER
+```
+
+Result:
+
+- Uses completed queue tokens where `service_started_at` and `completed_at` are present.
+- Requires at least 50 completed checkout records by default.
+- Trains a store-specific RandomForest model artifact in `.joblib` format.
+- Uses item count, section busyness, active section counter count, recent cancellation behavior, recent average service time, time of day, day of week, weekend flag, calendar promotion/sale flag, basket size, cart type, customer type, section, and assigned counter as prediction features.
+- Persists metadata in `ml_model_metadata`, including trained time, sample size, MAE, R2, accuracy, data quality, and feature importance.
+- Caches loaded model artifacts in process memory by store id, model version, artifact path, and file mtime.
+- Queue token creation uses `ML_PREDICTED` service minutes when a ready model exists.
+- Queue token creation falls back to the existing rule-based service-time calculation when no model is ready or prediction fails.
+- Exposes a frontend admin screen at `/app/admin/ml?store_id={store_id}`.
+
+Flow:
+
+```text
+Train model:
+Admin ML page -> POST /api/v1/ml/stores/{store_id}/train
+  -> MLTrainingService loads completed queue history
+  -> service duration is calculated from completed_at - service_started_at
+  -> contextual training features are extracted from queue history, section load, recent history, and store calendar events
+  -> local model artifact is written under ML_MODEL_DIR
+  -> ml_model_metadata stores model status and metrics
+
+Use model:
+Customer joins queue -> POST /api/v1/queue/join
+  -> QueueService asks PredictionService for service-time prediction
+  -> PredictionService reuses cached artifact when available
+  -> if READY metadata and artifact work, token uses ML_PREDICTED
+  -> otherwise token uses existing RULE_BASED service-time calculation
+  -> QueueService still calculates counter assignment, calling_time, position, and wait time
+
+View model:
+Admin ML page -> GET /api/v1/ml/stores/{store_id}/metadata
+  -> UI shows status, sample size, trained time, MAE, R2, accuracy, and data quality
+```
 
 ## Implemented Technical Capabilities
 
@@ -630,10 +688,12 @@ Implemented models:
 
 - `Store`
 - `StoreCalendarDay`
+- `StoreCalendarEvent`
 - `StoreConfig`
 - `StoreHoliday`
 - `CheckoutSection`
 - `Counter`
+- `MLModelMetadata`
 - `QueueToken`
 - `User`
 - `UserStoreAccess`
@@ -649,6 +709,7 @@ Implemented enums:
 - `UserRole`
 - `CheckoutSectionType`
 - `CounterType`
+- `StoreCalendarEventType`
 
 ### Alembic Migrations
 
@@ -664,6 +725,8 @@ Implemented migrations:
 - `20260522_0007_add_store_configs.py`
 - `20260522_0008_convert_counter_type_to_enum.py`
 - `20260522_0009_add_store_calendar.py`
+- `20260522_0010_add_ml_model_metadata.py`
+- `20260522_0011_add_store_calendar_events.py`
 
 ### Authentication
 
@@ -753,6 +816,14 @@ PATCH  /api/v1/staff/{staff_id}
 DELETE /api/v1/staff/{staff_id}
 ```
 
+### Machine Learning
+
+```text
+POST /api/v1/ml/stores/{store_id}/train
+GET  /api/v1/ml/stores/{store_id}/metadata
+POST /api/v1/ml/stores/{store_id}/predict-service-time
+```
+
 ## Implemented Frontend Routes
 
 ```text
@@ -767,6 +838,7 @@ DELETE /api/v1/staff/{staff_id}
 /app/admin/staff
 /app/admin/queue
 /app/admin/calendar
+/app/admin/ml
 /app/admin/alerts
 /app/staff
 /app/customer
@@ -778,55 +850,8 @@ DELETE /api/v1/staff/{staff_id}
 - Alert scheduler.
 - WhatsApp/SMS integrations.
 - Analytics APIs.
-- ML training and prediction APIs.
 - Demo seed data scripts.
-- Frontend API integration for admin alerts, analytics, and ML modules.
-
-## Planned Feature Specs
-
-### ML-Assisted Service-Time Prediction
-
-As an admin or manager, I can enable ML-assisted service-time prediction so customer token wait estimates improve from historical completed checkout data.
-
-Planned backend behavior:
-
-- Predict checkout service duration for each token, not the full queue wait time directly.
-- Keep the current queue scheduling flow responsible for calculating `calling_time` and estimated wait from active counters, current serving tokens, and waiting tokens ahead.
-- Use completed queue tokens as training data only when `service_started_at` and `completed_at` are both available.
-- Derive actual service duration from `completed_at - service_started_at`.
-- Build model features from fields such as item count, basket size, cart type, customer type, store, section, assigned counter, day of week, weekend flag, hour of day, and store calendar context where available.
-- Use ML prediction only when enough completed history and a trained model are available.
-- Fall back to the existing rule-based store configuration when ML is disabled, unavailable, stale, under-trained, or raises an error.
-- Store the prediction source in `queue_tokens.calculation_method` with values such as `RULE_BASED`, `ML_PREDICTED`, or `ML_FALLBACK_RULE_BASED`.
-
-Planned APIs:
-
-```text
-POST /api/v1/ml/service-time/train
-GET  /api/v1/ml/service-time/status
-```
-
-Authentication:
-
-```text
-Authorization: Bearer <access_token>
-```
-
-Allowed roles:
-
-```text
-SUPER_ADMIN
-STORE_ADMIN
-MANAGER
-```
-
-Planned implementation notes:
-
-- Add a backend `ml_engine` module for feature extraction, training, prediction, and model artifact loading.
-- Add a prediction service that `QueueService` can call when creating a token or rebuilding queue schedules.
-- Use scikit-learn for the first implementation and store model artifacts locally before introducing object storage or a model registry.
-- Keep PostgreSQL as the only application database source for training data.
-- Add tests for feature extraction, rule-based fallback, ML prediction success, missing model fallback, insufficient data fallback, and queue integration.
+- Frontend API integration for admin alerts and analytics modules.
 
 Latest frontend verification:
 
@@ -840,5 +865,5 @@ npm run lint
 Current backend test status:
 
 ```text
-31 passed
+35 passed
 ```

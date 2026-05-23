@@ -4,10 +4,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.calendar import StoreCalendarDay, StoreHoliday
+from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreHoliday
 from app.repositories.calendar_repository import CalendarRepository
 from app.schemas.calendar import (
     StoreCalendarDayResponse,
+    StoreCalendarEventResponse,
     StoreCalendarResponse,
     StoreCalendarUpdateRequest,
     StoreHolidayResponse,
@@ -27,8 +28,9 @@ class CalendarService:
         self._ensure_store_exists(store_id)
         days = self._ensure_default_days(store_id)
         holidays = self.repository.list_holidays(store_id)
+        events = self.repository.list_events(store_id)
         self.repository.commit()
-        return self._build_response(store_id, days, holidays)
+        return self._build_response(store_id, days, holidays, events)
 
     def update_calendar(self, store_id: int, payload: StoreCalendarUpdateRequest) -> StoreCalendarResponse:
         self._ensure_store_exists(store_id)
@@ -59,8 +61,26 @@ class CalendarService:
                 )
             )
 
+        if payload.events is not None:
+            self.repository.delete_events(store_id)
+            for event_payload in payload.events:
+                self.repository.add(
+                    StoreCalendarEvent(
+                        store_id=store_id,
+                        event_date=event_payload.event_date,
+                        name=event_payload.name.strip() if event_payload.name else None,
+                        event_type=event_payload.event_type,
+                        is_active=event_payload.is_active,
+                    )
+                )
+
         self.repository.commit()
-        return self._build_response(store_id, self.repository.list_days(store_id), self.repository.list_holidays(store_id))
+        return self._build_response(
+            store_id,
+            self.repository.list_days(store_id),
+            self.repository.list_holidays(store_id),
+            self.repository.list_events(store_id),
+        )
 
     def is_store_open_for_queue(self, store_id: int, now: datetime | None = None) -> bool:
         now_utc = now or datetime.now(timezone.utc)
@@ -117,6 +137,7 @@ class CalendarService:
         store_id: int,
         days: list[StoreCalendarDay],
         holidays: list[StoreHoliday],
+        events: list[StoreCalendarEvent],
     ) -> StoreCalendarResponse:
         timezone_name = days[0].timezone if days else DEFAULT_TIMEZONE
         return StoreCalendarResponse(
@@ -143,6 +164,18 @@ class CalendarService:
                     updated_at=holiday.updated_at,
                 )
                 for holiday in holidays
+            ],
+            events=[
+                StoreCalendarEventResponse(
+                    id=event.id,
+                    event_date=event.event_date,
+                    name=event.name,
+                    event_type=event.event_type,
+                    is_active=event.is_active,
+                    created_at=event.created_at,
+                    updated_at=event.updated_at,
+                )
+                for event in events
             ],
         )
 

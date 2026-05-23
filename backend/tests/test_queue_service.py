@@ -36,6 +36,7 @@ class FakeQueueRepository:
         }
         self.tokens: list[QueueToken] = []
         self.store_configs: dict[int, StoreConfig] = {}
+        self.ml_model_metadata = {}
         self.calendar_days: dict[int, list[StoreCalendarDay]] = {}
         self.holidays: dict[tuple[int, object], StoreHoliday] = {}
         now = datetime.now(timezone.utc)
@@ -49,6 +50,9 @@ class FakeQueueRepository:
 
     def get_store_config(self, store_id: int) -> StoreConfig | None:
         return self.store_configs.get(store_id)
+
+    def get_ready_ml_model_metadata(self, store_id: int):
+        return self.ml_model_metadata.get(store_id)
 
     def list_calendar_days(self, store_id: int) -> list[StoreCalendarDay]:
         return self.calendar_days.get(store_id, [])

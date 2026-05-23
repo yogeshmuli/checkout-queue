@@ -20,6 +20,8 @@ from app.schemas.queue import (
     QueueStoreSectionResponse,
     QueueTokenResponse,
 )
+from app.schemas.ml import ServiceTimePredictionRequest
+from app.services.prediction_service import PredictionService
 
 
 class QueueService:
@@ -74,7 +76,7 @@ class QueueService:
 
         selected_counter = min(counters, key=lambda c: self._normalize_to_utc(c.next_available_time))
         calling_time = max(now, self._normalize_to_utc(selected_counter.next_available_time))
-        service_minutes = self._estimate_service_minutes(payload.item_count, store_config)
+        service_minutes, calculation_method = self._predict_service_time(payload, selected_counter.id, now, store_config)
         service_time = timedelta(minutes=service_minutes)
         wait_minutes = max(0, math.ceil((calling_time - now).total_seconds() / 60))
 
@@ -101,7 +103,7 @@ class QueueService:
             is_still_shopping=payload.is_still_shopping,
      
             service_time_minutes=service_minutes,
-            calculation_method=self.CALCULATION_METHOD,
+            calculation_method=calculation_method,
         )
         self.repository.create_token(token)
         self.repository.commit()
@@ -116,7 +118,7 @@ class QueueService:
             status=token.status,
             position=position,
             estimated_wait_minutes=wait_minutes,
-            calculation_method=self.CALCULATION_METHOD,
+            calculation_method=calculation_method,
             calling_time=calling_time,
         )
 
@@ -347,6 +349,29 @@ class QueueService:
         item_based_service_time = base_service_minutes + ((item_count or 0) * per_item_service_minutes)
         service_time = max(min_service_minutes, math.ceil(item_based_service_time))
         return service_time
+
+    def _predict_service_time(
+        self,
+        payload: QueueJoinRequest,
+        assigned_counter_id: int | None,
+        requested_at: datetime,
+        config: StoreConfig | None = None,
+    ) -> tuple[int, str]:
+        prediction = PredictionService(self.repository).predict_service_time(
+            payload.store_id,
+            ServiceTimePredictionRequest(
+                section_id=payload.section_id,
+                assigned_counter_id=assigned_counter_id,
+                item_count=payload.item_count,
+                basket_size=payload.basket_size,
+                cart_type=payload.cart_type,
+                customer_type=payload.customer_type,
+                requested_at=requested_at,
+            ),
+        )
+        if prediction is not None:
+            return prediction.service_time_minutes, prediction.calculation_method
+        return self._estimate_service_minutes(payload.item_count, config), self.CALCULATION_METHOD
 
     def _calculate_counter_position(
         self,

@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.models.calendar import StoreCalendarDay, StoreHoliday
+from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreHoliday
 from app.models.store import Store
 
 
@@ -29,6 +29,10 @@ class CalendarRepository:
         statement = select(StoreHoliday).where(StoreHoliday.store_id == store_id).order_by(StoreHoliday.holiday_date.asc())
         return list(self.db.scalars(statement).all())
 
+    def list_events(self, store_id: int) -> list[StoreCalendarEvent]:
+        statement = select(StoreCalendarEvent).where(StoreCalendarEvent.store_id == store_id).order_by(StoreCalendarEvent.event_date.asc())
+        return list(self.db.scalars(statement).all())
+
     def get_active_holiday(self, store_id: int, holiday_date: date) -> StoreHoliday | None:
         statement = select(StoreHoliday).where(
             StoreHoliday.store_id == store_id,
@@ -42,6 +46,9 @@ class CalendarRepository:
 
     def delete_holidays(self, store_id: int) -> None:
         self.db.execute(delete(StoreHoliday).where(StoreHoliday.store_id == store_id))
+
+    def delete_events(self, store_id: int) -> None:
+        self.db.execute(delete(StoreCalendarEvent).where(StoreCalendarEvent.store_id == store_id))
 
     def commit(self) -> None:
         self.db.commit()

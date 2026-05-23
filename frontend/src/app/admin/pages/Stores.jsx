@@ -465,6 +465,7 @@ export function Stores() {
                     <ResourceLink to={`/app/admin/staff?store_id=${store.id}`} label="Staff" />
                     <ResourceLink to={`/app/admin/queue?store_id=${store.id}`} label="Queue" />
                     <ResourceLink to={`/app/admin/calendar?store_id=${store.id}`} label="Calendar" />
+                    <ResourceLink to={`/app/admin/ml?store_id=${store.id}`} label="ML" />
                     <ResourceLink to={`/app/admin/store-config?store_id=${store.id}`} label="Config" />
                   </div>
                 </div>

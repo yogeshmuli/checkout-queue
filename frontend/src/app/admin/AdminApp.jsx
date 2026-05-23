@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  BrainCircuit,
   CalendarDays,
   Gauge,
   LayoutDashboard,
@@ -19,6 +20,7 @@ import { Alerts } from './pages/Alerts.jsx';
 import { Calendar } from './pages/Calendar.jsx';
 import { Counters } from './pages/Counters.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
+import { MachineLearning } from './pages/MachineLearning.jsx';
 import { Queue } from './pages/Queue.jsx';
 import { Sections } from './pages/Sections.jsx';
 import { Staff } from './pages/Staff.jsx';
@@ -34,6 +36,7 @@ const navItems = [
   { label: 'Staff', path: '/app/admin/staff', Icon: UsersRound },
   { label: 'Queue', path: '/app/admin/queue', Icon: Activity },
   { label: 'Calendar', path: '/app/admin/calendar', Icon: CalendarDays },
+  { label: 'ML', path: '/app/admin/ml', Icon: BrainCircuit },
   { label: 'Alerts', path: '/app/admin/alerts', Icon: Bell },
 ];
 
@@ -155,6 +158,7 @@ console.log('AdminApp rendered');
             <Route path="staff" element={<Staff />} />
             <Route path="queue" element={<Queue />} />
             <Route path="calendar" element={<Calendar />} />
+            <Route path="ml" element={<MachineLearning />} />
             <Route path="alerts" element={<Alerts />} />
           </Routes>
         </main>

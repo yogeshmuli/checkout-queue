@@ -6,6 +6,7 @@ def test_core_checkout_tables_are_registered() -> None:
     expected_tables = {
         "stores",
         "store_calendar_days",
+        "store_calendar_events",
         "store_configs",
         "store_holidays",
         "checkout_sections",
@@ -14,6 +15,7 @@ def test_core_checkout_tables_are_registered() -> None:
         "users",
         "user_store_access",
         "refresh_tokens",
+        "ml_model_metadata",
     }
 
     assert expected_tables.issubset(Base.metadata.tables.keys())

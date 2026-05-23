@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-this-secret-key"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    ML_MODEL_DIR: str = "ml_models"
+    ML_MIN_TRAINING_SAMPLES: int = 50
 
     model_config = SettingsConfigDict(
         env_file=".env",

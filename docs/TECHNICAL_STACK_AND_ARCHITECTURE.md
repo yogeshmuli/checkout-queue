@@ -445,6 +445,7 @@ The first ML implementation should be hybrid:
 | `stores` | Store profile, store number, contact details |
 | `store_configs` | Store-level token prefix and rule-based service-time settings |
 | `store_calendar_days` | Store weekly working days, open/close time, and timezone |
+| `store_calendar_events` | Store calendar events such as promotion, sale, holiday, or other special dates |
 | `store_holidays` | Holiday dates |
 | `store_events` | Promotion, sale, and peak-event dates |
 | `checkout_sections` | Checkout sections with enum-backed type: regular, express, self-checkout, returns, priority |
@@ -525,6 +526,8 @@ POST   /api/v1/stores/{store_id}/sections
 POST   /api/v1/stores/{store_id}/staff
 GET    /api/v1/analytics/stores/{store_id}
 POST   /api/v1/ml/stores/{store_id}/train
+GET    /api/v1/ml/stores/{store_id}/metadata
+POST   /api/v1/ml/stores/{store_id}/predict-service-time
 ```
 
 ## 8. Frontend Application Structure
@@ -558,7 +561,7 @@ Frontend API handling should be centralized under `src/api/` so pages and compon
 Current frontend implementation:
 
 - `AdminApp` provides the admin portal shell and dashboard view.
-- Admin store, section, counter, staff, queue, store config, and calendar pages connect to their implemented APIs.
+- Admin store, section, counter, staff, queue, store config, calendar, and ML pages connect to their implemented APIs.
 - `StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
 - `CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
 - `RoleRedirect` lets a user open the admin, staff, or customer workspace and keeps the preferred role in Zustand/local storage.
@@ -646,7 +649,73 @@ Output:
 
 The prediction service should return only service-duration data. `QueueService` should then combine predicted or fallback service times with the current per-counter lane schedule to calculate `calling_time` and estimated wait.
 
-The first implementation should use scikit-learn with a local model artifact store. A later version can move model artifacts to object storage and add scheduled retraining.
+The current implementation uses a scikit-learn `RandomForestRegressor` pipeline saved as a `.joblib` artifact. The earlier JSON linear artifact format may still be read for old metadata rows, but new training writes `random_forest_service_time_v2` artifacts.
+
+### Current ML Feature Flow
+
+The implemented ML feature is store-specific and predicts only service duration. It does not directly decide queue position, counter assignment, calling time, or full customer wait time.
+
+Training flow:
+
+```text
+Admin UI /app/admin/ml?store_id={store_id}
+  -> POST /api/v1/ml/stores/{store_id}/train
+    -> ml_routes.py
+      -> MLTrainingService
+        -> MLRepository validates store
+        -> MLRepository loads completed queue_tokens
+        -> service duration = completed_at - service_started_at
+        -> trainer builds operational features from queue history, section busyness, recent cancellation/service history, local time, and calendar events
+        -> trainer fits RandomForestRegressor model
+        -> artifact is written under ML_MODEL_DIR/store_{store_id}
+        -> metadata is saved in ml_model_metadata
+      -> returns latest ML metadata
+```
+
+Prediction flow during customer queue join:
+
+```text
+Customer create token
+  -> POST /api/v1/queue/join
+    -> queue_routes.py
+      -> QueueService
+        -> validates active store, section, calendar, duplicate token, active counters
+        -> PredictionService asks QueueRepository for latest READY metadata
+        -> PredictionService reuses cached artifact when store/model/path/mtime match
+        -> otherwise PredictionService loads artifact from ML_MODEL_DIR and caches it
+        -> if artifact exists and prediction succeeds:
+             service_time_minutes = ML prediction
+             calculation_method = ML_PREDICTED
+        -> otherwise:
+             service_time_minutes = store rule-based config
+             calculation_method = RULE_BASED
+        -> QueueService schedules the token on the best available counter
+        -> QueueService calculates calling_time and estimated_wait_minutes
+      -> returns queue token response
+```
+
+Metadata/status flow:
+
+```text
+Admin UI /app/admin/ml?store_id={store_id}
+  -> GET /api/v1/ml/stores/{store_id}/metadata
+    -> MLTrainingService
+      -> MLRepository returns latest metadata row
+    -> UI shows status, sample size, MAE, R2, accuracy, data quality, and version
+```
+
+Important behavior:
+
+- Training requires at least `ML_MIN_TRAINING_SAMPLES`, currently `50`, completed checkout records.
+- Only records with both `service_started_at` and `completed_at` are used.
+- V2 model features include item count, section busy count, active section counters, recent cancellation rate, recent average service time, hour, day of week, weekend flag, promotion/sale flag, basket size, cart type, customer type, section, and assigned counter.
+- Promotion/sale flags come from active store calendar events.
+- The prediction target is checkout service minutes, not wait minutes.
+- Queue wait remains deterministic and counter-based.
+- If ML is missing, under-trained, stale, broken, or the artifact cannot be read, queue creation continues with rule-based estimation.
+- Model artifacts live under `ML_MODEL_DIR`; metadata lives in PostgreSQL.
+- Loaded model artifacts are cached in process memory by store id, model version, artifact path, and file mtime. A newly trained model gets a new version/path, and an overwritten artifact gets a new mtime, so stale cache entries are naturally bypassed.
+- `queue_tokens.calculation_method` records whether the token used `ML_PREDICTED` or `RULE_BASED`.
 
 ## 11. Background Jobs
 

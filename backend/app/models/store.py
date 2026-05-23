@@ -23,3 +23,4 @@ class Store(TimestampMixin, Base):
     config = relationship("StoreConfig", back_populates="store", cascade="all, delete-orphan", uselist=False)
     calendar_days = relationship("StoreCalendarDay", back_populates="store", cascade="all, delete-orphan")
     holidays = relationship("StoreHoliday", back_populates="store", cascade="all, delete-orphan")
+    calendar_events = relationship("StoreCalendarEvent", back_populates="store", cascade="all, delete-orphan")

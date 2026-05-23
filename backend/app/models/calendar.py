@@ -1,6 +1,8 @@
+import enum
 from datetime import date, time
 
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Time, UniqueConstraint
+from sqlalchemy import Enum as SqlAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -33,3 +35,29 @@ class StoreHoliday(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     store = relationship("Store", back_populates="holidays")
+
+
+class StoreCalendarEventType(str, enum.Enum):
+    PROMOTION = "PROMOTION"
+    SALE = "SALE"
+    HOLIDAY = "HOLIDAY"
+    OTHER = "OTHER"
+
+
+class StoreCalendarEvent(TimestampMixin, Base):
+    __tablename__ = "store_calendar_events"
+    __table_args__ = (
+        UniqueConstraint("store_id", "event_date", "event_type", "name", name="uq_store_calendar_events_store_date_type_name"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True, nullable=False)
+    event_date: Mapped[date] = mapped_column(Date(), index=True, nullable=False)
+    name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    event_type: Mapped[StoreCalendarEventType] = mapped_column(
+        SqlAlchemyEnum(StoreCalendarEventType, name="store_calendar_event_type"),
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    store = relationship("Store", back_populates="calendar_events")
