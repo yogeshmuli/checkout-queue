@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.store import Store
+from app.models.trial import TrialStudio, TrialZone
 from app.models.user import User, UserStoreAccess
 from app.schemas.staff import StaffCreateRequest, StaffUpdateRequest
 from app.services.staff_service import StaffService
@@ -17,6 +18,8 @@ class FakeStaffRepository:
             1: CheckoutSection(id=1, store_id=1, name="Grocery", section_type=CheckoutSectionType.REGULAR)
         }
         self.counters: dict[int, Counter] = {1: Counter(id=1, section_id=1, counter_type="billing")}
+        self.zones: dict[int, TrialZone] = {}
+        self.studios: dict[int, TrialStudio] = {}
         self.store_access: list[UserStoreAccess] = []
         self.next_id = 1
         self.next_access_id = 1
@@ -34,6 +37,7 @@ class FakeStaffRepository:
         store_id: int | None = None,
         section_id: int | None = None,
         counter_id: int | None = None,
+        studio_id: int | None = None,
     ) -> list[User]:
         users = list(self.users.values())
         if not include_inactive:
@@ -44,6 +48,8 @@ class FakeStaffRepository:
             users = [user for user in users if user.section_id == section_id]
         if counter_id is not None:
             users = [user for user in users if user.assigned_counter_id == counter_id]
+        if studio_id is not None:
+            users = [user for user in users if user.assigned_studio_id == studio_id]
         return users
 
     def get_staff_by_id(self, staff_id: int) -> User | None:
@@ -69,6 +75,12 @@ class FakeStaffRepository:
 
     def get_counter_by_id(self, counter_id: int) -> Counter | None:
         return self.counters.get(counter_id)
+
+    def get_studio_by_id(self, studio_id: int) -> TrialStudio | None:
+        return self.studios.get(studio_id)
+
+    def get_zone_by_id(self, zone_id: int) -> TrialZone | None:
+        return self.zones.get(zone_id)
 
     def get_store_access(self, user_id: int, store_id: int) -> UserStoreAccess | None:
         for access in self.store_access:

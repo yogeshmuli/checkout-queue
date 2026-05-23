@@ -24,6 +24,24 @@ class TrialCalendarEventType(str, enum.Enum):
     OTHER = "OTHER"
 
 
+class TrialZoneType(str, enum.Enum):
+    REGULAR = "REGULAR"
+    EXPRESS = "EXPRESS"
+    PRIORITY = "PRIORITY"
+
+
+class TrialZoneGender(str, enum.Enum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    UNISEX = "UNISEX"
+
+
+class TrialStudioType(str, enum.Enum):
+    REGULAR = "REGULAR"
+    EXPRESS = "EXPRESS"
+    PRIORITY = "PRIORITY"
+
+
 class TrialZone(TimestampMixin, Base):
     __tablename__ = "trial_zones"
     __table_args__ = (UniqueConstraint("store_id", "name", name="uq_trial_zones_store_name"),)
@@ -31,6 +49,12 @@ class TrialZone(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     store_id: Mapped[int] = mapped_column(ForeignKey("stores.id", ondelete="CASCADE"), index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    zone_type: Mapped[TrialZoneType] = mapped_column(Enum(TrialZoneType, name="trial_zone_type"), nullable=False, default=TrialZoneType.REGULAR)
+    gender: Mapped[TrialZoneGender] = mapped_column(
+        Enum(TrialZoneGender, name="trial_zone_gender"),
+        nullable=False,
+        default=TrialZoneGender.UNISEX,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     store = relationship("Store", back_populates="trial_zones")
@@ -45,6 +69,11 @@ class TrialStudio(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     trial_zone_id: Mapped[int] = mapped_column(ForeignKey("trial_zones.id", ondelete="CASCADE"), index=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    studio_type: Mapped[TrialStudioType] = mapped_column(
+        Enum(TrialStudioType, name="trial_studio_type"),
+        nullable=False,
+        default=TrialStudioType.REGULAR,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     next_available_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

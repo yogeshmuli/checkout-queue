@@ -54,7 +54,13 @@ class TrialService:
         name = payload.name.strip()
         if self.repository.get_zone_by_store_and_name(payload.store_id, name) is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone name already exists for this store")
-        zone = TrialZone(store_id=payload.store_id, name=name, is_active=payload.is_active)
+        zone = TrialZone(
+            store_id=payload.store_id,
+            name=name,
+            zone_type=payload.zone_type,
+            gender=payload.gender,
+            is_active=payload.is_active,
+        )
         self.repository.create(zone)
         self.repository.commit()
         self.repository.refresh(zone)
@@ -97,7 +103,13 @@ class TrialService:
         name = payload.name.strip() if payload.name else None
         if name and self.repository.get_studio_by_zone_and_name(zone.id, name) is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Studio name already exists for this trial zone")
-        studio = TrialStudio(trial_zone_id=zone.id, name=name, is_active=payload.is_active, next_available_time=datetime.now(timezone.utc))
+        studio = TrialStudio(
+            trial_zone_id=zone.id,
+            name=name,
+            studio_type=payload.studio_type,
+            is_active=payload.is_active,
+            next_available_time=datetime.now(timezone.utc),
+        )
         self.repository.create(studio)
         self.repository.commit()
         self.repository.refresh(studio)
@@ -198,10 +210,19 @@ class TrialService:
             zone = self.repository.get_zone(payload.trial_zone_id)
             if zone is None or not zone.is_active or zone.store_id != payload.store_id:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active trial zone not found")
+            if payload.customer_gender is not None and zone.gender not in (TrialZoneGender.UNISEX, payload.customer_gender):
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected trial zone does not support customer gender")
         if self.repository.get_active_token_for_phone(payload.store_id, payload.phone_number) is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active trial token already exists for phone")
 
         studios = self.repository.list_active_studios(payload.store_id, payload.trial_zone_id)
+        if payload.trial_zone_id is None and payload.customer_gender is not None:
+            eligible_zone_ids = {
+                zone.id
+                for zone in self.repository.list_zones(include_inactive=False, store_id=payload.store_id)
+                if zone.gender in (TrialZoneGender.UNISEX, payload.customer_gender)
+            }
+            studios = [studio for studio in studios if studio.trial_zone_id in eligible_zone_ids]
         if not studios:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No active studios available")
         now = datetime.now(timezone.utc)
@@ -250,7 +271,11 @@ class TrialService:
                 id=store.id,
                 store_number=store.store_number,
                 name=store.name,
-                zones=[TrialStoreZoneResponse(id=zone.id, name=zone.name) for zone in store.trial_zones if zone.is_active],
+                zones=[
+                    TrialStoreZoneResponse(id=zone.id, name=zone.name, zone_type=zone.zone_type, gender=zone.gender)
+                    for zone in store.trial_zones
+                    if zone.is_active
+                ],
             )
             for store in stores
         ]

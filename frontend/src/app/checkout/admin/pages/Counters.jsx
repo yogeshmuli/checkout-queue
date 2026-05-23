@@ -400,7 +400,7 @@ export function Counters() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : ''}`}>
       {isFormOpen ? (
         <section id="counter-form" className="rounded-lg border border-line bg-white p-5">
           <MobilePanelJump href="#counter-directory" label="Back to counters" />
@@ -536,10 +536,14 @@ export function Counters() {
         </div>
 
         <div className="border-b border-line p-5">
-          <div className="grid gap-3 lg:grid-cols-[280px_320px_1fr]">
-            <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setCounterFilter('store_id', value)} />
-            <Select label="Filter by section" value={sectionFilter} options={sectionFilterOptions} onChange={(value) => setCounterFilter('section_id', value)} />
-            <label className="block">
+          <div className="flex flex-wrap gap-3">
+            <div className="min-w-[220px] flex-1">
+              <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setCounterFilter('store_id', value)} />
+            </div>
+            <div className="min-w-[220px] flex-1">
+              <Select label="Filter by section" value={sectionFilter} options={sectionFilterOptions} onChange={(value) => setCounterFilter('section_id', value)} />
+            </div>
+            <label className="block min-w-[260px] flex-[2]">
               <span className="text-sm font-medium text-charcoal">Search counters</span>
               <input
                 value={query}

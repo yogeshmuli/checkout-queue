@@ -14,7 +14,13 @@ class StaffService:
     def create_staff(self, payload: StaffCreateRequest) -> User:
         self._ensure_email_available(payload.email)
         self._ensure_phone_available(payload.phone_number)
-        self._validate_assignment(payload.store_id, payload.section_id, payload.assigned_counter_id)
+        self._validate_assignment(
+            payload.store_id,
+            payload.section_id,
+            payload.assigned_counter_id,
+            payload.assigned_studio_id,
+            payload.default_role,
+        )
 
         user = User(
             email=payload.email.lower(),
@@ -25,6 +31,7 @@ class StaffService:
             store_id=payload.store_id,
             section_id=payload.section_id,
             assigned_counter_id=payload.assigned_counter_id,
+            assigned_studio_id=payload.assigned_studio_id,
             is_active=payload.is_active,
         )
         self.repository.create_staff(user)
@@ -39,12 +46,14 @@ class StaffService:
         store_id: int | None = None,
         section_id: int | None = None,
         counter_id: int | None = None,
+        studio_id: int | None = None,
     ) -> list[User]:
         return self.repository.list_staff(
             include_inactive=include_inactive,
             store_id=store_id,
             section_id=section_id,
             counter_id=counter_id,
+            studio_id=studio_id,
         )
 
     def get_staff(self, staff_id: int) -> User:
@@ -68,7 +77,9 @@ class StaffService:
         new_store_id = update_data.get("store_id", user.store_id)
         new_section_id = update_data.get("section_id", user.section_id)
         new_counter_id = update_data.get("assigned_counter_id", user.assigned_counter_id)
-        self._validate_assignment(new_store_id, new_section_id, new_counter_id)
+        new_studio_id = update_data.get("assigned_studio_id", user.assigned_studio_id)
+        new_role = update_data.get("default_role", user.default_role)
+        self._validate_assignment(new_store_id, new_section_id, new_counter_id, new_studio_id, new_role)
 
         for field, value in update_data.items():
             if field == "password":
@@ -108,7 +119,12 @@ class StaffService:
         store_id: int | None,
         section_id: int | None,
         assigned_counter_id: int | None,
+        assigned_studio_id: int | None,
+        role: UserRole,
     ) -> None:
+        if assigned_counter_id is not None and assigned_studio_id is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assign either counter or studio, not both")
+
         if store_id is not None and self.repository.get_store_by_id(store_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
 
@@ -124,12 +140,29 @@ class StaffService:
             counter = self.repository.get_counter_by_id(assigned_counter_id)
             if counter is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counter not found")
+            if role == UserRole.TRIAL_ZONE_ASSISTANT:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="TRIAL_ZONE_ASSISTANT cannot be assigned to checkout counter")
             if section_id is not None and counter.section_id != section_id:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Counter does not belong to section")
             if section_id is None and store_id is not None:
                 counter_section = section or self.repository.get_section_by_id(counter.section_id)
                 if counter_section is not None and counter_section.store_id != store_id:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Counter does not belong to store")
+
+        if assigned_studio_id is not None:
+            studio = self.repository.get_studio_by_id(assigned_studio_id)
+            if studio is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Studio not found")
+            if role != UserRole.TRIAL_ZONE_ASSISTANT:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only TRIAL_ZONE_ASSISTANT can be assigned to trial studio")
+
+            zone = self.repository.get_zone_by_id(studio.trial_zone_id)
+            if zone is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Studio zone not found")
+            if store_id is not None and zone.store_id != store_id:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Studio does not belong to store")
+
+        # Role-to-assignment checks are enforced only when assignment fields are provided.
 
     def _sync_store_access(self, user: User, store_id: int | None, role: UserRole) -> None:
         for access in self.repository.list_store_access(user.id):

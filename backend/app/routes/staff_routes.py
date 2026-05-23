@@ -31,6 +31,7 @@ def list_staff(
     store_id: int | None = Query(default=None),
     section_id: int | None = Query(default=None),
     counter_id: int | None = Query(default=None),
+    studio_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*staff_admin_roles)),
 ) -> list[StaffResponse]:
@@ -39,6 +40,7 @@ def list_staff(
         store_id=store_id,
         section_id=section_id,
         counter_id=counter_id,
+        studio_id=studio_id,
     )
 
 

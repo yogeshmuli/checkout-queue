@@ -1,12 +1,11 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
 
-import { listCounters } from '../../../../api/checkout/counterApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { listSections } from '../../../../api/checkout/sectionApi.js';
 import { createStaff, deleteStaff, listStaff, updateStaff } from '../../../../api/checkout/staffApi.js';
 import { listStores } from '../../../../api/checkout/storeApi.js';
+import { listTrialStudios } from '../../../../api/trial/studiosApi.js';
+import { listTrialZones } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
@@ -15,10 +14,9 @@ const emptyStaff = {
   password: '',
   full_name: '',
   phone_number: '',
-  default_role: 'CASHIER',
+  default_role: 'TRIAL_ZONE_ASSISTANT',
   store_id: '',
-  section_id: '',
-  assigned_counter_id: '',
+  assigned_zone_id: '',
   is_active: true,
 };
 
@@ -32,21 +30,21 @@ const FIELD_LIMITS = {
 const DEFAULT_STAFF_PASSWORD = 'Ganesh@123';
 
 const ROLE_OPTIONS = [
-  { label: 'Cashier', value: 'CASHIER' },
+  { label: 'Trial zone assistant', value: 'TRIAL_ZONE_ASSISTANT' },
   { label: 'Manager', value: 'MANAGER' },
   { label: 'Store admin', value: 'STORE_ADMIN' },
   { label: 'Support', value: 'SUPPORT' },
+  { label: 'Cashier', value: 'CASHIER' },
 ];
 
 const STAFF_PER_PAGE = 8;
-const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'section_id', 'assigned_counter_id'];
+const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'assigned_zone_id'];
 
 export function Staff() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [staff, setStaff] = useState([]);
   const [stores, setStores] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [counters, setCounters] = useState([]);
+  const [zones, setZones] = useState([]);
+  const [studios, setStudios] = useState([]);
   const [form, setForm] = useState(emptyStaff);
   const [initialFormState, setInitialFormState] = useState(emptyStaff);
   const [formErrors, setFormErrors] = useState({});
@@ -56,11 +54,12 @@ export function Staff() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const [storeFilter, setStoreFilter] = useState('');
+  const [zoneFilter, setZoneFilter] = useState('');
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
-  const storeFilter = searchParams.get('store_id') || '';
-  const sectionFilter = searchParams.get('section_id') || '';
-  const counterFilter = searchParams.get('counter_id') || '';
+
+  const isTrialAssistantRole = form.default_role === 'TRIAL_ZONE_ASSISTANT';
 
   const storeNameById = useMemo(() => {
     const map = new Map();
@@ -70,21 +69,33 @@ export function Staff() {
     return map;
   }, [stores]);
 
-  const sectionNameById = useMemo(() => {
+  const zoneNameById = useMemo(() => {
     const map = new Map();
-    for (const section of sections) {
-      map.set(String(section.id), section.name);
+    for (const zone of zones) {
+      map.set(String(zone.id), zone.name);
     }
     return map;
-  }, [sections]);
+  }, [zones]);
 
-  const sectionById = useMemo(() => {
+  // Trial staff API persists assigned_studio_id, so zone assignment maps to the zone's first active studio.
+  const primaryStudioByZoneId = useMemo(() => {
     const map = new Map();
-    for (const section of sections) {
-      map.set(String(section.id), section);
+    for (const studio of studios) {
+      const zoneKey = String(studio.trial_zone_id);
+      if (!map.has(zoneKey) || studio.is_active) {
+        map.set(zoneKey, studio);
+      }
     }
     return map;
-  }, [sections]);
+  }, [studios]);
+
+  const studioById = useMemo(() => {
+    const map = new Map();
+    for (const studio of studios) {
+      map.set(String(studio.id), studio);
+    }
+    return map;
+  }, [studios]);
 
   const storeOptions = [
     { label: 'No store', value: '' },
@@ -94,37 +105,15 @@ export function Staff() {
     })),
   ];
 
-  const sectionOptions = [
-    { label: 'No section', value: '' },
-    ...sections
-      .filter((section) => !form.store_id || String(section.store_id) === String(form.store_id))
-      .map((section) => ({
-        label: `${section.name} (${storeNameById.get(String(section.store_id)) || `#${section.store_id}`})`,
-        value: String(section.id),
+  const zoneOptions = [
+    { label: 'No zone', value: '' },
+    ...zones
+      .filter((zone) => !form.store_id || String(zone.store_id) === String(form.store_id))
+      .filter((zone) => primaryStudioByZoneId.has(String(zone.id)))
+      .map((zone) => ({
+        label: `${zone.name} (${storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`})`,
+        value: String(zone.id),
       })),
-  ];
-
-  const counterOptions = [
-    { label: 'No counter', value: '' },
-    ...counters
-      .filter((counter) => {
-        if (form.section_id) {
-          return String(counter.section_id) === String(form.section_id);
-        }
-        if (form.store_id) {
-          const counterSection = sectionById.get(String(counter.section_id));
-          return counterSection && String(counterSection.store_id) === String(form.store_id);
-        }
-        return true;
-      })
-      .map((counter) => {
-        const counterLabel = counter.name || `Counter #${counter.id}`;
-        const sectionName = sectionNameById.get(String(counter.section_id)) || `Section #${counter.section_id}`;
-        return {
-          label: `${counterLabel} (${sectionName})`,
-          value: String(counter.id),
-        };
-      }),
   ];
 
   const storeFilterOptions = [
@@ -135,84 +124,35 @@ export function Staff() {
     })),
   ];
 
-  const sectionFilterOptions = [
-    { label: 'All sections', value: '' },
-    ...sections
-      .filter((section) => !storeFilter || String(section.store_id) === storeFilter)
-      .map((section) => ({
-        label: `${section.name} (${storeNameById.get(String(section.store_id)) || `#${section.store_id}`})`,
-        value: String(section.id),
+  const zoneFilterOptions = [
+    { label: 'All zones', value: '' },
+    ...zones
+      .filter((zone) => !storeFilter || String(zone.store_id) === String(storeFilter))
+      .map((zone) => ({
+        label: `${zone.name} (${storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`})`,
+        value: String(zone.id),
       })),
   ];
-
-  const counterFilterOptions = [
-    { label: 'All counters', value: '' },
-    ...counters
-      .filter((counter) => {
-        if (sectionFilter) {
-          return String(counter.section_id) === sectionFilter;
-        }
-        if (storeFilter) {
-          const counterSection = sectionById.get(String(counter.section_id));
-          return counterSection && String(counterSection.store_id) === storeFilter;
-        }
-        return true;
-      })
-      .map((counter) => {
-        const counterLabel = counter.name || `Counter #${counter.id}`;
-        const sectionName = sectionNameById.get(String(counter.section_id)) || `Section #${counter.section_id}`;
-        return {
-          label: `${counterLabel} (${sectionName})`,
-          value: String(counter.id),
-        };
-      }),
-  ];
-
-  function setStaffFilter(field, value) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) {
-        next.set(field, value);
-      } else {
-        next.delete(field);
-      }
-      if (field === 'store_id') {
-        next.delete('section_id');
-        next.delete('counter_id');
-      }
-      if (field === 'section_id') {
-        next.delete('counter_id');
-      }
-      return next;
-    });
-    setPage(1);
-  }
 
   function sanitizePhone(value) {
     return value.replace(/\D/g, '').slice(0, FIELD_LIMITS.phone);
   }
 
   function toPayload(values) {
-    const payload = {
+    const selectedStudio = values.assigned_zone_id ? primaryStudioByZoneId.get(String(values.assigned_zone_id)) : null;
+    return {
       email: values.email.trim().toLowerCase(),
       full_name: values.full_name.trim(),
       phone_number: values.phone_number || null,
       default_role: values.default_role,
       store_id: values.store_id ? Number(values.store_id) : null,
-      section_id: values.section_id ? Number(values.section_id) : null,
-      assigned_counter_id: values.assigned_counter_id ? Number(values.assigned_counter_id) : null,
-      assigned_studio_id: null,
+      section_id: null,
+      assigned_counter_id: null,
+      assigned_studio_id: selectedStudio ? Number(selectedStudio.id) : null,
       is_active: values.is_active,
+      ...(editingStaffId ? {} : { password: values.password.trim() || DEFAULT_STAFF_PASSWORD }),
+      ...(editingStaffId && values.password.trim() ? { password: values.password.trim() } : {}),
     };
-
-    const password = values.password.trim();
-    if (!editingStaffId) {
-      payload.password = password || DEFAULT_STAFF_PASSWORD;
-    } else if (password) {
-      payload.password = password;
-    }
-
-    return payload;
   }
 
   function validateStaffForm(values) {
@@ -240,6 +180,10 @@ export function Staff() {
       errors.phone_number = 'Phone number must be exactly 10 digits.';
     }
 
+    if (values.default_role === 'TRIAL_ZONE_ASSISTANT' && !values.assigned_zone_id) {
+      errors.assigned_zone_id = 'Assigned zone is required for Trial zone assistant.';
+    }
+
     return errors;
   }
 
@@ -252,14 +196,14 @@ export function Staff() {
     setForm((prev) => {
       const nextForm = { ...prev, [field]: nextValue };
       if (field === 'store_id' && prev.store_id !== nextValue) {
-        nextForm.section_id = '';
-        nextForm.assigned_counter_id = '';
+        nextForm.assigned_zone_id = '';
       }
-      if (field === 'section_id' && prev.section_id !== nextValue) {
-        nextForm.assigned_counter_id = '';
+      if (field === 'default_role' && prev.default_role !== nextValue && nextValue !== 'TRIAL_ZONE_ASSISTANT') {
+        nextForm.assigned_zone_id = '';
       }
       return nextForm;
     });
+
     setFormErrors((prev) => {
       if (!prev[field]) return prev;
       const nextErrors = { ...prev };
@@ -289,17 +233,20 @@ export function Staff() {
       return;
     }
 
+    const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
+    const assignedZoneId = assignedStudio ? String(assignedStudio.trial_zone_id) : '';
+
     const nextForm = {
       email: staffUser.email || '',
       password: '',
       full_name: staffUser.full_name || '',
       phone_number: staffUser.phone_number || '',
-      default_role: staffUser.default_role || 'CASHIER',
+      default_role: staffUser.default_role || 'TRIAL_ZONE_ASSISTANT',
       store_id: staffUser.store_id ? String(staffUser.store_id) : '',
-      section_id: staffUser.section_id ? String(staffUser.section_id) : '',
-      assigned_counter_id: staffUser.assigned_counter_id ? String(staffUser.assigned_counter_id) : '',
+      assigned_zone_id: assignedZoneId,
       is_active: Boolean(staffUser.is_active),
     };
+
     setEditingStaffId(staffUser.id);
     setForm(nextForm);
     setInitialFormState(nextForm);
@@ -337,32 +284,25 @@ export function Staff() {
     setLoading(true);
     setMessage('');
     try {
-      setStaff(
-        await listStaff({
-          include_inactive: true,
-          ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
-          ...(sectionFilter ? { section_id: Number(sectionFilter) } : {}),
-          ...(counterFilter ? { counter_id: Number(counterFilter) } : {}),
-        })
-      );
+      setStaff(await listStaff({ include_inactive: true }));
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [counterFilter, sectionFilter, storeFilter]);
+  }, []);
 
   async function loadLookups() {
     try {
-      const [storeRows, sectionRows, counterRows] = await Promise.all([
+      const [storeRows, zoneRows, studioRows] = await Promise.all([
         listStores({ include_inactive: true }),
-        listSections({ include_inactive: true }),
-        listCounters({ include_inactive: true }),
+        listTrialZones({ include_inactive: true }),
+        listTrialStudios({ include_inactive: true }),
       ]);
       setStores(storeRows);
-      setSections(sectionRows);
-      setCounters(counterRows);
+      setZones(zoneRows);
+      setStudios(studioRows);
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -465,10 +405,24 @@ export function Staff() {
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredStaff = staff.filter((staffUser) => {
+    const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
+    const assignedZoneName = assignedStudio ? zoneNameById.get(String(assignedStudio.trial_zone_id)) || '' : '';
+
+    if (storeFilter && String(staffUser.store_id || '') !== String(storeFilter)) {
+      return false;
+    }
+
+    if (zoneFilter && assignedStudio && String(assignedStudio.trial_zone_id) !== String(zoneFilter)) {
+      return false;
+    }
+
+    if (zoneFilter && !assignedStudio) {
+      return false;
+    }
+
     if (!normalizedQuery) return true;
     const storeName = storeNameById.get(String(staffUser.store_id)) || '';
-    const sectionName = sectionNameById.get(String(staffUser.section_id)) || '';
-    const haystack = `${staffUser.full_name || ''} ${staffUser.email || ''} ${staffUser.default_role || ''} ${storeName} ${sectionName}`.toLowerCase();
+    const haystack = `${staffUser.full_name || ''} ${staffUser.email || ''} ${staffUser.default_role || ''} ${storeName} ${assignedZoneName}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
@@ -486,7 +440,7 @@ export function Staff() {
       {isFormOpen ? (
         <section id="staff-form" className="rounded-lg border border-line bg-white p-5">
           <MobilePanelJump href="#staff-directory" label="Back to staff" />
-          <SectionHeader eyebrow="Staff setup" title={editingStaffId ? 'Update staff' : 'Create staff'} />
+          <SectionHeader eyebrow="Trial staff setup" title={editingStaffId ? 'Update staff' : 'Create staff'} />
           <form className="mt-5 space-y-4" onSubmit={submitStaff}>
             <Field
               label="Email"
@@ -499,7 +453,7 @@ export function Staff() {
               }}
             />
             <Field
-              label={editingStaffId ? 'Password' : 'Password'}
+              label="Password"
               value={form.password}
               onChange={(value) => setFormField('password', value)}
               error={formErrors.password}
@@ -545,33 +499,23 @@ export function Staff() {
               />
             </div>
             <div>
-              <Select label="Section" value={form.section_id} options={sectionOptions} onChange={(value) => setFormField('section_id', value)} />
-              <input
-                ref={(el) => {
-                  fieldRefs.current.section_id = el;
-                }}
-                tabIndex={-1}
-                className="absolute h-0 w-0 opacity-0"
-                aria-hidden="true"
-                readOnly
-              />
-            </div>
-            <div>
               <Select
-                label="Assigned counter"
-                value={form.assigned_counter_id}
-                options={counterOptions}
-                onChange={(value) => setFormField('assigned_counter_id', value)}
+                label="Assigned zone"
+                value={form.assigned_zone_id}
+                options={zoneOptions}
+                onChange={(value) => setFormField('assigned_zone_id', value)}
+                disabled={!isTrialAssistantRole}
               />
               <input
                 ref={(el) => {
-                  fieldRefs.current.assigned_counter_id = el;
+                  fieldRefs.current.assigned_zone_id = el;
                 }}
                 tabIndex={-1}
                 className="absolute h-0 w-0 opacity-0"
                 aria-hidden="true"
                 readOnly
               />
+              {formErrors.assigned_zone_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.assigned_zone_id}</p> : null}
             </div>
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
               <span className="text-sm font-medium text-charcoal">Staff active</span>
@@ -611,7 +555,7 @@ export function Staff() {
       <section id="staff-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Staff directory</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Trial staff directory</p>
             <h2 className="mt-1 text-xl font-semibold">Configured staff</h2>
           </div>
           <div className="flex items-center gap-2">
@@ -635,13 +579,27 @@ export function Staff() {
         <div className="border-b border-line p-5">
           <div className="flex flex-wrap gap-3">
             <div className="min-w-[220px] flex-1">
-              <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setStaffFilter('store_id', value)} />
+              <Select
+                label="Filter by store"
+                value={storeFilter}
+                options={storeFilterOptions}
+                onChange={(value) => {
+                  setStoreFilter(value);
+                  setZoneFilter('');
+                  setPage(1);
+                }}
+              />
             </div>
             <div className="min-w-[220px] flex-1">
-              <Select label="Filter by section" value={sectionFilter} options={sectionFilterOptions} onChange={(value) => setStaffFilter('section_id', value)} />
-            </div>
-            <div className="min-w-[220px] flex-1">
-              <Select label="Filter by counter" value={counterFilter} options={counterFilterOptions} onChange={(value) => setStaffFilter('counter_id', value)} />
+              <Select
+                label="Filter by zone"
+                value={zoneFilter}
+                options={zoneFilterOptions}
+                onChange={(value) => {
+                  setZoneFilter(value);
+                  setPage(1);
+                }}
+              />
             </div>
             <label className="block min-w-[260px] flex-[2]">
               <span className="text-sm font-medium text-charcoal">Search staff</span>
@@ -651,7 +609,7 @@ export function Staff() {
                   setQuery(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search by name, email, role, store, or section"
+                placeholder="Search by name, email, role, store, or zone"
                 className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
               />
             </label>
@@ -664,7 +622,8 @@ export function Staff() {
           ) : (
             visibleStaff.map((staffUser) => {
               const isEditing = editingStaffId === staffUser.id;
-              const assignedCounter = counters.find((counter) => String(counter.id) === String(staffUser.assigned_counter_id));
+              const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
+              const assignedZoneName = assignedStudio ? zoneNameById.get(String(assignedStudio.trial_zone_id)) || 'None' : 'None';
 
               return (
                 <div
@@ -681,16 +640,8 @@ export function Staff() {
                       {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
                     </div>
                     <p className="mt-1 text-sm text-charcoal">{staffUser.email}</p>
-                    <p className="mt-1 text-sm text-muted">
-                      Store: {storeNameById.get(String(staffUser.store_id)) || 'None'} | Section: {sectionNameById.get(String(staffUser.section_id)) || 'None'}
-                    </p>
-                    <p className="mt-1 text-sm text-muted">Counter: {assignedCounter?.name || 'None'}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {staffUser.store_id ? <ResourceLink to={`/app/checkout/admin/sections?store_id=${staffUser.store_id}`} label="Store sections" /> : null}
-                      {staffUser.section_id ? <ResourceLink to={`/app/checkout/admin/counters?section_id=${staffUser.section_id}`} label="Section counters" /> : null}
-                      {staffUser.assigned_counter_id ? <ResourceLink to={`/app/checkout/admin/staff?counter_id=${staffUser.assigned_counter_id}`} label={assignedCounter?.name || 'Counter staff'} /> : null}
-                      {staffUser.store_id ? <ResourceLink to={`/app/checkout/admin/queue?store_id=${staffUser.store_id}`} label="Queue" /> : null}
-                    </div>
+                    <p className="mt-1 text-sm text-muted">Store: {storeNameById.get(String(staffUser.store_id)) || 'None'}</p>
+                    <p className="mt-1 text-sm text-muted">Assigned zone: {assignedZoneName}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     <button
@@ -753,9 +704,7 @@ export function Staff() {
       {pendingStatusChange ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-soft">
-            <h3 className="text-lg font-semibold text-ink">
-              {pendingStatusChange.mode === 'deactivate' ? 'Deactivate staff?' : 'Activate staff?'}
-            </h3>
+            <h3 className="text-lg font-semibold text-ink">{pendingStatusChange.mode === 'deactivate' ? 'Deactivate staff?' : 'Activate staff?'}</h3>
             <p className="mt-2 text-sm text-charcoal">
               {pendingStatusChange.mode === 'deactivate'
                 ? `This will mark ${pendingStatusChange.staffUser.full_name} as inactive. Continue?`
@@ -763,18 +712,10 @@ export function Staff() {
             </p>
 
             <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeStatusConfirm}
-                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal"
-              >
+              <button type="button" onClick={closeStatusConfirm} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal">
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={confirmStatusChange}
-                className="rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white"
-              >
+              <button type="button" onClick={confirmStatusChange} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white">
                 {pendingStatusChange.mode === 'deactivate' ? 'Deactivate' : 'Activate'}
               </button>
             </div>
@@ -796,14 +737,6 @@ function MobilePanelJump({ href, label, compact = false }) {
       <span className="sm:hidden">Form</span>
       <span className="hidden sm:inline">{label}</span>
     </a>
-  );
-}
-
-function ResourceLink({ to, label }) {
-  return (
-    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
-      {label}
-    </Link>
   );
 }
 

@@ -1,48 +1,39 @@
 import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { createSection, deleteSection, listSections, updateSection } from '../../../../api/checkout/sectionApi.js';
-import { listStores } from '../../../../api/checkout/storeApi.js';
-import { Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { createStore, deleteStore, listStores, updateStore } from '../../../../api/trial/storeApi.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
-const emptySection = {
-  store_id: '',
+const emptyStore = {
+  store_number: '',
   name: '',
-  section_type: '',
+  address: '',
+  manager_name: '',
+  manager_phone: '',
+  spoc_name: '',
+  spoc_phone: '',
   is_active: true,
 };
 
 const FIELD_LIMITS = {
-  name: 100,
+  store_number: 50,
+  name: 150,
+  manager_name: 150,
+  spoc_name: 150,
+  phone: 10,
 };
 
-const SECTION_TYPE_OPTIONS = [
-  { label: 'Select section type', value: '' },
-  { label: 'Regular', value: 'REGULAR' },
-  { label: 'Express', value: 'EXPRESS' },
-  { label: 'Self Checkout', value: 'SELF_CHECKOUT' },
-  { label: 'Returns', value: 'RETURNS' },
-  { label: 'Priority', value: 'PRIORITY' },
-];
+const STORES_PER_PAGE = 8;
+const FIELD_ORDER = ['store_number', 'name', 'address', 'manager_name', 'manager_phone', 'spoc_name', 'spoc_phone'];
 
-const SECTIONS_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'name', 'section_type'];
-
-function getSectionTypeLabel(sectionType) {
-  return SECTION_TYPE_OPTIONS.find((option) => option.value === sectionType)?.label || sectionType;
-}
-
-export function Sections() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [sections, setSections] = useState([]);
+export function Stores() {
   const [stores, setStores] = useState([]);
-  const [form, setForm] = useState(emptySection);
-  const [initialFormState, setInitialFormState] = useState(emptySection);
+  const [form, setForm] = useState(emptyStore);
+  const [initialFormState, setInitialFormState] = useState(emptyStore);
   const [formErrors, setFormErrors] = useState({});
-  const [editingSectionId, setEditingSectionId] = useState(null);
+  const [editingStoreId, setEditingStoreId] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [message, setMessage] = useState('');
@@ -50,76 +41,61 @@ export function Sections() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
-  const storeFilter = searchParams.get('store_id') || '';
 
-  const storeNameById = useMemo(() => {
-    const map = new Map();
-    for (const store of stores) {
-      map.set(String(store.id), store.name);
-    }
-    return map;
-  }, [stores]);
-
-  const storeOptions = [
-    { label: 'Select store', value: '' },
-    ...stores.map((store) => ({
-      label: `${store.name} (${store.store_number})`,
-      value: String(store.id),
-    })),
-  ];
-
-  const storeFilterOptions = [
-    { label: 'All stores', value: '' },
-    ...stores.map((store) => ({
-      label: `${store.name} (${store.store_number})`,
-      value: String(store.id),
-    })),
-  ];
-
-  function setStoreFilter(value) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) {
-        next.set('store_id', value);
-      } else {
-        next.delete('store_id');
-      }
-      return next;
-    });
-    setPage(1);
+  function sanitizePhone(value) {
+    return value.replace(/\D/g, '').slice(0, FIELD_LIMITS.phone);
   }
 
   function toPayload(values) {
     return {
-      store_id: Number(values.store_id),
+      store_number: values.store_number.trim(),
       name: values.name.trim(),
-      section_type: values.section_type,
+      address: values.address.trim() || null,
+      manager_name: values.manager_name.trim() || null,
+      manager_phone: values.manager_phone || null,
+      spoc_name: values.spoc_name.trim() || null,
+      spoc_phone: values.spoc_phone || null,
       is_active: values.is_active,
     };
   }
 
-  function validateSectionForm(values) {
+  function validateStoreForm(values) {
     const errors = {};
 
-    if (!values.store_id) {
-      errors.store_id = 'Store is required.';
+    if (!values.store_number.trim()) {
+      errors.store_number = 'Store number is required.';
+    } else if (values.store_number.trim().length > FIELD_LIMITS.store_number) {
+      errors.store_number = `Store number must be at most ${FIELD_LIMITS.store_number} characters.`;
     }
 
     if (!values.name.trim()) {
-      errors.name = 'Section name is required.';
+      errors.name = 'Store name is required.';
     } else if (values.name.trim().length > FIELD_LIMITS.name) {
-      errors.name = `Section name must be at most ${FIELD_LIMITS.name} characters.`;
+      errors.name = `Store name must be at most ${FIELD_LIMITS.name} characters.`;
     }
 
-    if (!values.section_type) {
-      errors.section_type = 'Section type is required.';
+    if (values.manager_name.trim().length > FIELD_LIMITS.manager_name) {
+      errors.manager_name = `Manager name must be at most ${FIELD_LIMITS.manager_name} characters.`;
+    }
+
+    if (values.spoc_name.trim().length > FIELD_LIMITS.spoc_name) {
+      errors.spoc_name = `SPOC name must be at most ${FIELD_LIMITS.spoc_name} characters.`;
+    }
+
+    if (values.manager_phone && !/^\d{10}$/.test(values.manager_phone)) {
+      errors.manager_phone = 'Manager phone must be exactly 10 digits.';
+    }
+
+    if (values.spoc_phone && !/^\d{10}$/.test(values.spoc_phone)) {
+      errors.spoc_phone = 'SPOC phone must be exactly 10 digits.';
     }
 
     return errors;
   }
 
   function setFormField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    const nextValue = field === 'manager_phone' || field === 'spoc_phone' ? sanitizePhone(value) : value;
+    setForm((prev) => ({ ...prev, [field]: nextValue }));
     setFormErrors((prev) => {
       if (!prev[field]) return prev;
       const nextErrors = { ...prev };
@@ -135,41 +111,36 @@ export function Sections() {
     return window.confirm('You have unsaved changes. Discard them?');
   }
 
-  function focusFirstInvalidField(validationErrors) {
-    const firstInvalidField = FIELD_ORDER.find((field) => validationErrors[field]);
-    if (!firstInvalidField) return;
-
-    window.requestAnimationFrame(() => {
-      fieldRefs.current[firstInvalidField]?.focus();
-    });
-  }
-
-  function beginEdit(section) {
+  function beginEdit(store) {
     if (isFormOpen && !confirmDiscardIfDirty()) {
       return;
     }
 
     const nextForm = {
-      store_id: String(section.store_id),
-      name: section.name || '',
-      section_type: section.section_type || '',
-      is_active: Boolean(section.is_active),
+      store_number: store.store_number || '',
+      name: store.name || '',
+      address: store.address || '',
+      manager_name: store.manager_name || '',
+      manager_phone: store.manager_phone || '',
+      spoc_name: store.spoc_name || '',
+      spoc_phone: store.spoc_phone || '',
+      is_active: Boolean(store.is_active),
     };
-    setEditingSectionId(section.id);
+    setEditingStoreId(store.id);
     setForm(nextForm);
     setInitialFormState(nextForm);
     setFormErrors({});
     setIsFormOpen(true);
-    setMessage('Editing section details.');
+    setMessage('Editing store details.');
   }
 
   function openCreateForm() {
     if (isFormOpen && !confirmDiscardIfDirty()) {
       return;
     }
-    setEditingSectionId(null);
-    setForm(emptySection);
-    setInitialFormState(emptySection);
+    setEditingStoreId(null);
+    setForm(emptyStore);
+    setInitialFormState(emptyStore);
     setFormErrors({});
     setMessage('');
     setIsFormOpen(true);
@@ -179,53 +150,35 @@ export function Sections() {
     if (!options.force && !confirmDiscardIfDirty()) {
       return;
     }
-    setEditingSectionId(null);
-    setForm(emptySection);
-    setInitialFormState(emptySection);
+    setEditingStoreId(null);
+    setForm(emptyStore);
+    setInitialFormState(emptyStore);
     setFormErrors({});
     if (options.closeForm) {
       setIsFormOpen(false);
     }
   }
 
-  const loadSections = useCallback(async () => {
+  async function loadStores() {
     setLoading(true);
     setMessage('');
     try {
-      setSections(
-        await listSections({
-          include_inactive: true,
-          ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
-        })
-      );
+      setStores(await listStores({ include_inactive: true }));
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
-  }, [storeFilter]);
-
-  async function loadStores() {
-    try {
-      setStores(await listStores({ include_inactive: true }));
-    } catch (error) {
-      showApiErrorToast(error);
-      setMessage(getErrorMessage(error));
-    }
   }
-
-  useEffect(() => {
-    loadSections();
-  }, [loadSections]);
 
   useEffect(() => {
     loadStores();
   }, []);
 
-  async function submitSection(event) {
+  async function submitStore(event) {
     event.preventDefault();
-    const validationErrors = validateSectionForm(form);
+    const validationErrors = validateStoreForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setFormErrors(validationErrors);
       setMessage('Please fix validation errors before saving.');
@@ -237,16 +190,16 @@ export function Sections() {
     setMessage('');
     try {
       const payload = toPayload(form);
-      if (editingSectionId) {
-        await updateSection(editingSectionId, payload);
-        setMessage('Section updated');
+      if (editingStoreId) {
+        await updateStore(editingStoreId, payload);
+        setMessage('Store updated');
         resetFormState({ force: true, closeForm: false });
       } else {
-        await createSection(payload);
-        setMessage('Section created');
+        await createStore(payload);
+        setMessage('Store created');
         resetFormState({ force: true, closeForm: true });
       }
-      await loadSections();
+      await loadStores();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -255,13 +208,13 @@ export function Sections() {
     }
   }
 
-  async function deactivateSection(sectionId) {
+  async function deactivateStore(storeId) {
     setLoading(true);
     setMessage('');
     try {
-      await deleteSection(sectionId);
-      setMessage('Section deactivated');
-      await loadSections();
+      await deleteStore(storeId);
+      setMessage('Store deactivated');
+      await loadStores();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -270,13 +223,13 @@ export function Sections() {
     }
   }
 
-  async function toggleSectionActive(section) {
+  async function toggleStoreActive(store) {
     setLoading(true);
     setMessage('');
     try {
-      await updateSection(section.id, { is_active: !section.is_active });
-      setMessage(section.is_active ? 'Section deactivated' : 'Section activated');
-      await loadSections();
+      await updateStore(store.id, { is_active: !store.is_active });
+      setMessage(store.is_active ? 'Store deactivated' : 'Store activated');
+      await loadStores();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -285,10 +238,10 @@ export function Sections() {
     }
   }
 
-  function openStatusConfirm(section) {
+  function openStatusConfirm(store) {
     setPendingStatusChange({
-      section,
-      mode: section.is_active ? 'deactivate' : 'activate',
+      store,
+      mode: store.is_active ? 'deactivate' : 'activate',
     });
   }
 
@@ -298,63 +251,62 @@ export function Sections() {
 
   async function confirmStatusChange() {
     if (!pendingStatusChange) return;
-    const { section, mode } = pendingStatusChange;
+    const { store, mode } = pendingStatusChange;
     closeStatusConfirm();
 
     if (mode === 'deactivate') {
-      await deactivateSection(section.id);
+      await deactivateStore(store.id);
       return;
     }
 
-    await toggleSectionActive(section);
+    await toggleStoreActive(store);
   }
 
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredSections = sections.filter((section) => {
+  const filteredStores = stores.filter((store) => {
     if (!normalizedQuery) return true;
-    const storeName = storeNameById.get(String(section.store_id)) || '';
-    const sectionTypeLabel = getSectionTypeLabel(section.section_type);
-    const haystack = `${section.name || ''} ${section.section_type || ''} ${sectionTypeLabel} ${storeName}`.toLowerCase();
+    const haystack = `${store.name || ''} ${store.store_number || ''}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredSections.length / SECTIONS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredStores.length / STORES_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * SECTIONS_PER_PAGE;
-  const visibleSections = filteredSections.slice(pageStart, pageStart + SECTIONS_PER_PAGE);
+  const pageStart = (safePage - 1) * STORES_PER_PAGE;
+  const visibleStores = filteredStores.slice(pageStart, pageStart + STORES_PER_PAGE);
 
   function goToPage(nextPage) {
     setPage(Math.max(1, Math.min(totalPages, nextPage)));
   }
 
+  function focusFirstInvalidField(validationErrors) {
+    const firstInvalidField = FIELD_ORDER.find((field) => validationErrors[field]);
+    if (!firstInvalidField) return;
+
+    // Wait for validation state render before focusing.
+    window.requestAnimationFrame(() => {
+      fieldRefs.current[firstInvalidField]?.focus();
+    });
+  }
+
   return (
     <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : ''}`}>
       {isFormOpen ? (
-        <section id="section-form" className="rounded-lg border border-line bg-white p-5">
-          <MobilePanelJump href="#section-directory" label="Back to sections" />
-          <SectionHeader eyebrow="Section setup" title={editingSectionId ? 'Update section' : 'Create section'} />
-          <form className="mt-5 space-y-4" onSubmit={submitSection}>
-            <div>
-              <Select
-                label="Store"
-                value={form.store_id}
-                options={storeOptions}
-                onChange={(value) => setFormField('store_id', value)}
-              />
-              {formErrors.store_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.store_id}</p> : null}
-              <input
-                ref={(el) => {
-                  fieldRefs.current.store_id = el;
-                }}
-                tabIndex={-1}
-                className="absolute h-0 w-0 opacity-0"
-                aria-hidden="true"
-                readOnly
-              />
-            </div>
-
+        <section id="store-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#store-directory" label="Back to stores" />
+          <SectionHeader eyebrow="Store setup" title={editingStoreId ? 'Update store' : 'Create store'} />
+          <form className="mt-5 space-y-4" onSubmit={submitStore}>
             <Field
-              label="Section name"
+              label="Store number"
+              value={form.store_number}
+              onChange={(value) => setFormField('store_number', value)}
+              error={formErrors.store_number}
+              maxLength={FIELD_LIMITS.store_number}
+              inputRef={(el) => {
+                fieldRefs.current.store_number = el;
+              }}
+            />
+            <Field
+              label="Store name"
               value={form.name}
               onChange={(value) => setFormField('name', value)}
               error={formErrors.name}
@@ -363,28 +315,58 @@ export function Sections() {
                 fieldRefs.current.name = el;
               }}
             />
-
-            <div>
-              <Select
-                label="Section type"
-                value={form.section_type}
-                options={SECTION_TYPE_OPTIONS}
-                onChange={(value) => setFormField('section_type', value)}
-              />
-              {formErrors.section_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.section_type}</p> : null}
-              <input
-                ref={(el) => {
-                  fieldRefs.current.section_type = el;
-                }}
-                tabIndex={-1}
-                className="absolute h-0 w-0 opacity-0"
-                aria-hidden="true"
-                readOnly
-              />
-            </div>
-
+            <Field
+              label="Address"
+              value={form.address}
+              onChange={(value) => setFormField('address', value)}
+              inputRef={(el) => {
+                fieldRefs.current.address = el;
+              }}
+            />
+            <Field
+              label="Manager name"
+              value={form.manager_name}
+              onChange={(value) => setFormField('manager_name', value)}
+              error={formErrors.manager_name}
+              maxLength={FIELD_LIMITS.manager_name}
+              inputRef={(el) => {
+                fieldRefs.current.manager_name = el;
+              }}
+            />
+            <Field
+              label="Manager phone"
+              value={form.manager_phone}
+              onChange={(value) => setFormField('manager_phone', value)}
+              error={formErrors.manager_phone}
+              maxLength={FIELD_LIMITS.phone}
+              inputMode="numeric"
+              inputRef={(el) => {
+                fieldRefs.current.manager_phone = el;
+              }}
+            />
+            <Field
+              label="SPOC name"
+              value={form.spoc_name}
+              onChange={(value) => setFormField('spoc_name', value)}
+              error={formErrors.spoc_name}
+              maxLength={FIELD_LIMITS.spoc_name}
+              inputRef={(el) => {
+                fieldRefs.current.spoc_name = el;
+              }}
+            />
+            <Field
+              label="SPOC phone"
+              value={form.spoc_phone}
+              onChange={(value) => setFormField('spoc_phone', value)}
+              error={formErrors.spoc_phone}
+              maxLength={FIELD_LIMITS.phone}
+              inputMode="numeric"
+              inputRef={(el) => {
+                fieldRefs.current.spoc_phone = el;
+              }}
+            />
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
-              <span className="text-sm font-medium text-charcoal">Section active</span>
+              <span className="text-sm font-medium text-charcoal">Store active</span>
               <input
                 type="checkbox"
                 checked={form.is_active}
@@ -392,9 +374,7 @@ export function Sections() {
                 className="size-5 accent-brand-red"
               />
             </label>
-
             {message ? <p className="rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">{message}</p> : null}
-
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -402,9 +382,9 @@ export function Sections() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Save size={17} />
-                {editingSectionId ? 'Update section' : 'Save section'}
+                {editingStoreId ? 'Update store' : 'Save store'}
               </button>
-              {editingSectionId ? (
+              {editingStoreId ? (
                 <button
                   type="button"
                   onClick={() => resetFormState({ closeForm: true })}
@@ -420,83 +400,77 @@ export function Sections() {
         </section>
       ) : null}
 
-      <section id="section-directory" className="rounded-lg border border-line bg-white">
+      <section id="store-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Section directory</p>
-            <h2 className="mt-1 text-xl font-semibold">Configured sections</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Store directory</p>
+            <h2 className="mt-1 text-xl font-semibold">Configured stores</h2>
           </div>
           <div className="flex items-center gap-2">
-            {isFormOpen ? <MobilePanelJump href="#section-form" label="Go to form" compact /> : null}
+            {isFormOpen ? <MobilePanelJump href="#store-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
               className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
-              title="Create section"
-              aria-label="Create section"
+              title="Create store"
+              aria-label="Create store"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Create section</span>
+              <span className="hidden sm:inline">Create store</span>
             </button>
-            <button type="button" onClick={loadSections} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh sections">
+            <button type="button" onClick={loadStores} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh stores">
               <RefreshCw size={18} />
             </button>
           </div>
         </div>
-
         <div className="border-b border-line p-5">
-          <div className="flex flex-wrap gap-3">
-            <div className="min-w-[220px] flex-1">
-              <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={setStoreFilter} />
-            </div>
-            <label className="block min-w-[260px] flex-[2]">
-              <span className="text-sm font-medium text-charcoal">Search sections</span>
-              <input
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setPage(1);
-                }}
-                placeholder="Search by section name, type, or store"
-                className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
-              />
-            </label>
-          </div>
+          <label className="block">
+            <span className="text-sm font-medium text-charcoal">Search stores</span>
+            <input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Search by name or store number"
+              className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+            />
+          </label>
         </div>
-
         <div className="divide-y divide-brand-soft">
-          {filteredSections.length === 0 ? (
-            <p className="p-5 text-sm text-muted">No sections found.</p>
+          {filteredStores.length === 0 ? (
+            <p className="p-5 text-sm text-muted">No stores found.</p>
           ) : (
-            visibleSections.map((section) => {
-              const isEditing = editingSectionId === section.id;
+            visibleStores.map((store) => {
+              const isEditing = editingStoreId === store.id;
 
               return (
               <div
-                key={section.id}
+                key={store.id}
                 className={`grid gap-3 p-5 lg:grid-cols-[1fr_auto] ${isEditing ? 'bg-brand-blush/50 ring-1 ring-inset ring-brand-soft' : ''}`}
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{section.name}</h3>
-                    <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{getSectionTypeLabel(section.section_type)}</span>
-                    <span className={`rounded-full px-2 py-1 text-xs ${section.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
-                      {section.is_active ? 'Active' : 'Inactive'}
+                    <h3 className="font-semibold">{store.name}</h3>
+                    <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{store.store_number}</span>
+                    <span className={`rounded-full px-2 py-1 text-xs ${store.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
+                      {store.is_active ? 'Active' : 'Inactive'}
                     </span>
                     {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
                   </div>
-                  <p className="mt-1 text-sm text-charcoal">Store: {storeNameById.get(String(section.store_id)) || `#${section.store_id}`}</p>
+                  <p className="mt-1 text-sm text-charcoal">{store.address || 'No address'}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <ResourceLink to={`/app/checkout/admin/sections?store_id=${section.store_id}`} label="Store sections" />
-                    <ResourceLink to={`/app/checkout/admin/counters?section_id=${section.id}`} label="Counters" />
-                    <ResourceLink to={`/app/checkout/admin/staff?section_id=${section.id}`} label="Staff" />
-                    <ResourceLink to={`/app/checkout/admin/queue?section_id=${section.id}`} label="Queue" />
+                    <ResourceLink to={`/app/trial/admin/zones?store_id=${store.id}`} label="Trial zones" />
+                    <ResourceLink to={`/app/trial/admin/studios?store_id=${store.id}`} label="Studios" />
+                    <ResourceLink to={`/app/trial/admin/queue?store_id=${store.id}`} label="Trial queue" />
+                    <ResourceLink to={`/app/trial/admin/config?store_id=${store.id}`} label="Trial config" />
+                    <ResourceLink to={`/app/trial/admin/calendar?store_id=${store.id}`} label="Trial calendar" />
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <button
                     type="button"
-                    onClick={() => beginEdit(section)}
+                    onClick={() => beginEdit(store)}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-50 ${
                       isEditing ? 'border-brand-red bg-brand-blush text-brand-red' : 'border-line text-charcoal'
                     }`}
@@ -507,12 +481,12 @@ export function Sections() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => openStatusConfirm(section)}
+                    onClick={() => openStatusConfirm(store)}
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
                     disabled={loading}
                   >
                     <Trash2 size={16} />
-                    {section.is_active ? 'Deactivate' : 'Activate'}
+                    {store.is_active ? 'Deactivate' : 'Activate'}
                   </button>
                 </div>
               </div>
@@ -520,11 +494,10 @@ export function Sections() {
             })
           )}
         </div>
-
-        {filteredSections.length > SECTIONS_PER_PAGE ? (
+        {filteredStores.length > STORES_PER_PAGE ? (
           <div className="flex items-center justify-between border-t border-line px-5 py-4">
             <p className="text-xs text-muted">
-              Showing {pageStart + 1}-{Math.min(pageStart + SECTIONS_PER_PAGE, filteredSections.length)} of {filteredSections.length}
+              Showing {pageStart + 1}-{Math.min(pageStart + STORES_PER_PAGE, filteredStores.length)} of {filteredStores.length}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -555,12 +528,12 @@ export function Sections() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-soft">
             <h3 className="text-lg font-semibold text-ink">
-              {pendingStatusChange.mode === 'deactivate' ? 'Deactivate section?' : 'Activate section?'}
+              {pendingStatusChange.mode === 'deactivate' ? 'Deactivate store?' : 'Activate store?'}
             </h3>
             <p className="mt-2 text-sm text-charcoal">
               {pendingStatusChange.mode === 'deactivate'
-                ? `This will mark ${pendingStatusChange.section.name} as inactive. Continue?`
-                : `This will mark ${pendingStatusChange.section.name} as active. Continue?`}
+                ? `This will mark ${pendingStatusChange.store.name} as inactive. Continue?`
+                : `This will mark ${pendingStatusChange.store.name} as active. Continue?`}
             </p>
 
             <div className="mt-5 flex justify-end gap-2">
@@ -608,7 +581,7 @@ function ResourceLink({ to, label }) {
   );
 }
 
-function Field({ label, value, onChange, error, maxLength, inputRef }) {
+function Field({ label, value, onChange, error, maxLength, inputMode = 'text', inputRef }) {
   return (
     <label className="block">
       <span className="text-sm font-medium text-charcoal">{label}</span>
@@ -617,6 +590,7 @@ function Field({ label, value, onChange, error, maxLength, inputRef }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         maxLength={maxLength}
+        inputMode={inputMode}
         className={`mt-1 w-full rounded-lg border px-3 py-2.5 outline-none focus:ring-2 ${
           error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : 'border-line focus:border-brand-red focus:ring-brand-soft'
         }`}

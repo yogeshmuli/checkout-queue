@@ -1,12 +1,27 @@
+function readBooleanFlag(value, defaultValue) {
+  if (value === undefined) return defaultValue;
+  return !['false', '0', 'off', 'no'].includes(String(value).toLowerCase());
+}
+
 export const moduleFlags = {
-  checkout: import.meta.env.VITE_ENABLE_CHECKOUT_QUEUE || true,
-  trial: import.meta.env.VITE_ENABLE_TRIAL_QUEUE || true,
+  checkout: readBooleanFlag(import.meta.env.VITE_ENABLE_CHECKOUT_QUEUE, true),
+  trial: readBooleanFlag(import.meta.env.VITE_ENABLE_TRIAL_QUEUE, true),
 };
 
 export const enabledModules = [
   moduleFlags.checkout ? { id: 'checkout', label: 'Checkout Queue', description: 'Billing counters, customer tokens, and checkout operations.' } : null,
   moduleFlags.trial ? { id: 'trial', label: 'Trial Queue', description: 'Trial zones, studios, and fitting-room style token flow.' } : null,
 ].filter(Boolean);
+
+export function getEnabledModulesForUser(user) {
+  if (user?.default_role === 'TRIAL_ZONE_ASSISTANT') {
+    return enabledModules.filter((module) => module.id === 'trial');
+  }
+  if (user?.default_role === 'CASHIER') {
+    return enabledModules.filter((module) => module.id === 'checkout');
+  }
+  return enabledModules;
+}
 
 export function getDefaultModule() {
   return enabledModules[0]?.id || 'checkout';

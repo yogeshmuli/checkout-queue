@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg2://api-access:admin123@localhost:5432/checkout_queue"
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
     SECRET_KEY: str = "change-this-secret-key"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60*10
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ML_MODEL_DIR: str = "ml_models"
     ML_MIN_TRAINING_SAMPLES: int = 50

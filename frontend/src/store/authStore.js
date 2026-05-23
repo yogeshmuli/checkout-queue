@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 
+function getPreferredRole(user) {
+  return ['CASHIER', 'TRIAL_ZONE_ASSISTANT'].includes(user?.default_role) ? 'staff' : 'admin';
+}
+
 export const useAuthStore = create((set) => ({
   accessToken: localStorage.getItem('checkout_queue_access_token') || '',
   refreshToken: localStorage.getItem('checkout_queue_refresh_token') || '',
@@ -21,12 +25,12 @@ export const useAuthStore = create((set) => ({
       user,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      preferredRole: user?.default_role === 'CASHIER' ? 'staff' : 'admin',
+      preferredRole: getPreferredRole(user),
     });
   },
   setUser: (user) => {
     localStorage.setItem('checkout_queue_user', JSON.stringify(user || null));
-    set({ user, preferredRole: user?.default_role === 'CASHIER' ? 'staff' : 'admin' });
+    set({ user, preferredRole: getPreferredRole(user) });
   },
   setPreferredRole: (role) => {
     localStorage.setItem('checkout_queue_role', role);
@@ -39,4 +43,3 @@ export const useAuthStore = create((set) => ({
     set({ accessToken: '', refreshToken: '', user: null });
   },
 }));
-

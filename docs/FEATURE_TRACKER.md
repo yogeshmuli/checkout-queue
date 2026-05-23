@@ -17,6 +17,7 @@ The backend currently supports:
 - Store queue configuration APIs.
 - Store calendar APIs.
 - Trial Queue module APIs behind `ENABLE_TRIAL_QUEUE`.
+- Trial admin calendar UI for store-level trial hours, holidays, and event signals.
 - ML service-time training and prediction metadata APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
 - React/Vite frontend scaffold with admin, staff, and customer role views.
@@ -47,6 +48,7 @@ STORE_ADMIN
 MANAGER
 CASHIER
 SUPPORT
+TRIAL_ZONE_ASSISTANT
 ```
 
 Example request:
@@ -470,7 +472,7 @@ Result:
 
 ### 15B. Admin Can Manage Staff From Frontend
 
-As an admin, I can create, list, update, activate/deactivate staff users and assign them to stores, sections, and counters.
+As an admin, I can create, list, update, activate/deactivate staff users and assign them to stores, sections, checkout counters, and trial studios.
 
 Route:
 
@@ -486,10 +488,15 @@ Result:
 - Soft-deletes staff through `DELETE /api/v1/staff/{staff_id}`.
 - Stores staff passwords only as salted hashes.
 - Uses `Ganesh@123` as the admin UI default password when the create-staff password field is left blank.
-- Validates duplicate email/phone and assignment consistency across store, section, and counter.
+- Validates duplicate email/phone and assignment consistency across store, section, counter, and studio.
+- Enforces role-based assignment rules:
+  - `TRIAL_ZONE_ASSISTANT` can be assigned only to trial studios (not checkout counters).
+  - Non-trial roles can be assigned only to checkout counters (not trial studios).
+  - Counter and studio assignment are mutually exclusive.
+  - Studio assignment must belong to the selected store.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
-- Supports shareable staff-filtered links with `/app/checkout/admin/staff?store_id={store_id}`, `/app/checkout/admin/staff?section_id={section_id}`, and `/app/checkout/admin/staff?counter_id={counter_id}`.
-- Staff rows link back to related store sections, section counters, counter staff, and queue views.
+- Supports shareable staff-filtered links with `/app/checkout/admin/staff?store_id={store_id}`, `/app/checkout/admin/staff?section_id={section_id}`, `/app/checkout/admin/staff?counter_id={counter_id}`, and `/app/checkout/admin/staff?studio_id={studio_id}`.
+- Staff rows link back to related store sections, section counters, counter staff, studio staff, and queue views.
 
 ### 15C. Admin Can Manage Counters From Frontend
 
@@ -860,6 +867,20 @@ POST              /api/v1/trial/queue/tokens/{token_id}/start|complete|cancel
 
 The Trial Queue module shares stores, users, authentication, and role guards with Checkout Queue. It keeps its own zones, studios, configs, calendars, events, and trial queue tokens so the module can be sold and enabled separately.
 
+Trial Queue frontend parity:
+
+- Admin workspace under `/app/trial/admin` provides a dashboard plus stores, zones, studios, staff, config, and queue views.
+- Checkout and Trial admin headers show a `Change context` action when more than one product module is enabled, returning the user to the shared context selector.
+- Checkout and Trial admin sidebars show the logged-in user email with a standard logout action in desktop and mobile navigation.
+- Trial admin store, zone, studio, and config screens use the same CRUD layout pattern as Checkout admin, including filters, search, create/edit panels, refresh actions, validation, and active/inactive status controls where applicable.
+- Trial admin calendar screen under `/app/trial/admin/calendar` supports store-level weekday hours, timezone, holidays, and promotional event management using Trial Calendar APIs.
+- Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel).
+- Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
+- Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: store/zone select (with QR scan), create token, mobile lookup, and token status screens.
+- Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
+- `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
+- Staff workspace under `/app/trial/staff` uses studio-specific queue/status APIs to load assigned tokens, start waiting tokens, complete/cancel active tokens, and mark a studio active or inactive. Assigned trial staff automatically load their `assigned_studio_id`.
+
 ## Implemented Frontend Routes
 
 ```text
@@ -882,6 +903,7 @@ The Trial Queue module shares stores, users, authentication, and role guards wit
 /app/trial/admin/zones
 /app/trial/admin/studios
 /app/trial/admin/config
+/app/trial/admin/calendar
 /app/trial/admin/queue
 /app/trial/staff
 /app/trial/customer

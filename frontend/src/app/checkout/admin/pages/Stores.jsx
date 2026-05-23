@@ -289,7 +289,7 @@ export function Stores() {
   }
 
   return (
-    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[2fr_1fr]' : ''}`}>
+    <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : ''}`}>
       {isFormOpen ? (
         <section id="store-form" className="rounded-lg border border-line bg-white p-5">
           <MobilePanelJump href="#store-directory" label="Back to stores" />

@@ -3,15 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { createSection, deleteSection, listSections, updateSection } from '../../../../api/checkout/sectionApi.js';
-import { listStores } from '../../../../api/checkout/storeApi.js';
+import { createTrialStudio, deleteTrialStudio, listTrialStudios, updateTrialStudio } from '../../../../api/trial/studiosApi.js';
+import { listStores } from '../../../../api/trial/storeApi.js';
+import { listTrialZones } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
-const emptySection = {
+const emptyStudio = {
   store_id: '',
+  trial_zone_id: '',
+  studio_type: '',
   name: '',
-  section_type: '',
   is_active: true,
 };
 
@@ -19,30 +21,29 @@ const FIELD_LIMITS = {
   name: 100,
 };
 
-const SECTION_TYPE_OPTIONS = [
-  { label: 'Select section type', value: '' },
+const STUDIOS_PER_PAGE = 8;
+const FIELD_ORDER = ['store_id', 'trial_zone_id', 'studio_type', 'name'];
+
+const STUDIO_TYPE_OPTIONS = [
+  { label: 'Select studio type', value: '' },
   { label: 'Regular', value: 'REGULAR' },
   { label: 'Express', value: 'EXPRESS' },
-  { label: 'Self Checkout', value: 'SELF_CHECKOUT' },
-  { label: 'Returns', value: 'RETURNS' },
   { label: 'Priority', value: 'PRIORITY' },
 ];
 
-const SECTIONS_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'name', 'section_type'];
-
-function getSectionTypeLabel(sectionType) {
-  return SECTION_TYPE_OPTIONS.find((option) => option.value === sectionType)?.label || sectionType;
+function getStudioTypeLabel(studioType) {
+  return STUDIO_TYPE_OPTIONS.find((option) => option.value === studioType)?.label || studioType;
 }
 
-export function Sections() {
+export function Studios() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sections, setSections] = useState([]);
+  const [studios, setStudios] = useState([]);
   const [stores, setStores] = useState([]);
-  const [form, setForm] = useState(emptySection);
-  const [initialFormState, setInitialFormState] = useState(emptySection);
+  const [zones, setZones] = useState([]);
+  const [form, setForm] = useState(emptyStudio);
+  const [initialFormState, setInitialFormState] = useState(emptyStudio);
   const [formErrors, setFormErrors] = useState({});
-  const [editingSectionId, setEditingSectionId] = useState(null);
+  const [editingStudioId, setEditingStudioId] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const [message, setMessage] = useState('');
@@ -51,6 +52,15 @@ export function Sections() {
   const [page, setPage] = useState(1);
   const fieldRefs = useRef({});
   const storeFilter = searchParams.get('store_id') || '';
+  const zoneFilter = searchParams.get('trial_zone_id') || '';
+
+  const zoneById = useMemo(() => {
+    const map = new Map();
+    for (const zone of zones) {
+      map.set(String(zone.id), zone);
+    }
+    return map;
+  }, [zones]);
 
   const storeNameById = useMemo(() => {
     const map = new Map();
@@ -60,12 +70,30 @@ export function Sections() {
     return map;
   }, [stores]);
 
+  const zoneNameById = useMemo(() => {
+    const map = new Map();
+    for (const zone of zones) {
+      map.set(String(zone.id), zone.name);
+    }
+    return map;
+  }, [zones]);
+
   const storeOptions = [
     { label: 'Select store', value: '' },
     ...stores.map((store) => ({
       label: `${store.name} (${store.store_number})`,
       value: String(store.id),
     })),
+  ];
+
+  const zoneOptions = [
+    { label: 'Select trial zone', value: '' },
+    ...zones
+      .filter((zone) => !form.store_id || String(zone.store_id) === form.store_id)
+      .map((zone) => ({
+        label: zone.name,
+        value: String(zone.id),
+      })),
   ];
 
   const storeFilterOptions = [
@@ -76,13 +104,26 @@ export function Sections() {
     })),
   ];
 
-  function setStoreFilter(value) {
+  const zoneFilterOptions = [
+    { label: 'All trial zones', value: '' },
+    ...zones
+      .filter((zone) => !storeFilter || String(zone.store_id) === storeFilter)
+      .map((zone) => ({
+        label: `${zone.name} (${storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`})`,
+        value: String(zone.id),
+      })),
+  ];
+
+  function setStudioFilter(field, value) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (value) {
-        next.set('store_id', value);
+        next.set(field, value);
       } else {
-        next.delete('store_id');
+        next.delete(field);
+      }
+      if (field === 'store_id') {
+        next.delete('trial_zone_id');
       }
       return next;
     });
@@ -91,39 +132,49 @@ export function Sections() {
 
   function toPayload(values) {
     return {
-      store_id: Number(values.store_id),
-      name: values.name.trim(),
-      section_type: values.section_type,
+      trial_zone_id: Number(values.trial_zone_id),
+      studio_type: values.studio_type,
+      name: values.name.trim() || null,
       is_active: values.is_active,
     };
   }
 
-  function validateSectionForm(values) {
+  function validateStudioForm(values) {
     const errors = {};
 
     if (!values.store_id) {
       errors.store_id = 'Store is required.';
     }
 
-    if (!values.name.trim()) {
-      errors.name = 'Section name is required.';
-    } else if (values.name.trim().length > FIELD_LIMITS.name) {
-      errors.name = `Section name must be at most ${FIELD_LIMITS.name} characters.`;
+    if (!values.trial_zone_id) {
+      errors.trial_zone_id = 'Trial zone is required.';
     }
 
-    if (!values.section_type) {
-      errors.section_type = 'Section type is required.';
+    if (!values.studio_type) {
+      errors.studio_type = 'Studio type is required.';
+    }
+
+    if (values.name.trim().length > FIELD_LIMITS.name) {
+      errors.name = `Studio name must be at most ${FIELD_LIMITS.name} characters.`;
     }
 
     return errors;
   }
 
   function setFormField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      if (field === 'store_id') {
+        return { ...prev, store_id: value, trial_zone_id: '' };
+      }
+      return { ...prev, [field]: value };
+    });
+
     setFormErrors((prev) => {
-      if (!prev[field]) return prev;
       const nextErrors = { ...prev };
       delete nextErrors[field];
+      if (field === 'store_id') {
+        delete nextErrors.trial_zone_id;
+      }
       return nextErrors;
     });
   }
@@ -144,32 +195,36 @@ export function Sections() {
     });
   }
 
-  function beginEdit(section) {
+  function beginEdit(studio) {
     if (isFormOpen && !confirmDiscardIfDirty()) {
       return;
     }
 
+    const relatedZone = zoneById.get(String(studio.trial_zone_id));
     const nextForm = {
-      store_id: String(section.store_id),
-      name: section.name || '',
-      section_type: section.section_type || '',
-      is_active: Boolean(section.is_active),
+      store_id: relatedZone ? String(relatedZone.store_id) : '',
+      trial_zone_id: String(studio.trial_zone_id),
+      studio_type: studio.studio_type || '',
+      name: studio.name || '',
+      is_active: Boolean(studio.is_active),
     };
-    setEditingSectionId(section.id);
+
+    setEditingStudioId(studio.id);
     setForm(nextForm);
     setInitialFormState(nextForm);
     setFormErrors({});
     setIsFormOpen(true);
-    setMessage('Editing section details.');
+    setMessage('Editing studio details.');
   }
 
   function openCreateForm() {
     if (isFormOpen && !confirmDiscardIfDirty()) {
       return;
     }
-    setEditingSectionId(null);
-    setForm(emptySection);
-    setInitialFormState(emptySection);
+
+    setEditingStudioId(null);
+    setForm(emptyStudio);
+    setInitialFormState(emptyStudio);
     setFormErrors({});
     setMessage('');
     setIsFormOpen(true);
@@ -179,23 +234,25 @@ export function Sections() {
     if (!options.force && !confirmDiscardIfDirty()) {
       return;
     }
-    setEditingSectionId(null);
-    setForm(emptySection);
-    setInitialFormState(emptySection);
+
+    setEditingStudioId(null);
+    setForm(emptyStudio);
+    setInitialFormState(emptyStudio);
     setFormErrors({});
     if (options.closeForm) {
       setIsFormOpen(false);
     }
   }
 
-  const loadSections = useCallback(async () => {
+  const loadStudios = useCallback(async () => {
     setLoading(true);
     setMessage('');
     try {
-      setSections(
-        await listSections({
+      setStudios(
+        await listTrialStudios({
           include_inactive: true,
           ...(storeFilter ? { store_id: Number(storeFilter) } : {}),
+          ...(zoneFilter ? { trial_zone_id: Number(zoneFilter) } : {}),
         })
       );
     } catch (error) {
@@ -204,7 +261,7 @@ export function Sections() {
     } finally {
       setLoading(false);
     }
-  }, [storeFilter]);
+  }, [storeFilter, zoneFilter]);
 
   async function loadStores() {
     try {
@@ -215,17 +272,27 @@ export function Sections() {
     }
   }
 
+  async function loadZones() {
+    try {
+      setZones(await listTrialZones({ include_inactive: true }));
+    } catch (error) {
+      showApiErrorToast(error);
+      setMessage(getErrorMessage(error));
+    }
+  }
+
   useEffect(() => {
-    loadSections();
-  }, [loadSections]);
+    loadStudios();
+  }, [loadStudios]);
 
   useEffect(() => {
     loadStores();
+    loadZones();
   }, []);
 
-  async function submitSection(event) {
+  async function submitStudio(event) {
     event.preventDefault();
-    const validationErrors = validateSectionForm(form);
+    const validationErrors = validateStudioForm(form);
     if (Object.keys(validationErrors).length > 0) {
       setFormErrors(validationErrors);
       setMessage('Please fix validation errors before saving.');
@@ -237,16 +304,16 @@ export function Sections() {
     setMessage('');
     try {
       const payload = toPayload(form);
-      if (editingSectionId) {
-        await updateSection(editingSectionId, payload);
-        setMessage('Section updated');
+      if (editingStudioId) {
+        await updateTrialStudio(editingStudioId, payload);
+        setMessage('Studio updated');
         resetFormState({ force: true, closeForm: false });
       } else {
-        await createSection(payload);
-        setMessage('Section created');
+        await createTrialStudio(payload);
+        setMessage('Studio created');
         resetFormState({ force: true, closeForm: true });
       }
-      await loadSections();
+      await loadStudios();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -255,13 +322,13 @@ export function Sections() {
     }
   }
 
-  async function deactivateSection(sectionId) {
+  async function deactivateStudio(studioId) {
     setLoading(true);
     setMessage('');
     try {
-      await deleteSection(sectionId);
-      setMessage('Section deactivated');
-      await loadSections();
+      await deleteTrialStudio(studioId);
+      setMessage('Studio deactivated');
+      await loadStudios();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -270,13 +337,13 @@ export function Sections() {
     }
   }
 
-  async function toggleSectionActive(section) {
+  async function toggleStudioActive(studio) {
     setLoading(true);
     setMessage('');
     try {
-      await updateSection(section.id, { is_active: !section.is_active });
-      setMessage(section.is_active ? 'Section deactivated' : 'Section activated');
-      await loadSections();
+      await updateTrialStudio(studio.id, { is_active: !studio.is_active });
+      setMessage(studio.is_active ? 'Studio deactivated' : 'Studio activated');
+      await loadStudios();
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -285,10 +352,10 @@ export function Sections() {
     }
   }
 
-  function openStatusConfirm(section) {
+  function openStatusConfirm(studio) {
     setPendingStatusChange({
-      section,
-      mode: section.is_active ? 'deactivate' : 'activate',
+      studio,
+      mode: studio.is_active ? 'deactivate' : 'activate',
     });
   }
 
@@ -298,30 +365,32 @@ export function Sections() {
 
   async function confirmStatusChange() {
     if (!pendingStatusChange) return;
-    const { section, mode } = pendingStatusChange;
+    const { studio, mode } = pendingStatusChange;
     closeStatusConfirm();
 
     if (mode === 'deactivate') {
-      await deactivateSection(section.id);
+      await deactivateStudio(studio.id);
       return;
     }
 
-    await toggleSectionActive(section);
+    await toggleStudioActive(studio);
   }
 
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredSections = sections.filter((section) => {
+  const filteredStudios = studios.filter((studio) => {
     if (!normalizedQuery) return true;
-    const storeName = storeNameById.get(String(section.store_id)) || '';
-    const sectionTypeLabel = getSectionTypeLabel(section.section_type);
-    const haystack = `${section.name || ''} ${section.section_type || ''} ${sectionTypeLabel} ${storeName}`.toLowerCase();
+
+    const zone = zoneById.get(String(studio.trial_zone_id));
+    const zoneName = zone?.name || '';
+    const storeName = zone ? storeNameById.get(String(zone.store_id)) || '' : '';
+    const haystack = `${studio.name || ''} ${zoneName} ${storeName}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredSections.length / SECTIONS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredStudios.length / STUDIOS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * SECTIONS_PER_PAGE;
-  const visibleSections = filteredSections.slice(pageStart, pageStart + SECTIONS_PER_PAGE);
+  const pageStart = (safePage - 1) * STUDIOS_PER_PAGE;
+  const visibleStudios = filteredStudios.slice(pageStart, pageStart + STUDIOS_PER_PAGE);
 
   function goToPage(nextPage) {
     setPage(Math.max(1, Math.min(totalPages, nextPage)));
@@ -330,17 +399,12 @@ export function Sections() {
   return (
     <div className={`grid gap-6 ${isFormOpen ? 'xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]' : ''}`}>
       {isFormOpen ? (
-        <section id="section-form" className="rounded-lg border border-line bg-white p-5">
-          <MobilePanelJump href="#section-directory" label="Back to sections" />
-          <SectionHeader eyebrow="Section setup" title={editingSectionId ? 'Update section' : 'Create section'} />
-          <form className="mt-5 space-y-4" onSubmit={submitSection}>
+        <section id="studio-form" className="rounded-lg border border-line bg-white p-5">
+          <MobilePanelJump href="#studio-directory" label="Back to studios" />
+          <SectionHeader eyebrow="Studio setup" title={editingStudioId ? 'Update studio' : 'Create studio'} />
+          <form className="mt-5 space-y-4" onSubmit={submitStudio}>
             <div>
-              <Select
-                label="Store"
-                value={form.store_id}
-                options={storeOptions}
-                onChange={(value) => setFormField('store_id', value)}
-              />
+              <Select label="Store" value={form.store_id} options={storeOptions} onChange={(value) => setFormField('store_id', value)} />
               {formErrors.store_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.store_id}</p> : null}
               <input
                 ref={(el) => {
@@ -353,8 +417,22 @@ export function Sections() {
               />
             </div>
 
+            <div>
+              <Select label="Trial zone" value={form.trial_zone_id} options={zoneOptions} onChange={(value) => setFormField('trial_zone_id', value)} />
+              {formErrors.trial_zone_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.trial_zone_id}</p> : null}
+              <input
+                ref={(el) => {
+                  fieldRefs.current.trial_zone_id = el;
+                }}
+                tabIndex={-1}
+                className="absolute h-0 w-0 opacity-0"
+                aria-hidden="true"
+                readOnly
+              />
+            </div>
+
             <Field
-              label="Section name"
+              label="Studio name"
               value={form.name}
               onChange={(value) => setFormField('name', value)}
               error={formErrors.name}
@@ -365,26 +443,12 @@ export function Sections() {
             />
 
             <div>
-              <Select
-                label="Section type"
-                value={form.section_type}
-                options={SECTION_TYPE_OPTIONS}
-                onChange={(value) => setFormField('section_type', value)}
-              />
-              {formErrors.section_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.section_type}</p> : null}
-              <input
-                ref={(el) => {
-                  fieldRefs.current.section_type = el;
-                }}
-                tabIndex={-1}
-                className="absolute h-0 w-0 opacity-0"
-                aria-hidden="true"
-                readOnly
-              />
+              <Select label="Studio type" value={form.studio_type} options={STUDIO_TYPE_OPTIONS} onChange={(value) => setFormField('studio_type', value)} />
+              {formErrors.studio_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.studio_type}</p> : null}
             </div>
 
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
-              <span className="text-sm font-medium text-charcoal">Section active</span>
+              <span className="text-sm font-medium text-charcoal">Studio active</span>
               <input
                 type="checkbox"
                 checked={form.is_active}
@@ -402,9 +466,9 @@ export function Sections() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Save size={17} />
-                {editingSectionId ? 'Update section' : 'Save section'}
+                {editingStudioId ? 'Update studio' : 'Save studio'}
               </button>
-              {editingSectionId ? (
+              {editingStudioId ? (
                 <button
                   type="button"
                   onClick={() => resetFormState({ closeForm: true })}
@@ -420,25 +484,25 @@ export function Sections() {
         </section>
       ) : null}
 
-      <section id="section-directory" className="rounded-lg border border-line bg-white">
+      <section id="studio-directory" className="rounded-lg border border-line bg-white">
         <div className="flex items-center justify-between border-b border-line p-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Section directory</p>
-            <h2 className="mt-1 text-xl font-semibold">Configured sections</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Studio directory</p>
+            <h2 className="mt-1 text-xl font-semibold">Configured studios</h2>
           </div>
           <div className="flex items-center gap-2">
-            {isFormOpen ? <MobilePanelJump href="#section-form" label="Go to form" compact /> : null}
+            {isFormOpen ? <MobilePanelJump href="#studio-form" label="Go to form" compact /> : null}
             <button
               type="button"
               onClick={openCreateForm}
               className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
-              title="Create section"
-              aria-label="Create section"
+              title="Create studio"
+              aria-label="Create studio"
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Create section</span>
+              <span className="hidden sm:inline">Create studio</span>
             </button>
-            <button type="button" onClick={loadSections} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh sections">
+            <button type="button" onClick={loadStudios} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh studios">
               <RefreshCw size={18} />
             </button>
           </div>
@@ -447,17 +511,20 @@ export function Sections() {
         <div className="border-b border-line p-5">
           <div className="flex flex-wrap gap-3">
             <div className="min-w-[220px] flex-1">
-              <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={setStoreFilter} />
+              <Select label="Filter by store" value={storeFilter} options={storeFilterOptions} onChange={(value) => setStudioFilter('store_id', value)} />
+            </div>
+            <div className="min-w-[220px] flex-1">
+              <Select label="Filter by trial zone" value={zoneFilter} options={zoneFilterOptions} onChange={(value) => setStudioFilter('trial_zone_id', value)} />
             </div>
             <label className="block min-w-[260px] flex-[2]">
-              <span className="text-sm font-medium text-charcoal">Search sections</span>
+              <span className="text-sm font-medium text-charcoal">Search studios</span>
               <input
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search by section name, type, or store"
+                placeholder="Search by studio, trial zone, or store"
                 className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
               />
             </label>
@@ -465,66 +532,72 @@ export function Sections() {
         </div>
 
         <div className="divide-y divide-brand-soft">
-          {filteredSections.length === 0 ? (
-            <p className="p-5 text-sm text-muted">No sections found.</p>
+          {filteredStudios.length === 0 ? (
+            <p className="p-5 text-sm text-muted">No studios found.</p>
           ) : (
-            visibleSections.map((section) => {
-              const isEditing = editingSectionId === section.id;
+            visibleStudios.map((studio) => {
+              const isEditing = editingStudioId === studio.id;
+              const zone = zoneById.get(String(studio.trial_zone_id));
+              const zoneName = zoneNameById.get(String(studio.trial_zone_id)) || `#${studio.trial_zone_id}`;
+              const storeName = zone ? storeNameById.get(String(zone.store_id)) : null;
+              const studioName = studio.name || `Studio #${studio.id}`;
 
               return (
-              <div
-                key={section.id}
-                className={`grid gap-3 p-5 lg:grid-cols-[1fr_auto] ${isEditing ? 'bg-brand-blush/50 ring-1 ring-inset ring-brand-soft' : ''}`}
-              >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold">{section.name}</h3>
-                    <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{getSectionTypeLabel(section.section_type)}</span>
-                    <span className={`rounded-full px-2 py-1 text-xs ${section.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
-                      {section.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                    {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
+                <div
+                  key={studio.id}
+                  className={`grid gap-3 p-5 lg:grid-cols-[1fr_auto] ${isEditing ? 'bg-brand-blush/50 ring-1 ring-inset ring-brand-soft' : ''}`}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold">{studioName}</h3>
+                      <span className={`rounded-full px-2 py-1 text-xs ${studio.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
+                        {studio.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
+                    </div>
+                    <p className="mt-1 text-sm text-charcoal">
+                      Trial zone: {zoneName}
+                      {storeName ? ` | Store: ${storeName}` : ''}
+                    </p>
+                    <p className="mt-1 text-sm text-charcoal">Type: {getStudioTypeLabel(studio.studio_type)}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {zone ? <ResourceLink to={`/app/trial/admin/zones?store_id=${zone.store_id}`} label="Store zones" /> : null}
+                      <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${studio.trial_zone_id}`} label="Zone studios" />
+                      <ResourceLink to={`/app/trial/admin/queue?studio_id=${studio.id}`} label="Trial queue" />
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm text-charcoal">Store: {storeNameById.get(String(section.store_id)) || `#${section.store_id}`}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <ResourceLink to={`/app/checkout/admin/sections?store_id=${section.store_id}`} label="Store sections" />
-                    <ResourceLink to={`/app/checkout/admin/counters?section_id=${section.id}`} label="Counters" />
-                    <ResourceLink to={`/app/checkout/admin/staff?section_id=${section.id}`} label="Staff" />
-                    <ResourceLink to={`/app/checkout/admin/queue?section_id=${section.id}`} label="Queue" />
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => beginEdit(studio)}
+                      className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-50 ${
+                        isEditing ? 'border-brand-red bg-brand-blush text-brand-red' : 'border-line text-charcoal'
+                      }`}
+                      disabled={loading}
+                    >
+                      <Pencil size={16} />
+                      {isEditing ? 'Editing' : 'Edit'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openStatusConfirm(studio)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
+                      disabled={loading}
+                    >
+                      <Trash2 size={16} />
+                      {studio.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => beginEdit(section)}
-                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-50 ${
-                      isEditing ? 'border-brand-red bg-brand-blush text-brand-red' : 'border-line text-charcoal'
-                    }`}
-                    disabled={loading}
-                  >
-                    <Pencil size={16} />
-                    {isEditing ? 'Editing' : 'Edit'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openStatusConfirm(section)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
-                    disabled={loading}
-                  >
-                    <Trash2 size={16} />
-                    {section.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
-                </div>
-              </div>
-            );
+              );
             })
           )}
         </div>
 
-        {filteredSections.length > SECTIONS_PER_PAGE ? (
+        {filteredStudios.length > STUDIOS_PER_PAGE ? (
           <div className="flex items-center justify-between border-t border-line px-5 py-4">
             <p className="text-xs text-muted">
-              Showing {pageStart + 1}-{Math.min(pageStart + SECTIONS_PER_PAGE, filteredSections.length)} of {filteredSections.length}
+              Showing {pageStart + 1}-{Math.min(pageStart + STUDIOS_PER_PAGE, filteredStudios.length)} of {filteredStudios.length}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -555,27 +628,19 @@ export function Sections() {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-soft">
             <h3 className="text-lg font-semibold text-ink">
-              {pendingStatusChange.mode === 'deactivate' ? 'Deactivate section?' : 'Activate section?'}
+              {pendingStatusChange.mode === 'deactivate' ? 'Deactivate studio?' : 'Activate studio?'}
             </h3>
             <p className="mt-2 text-sm text-charcoal">
               {pendingStatusChange.mode === 'deactivate'
-                ? `This will mark ${pendingStatusChange.section.name} as inactive. Continue?`
-                : `This will mark ${pendingStatusChange.section.name} as active. Continue?`}
+                ? `This will mark ${pendingStatusChange.studio.name || `Studio #${pendingStatusChange.studio.id}`} as inactive. Continue?`
+                : `This will mark ${pendingStatusChange.studio.name || `Studio #${pendingStatusChange.studio.id}`} as active. Continue?`}
             </p>
 
             <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeStatusConfirm}
-                className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal"
-              >
+              <button type="button" onClick={closeStatusConfirm} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-charcoal">
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={confirmStatusChange}
-                className="rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white"
-              >
+              <button type="button" onClick={confirmStatusChange} className="rounded-lg bg-brand-red px-4 py-2 text-sm font-semibold text-white">
                 {pendingStatusChange.mode === 'deactivate' ? 'Deactivate' : 'Activate'}
               </button>
             </div>

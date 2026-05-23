@@ -17,8 +17,25 @@ export function listTrialQueueTokens(params = {}) {
   return trialRequest(() => httpClient.get('/trial/queue/tokens', { params }));
 }
 
+export function getTrialStudioQueue(studioId) {
+  return trialRequest(() => httpClient.get(`/trial/queue/studios/${studioId}/tokens`));
+}
+
+export function updateTrialStudioStatus(studioId, payload) {
+  return trialRequest(() => httpClient.patch(`/trial/queue/studios/${studioId}/status`, payload));
+}
+
 export function startTrialToken(tokenId) {
   return trialRequest(() => httpClient.post(`/trial/queue/tokens/${tokenId}/start`));
+}
+
+export function callTrialToken(tokenId) {
+  return trialRequest(() =>
+    httpClient.post('/trial/queue/events', {
+      token_id: tokenId,
+      event: 'CALLED',
+    })
+  );
 }
 
 export function completeTrialToken(tokenId) {

@@ -15,7 +15,7 @@ export function Field({ label, value, onChange }) {
   );
 }
 
-export function Select({ label, value, onChange, options }) {
+export function Select({ label, value, onChange, options, disabled = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
 
@@ -58,6 +58,9 @@ export function Select({ label, value, onChange, options }) {
   }, [isOpen]);
 
   function handleSelect(nextValue) {
+    if (disabled) {
+      return;
+    }
     onChange(nextValue);
     setIsOpen(false);
   }
@@ -68,8 +71,15 @@ export function Select({ label, value, onChange, options }) {
       <div ref={wrapperRef} className="relative mt-1">
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
-          className="flex w-full items-center justify-between rounded-lg border border-line bg-white px-3 py-2.5 text-left outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen((prev) => !prev);
+            }
+          }}
+          disabled={disabled}
+          className={`flex w-full items-center justify-between rounded-lg border border-line bg-white px-3 py-2.5 text-left outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft ${
+            disabled ? 'cursor-not-allowed opacity-60' : ''
+          }`}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
@@ -77,7 +87,7 @@ export function Select({ label, value, onChange, options }) {
           <ChevronDown size={16} className={`text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
-        {isOpen ? (
+        {isOpen && !disabled ? (
           <div className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-white p-1 shadow-soft" role="listbox" aria-label={label}>
             {normalizedOptions.map((option) => {
               const isSelected = String(option.value) === String(value);

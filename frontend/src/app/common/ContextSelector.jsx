@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../assets/images/equilateral_logo.png';
 import { useAuthStore } from '../../store/authStore.js';
-import { enabledModules, getModuleHomePath } from './moduleConfig.js';
+import { getEnabledModulesForUser, getModuleHomePath } from './moduleConfig.js';
 import { getUserScope } from './roleUtils.js';
 
 const moduleIcons = {
@@ -17,8 +17,9 @@ export function ContextSelector() {
   if (!user) return <Navigate to="/app/login" replace />;
 
   const scope = getUserScope(user);
-  if (enabledModules.length === 1) {
-    return <Navigate to={getModuleHomePath(enabledModules[0].id, scope)} replace />;
+  const modules = getEnabledModulesForUser(user);
+  if (modules.length === 1) {
+    return <Navigate to={getModuleHomePath(modules[0].id, scope)} replace />;
   }
 
   return (
@@ -33,7 +34,7 @@ export function ContextSelector() {
         </header>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {enabledModules.map((module) => {
+          {modules.map((module) => {
             const Icon = moduleIcons[module.id] || ShoppingBag;
             return (
               <button

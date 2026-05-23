@@ -1,4 +1,4 @@
-const STAFF_ROLES = new Set(['CASHIER']);
+const STAFF_ROLES = new Set(['CASHIER', 'TRIAL_ZONE_ASSISTANT']);
 
 export function getUserScope(user) {
   if (!user) return 'guest';

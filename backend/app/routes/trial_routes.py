@@ -31,7 +31,14 @@ from app.services.trial_service import TrialService
 router = APIRouter(tags=["trial-queue"])
 
 trial_admin_roles = (UserRole.SUPER_ADMIN, UserRole.STORE_ADMIN, UserRole.MANAGER)
-trial_staff_roles = (UserRole.SUPER_ADMIN, UserRole.STORE_ADMIN, UserRole.MANAGER, UserRole.CASHIER, UserRole.SUPPORT)
+trial_staff_roles = (
+    UserRole.SUPER_ADMIN,
+    UserRole.STORE_ADMIN,
+    UserRole.MANAGER,
+    UserRole.CASHIER,
+    UserRole.SUPPORT,
+    UserRole.TRIAL_ZONE_ASSISTANT,
+)
 
 
 @router.post("/trial/zones", response_model=TrialZoneResponse, status_code=201)
