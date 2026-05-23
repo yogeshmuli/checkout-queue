@@ -3,25 +3,18 @@ import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from 'r
 import { ToastContainer } from 'react-toastify';
 
 import { fetchCurrentUser } from './api/authApi.js';
-import { AdminApp } from './app/admin/AdminApp.jsx';
+import { CheckoutApp } from './app/checkout/CheckoutApp.jsx';
+import { ContextSelector } from './app/common/ContextSelector.jsx';
 import { Landing } from './app/common/Landing.jsx';
 import { Login } from './app/common/Login.jsx';
 import { BrandHeader } from './app/common/BrandHeader.jsx';
-import { CustomerApp } from './app/customer/CustomerApp.jsx';
-import { StaffApp } from './app/staff/StaffApp.jsx';
+import { TrialApp } from './app/trial/TrialApp.jsx';
 import { useAuthStore } from './store/authStore.js';
-import { getUserScope } from './app/common/roleUtils.js';
 
 function RequireAuth({ children }) {
+
   const { accessToken } = useAuthStore();
   if (!accessToken) return <Navigate to="/app/login" replace />;
-  return children;
-}
-
-function RequireAdmin({ children }) {
-  const { user } = useAuthStore();
-  if (!user) return <Navigate to="/app/login" replace />;
-  if (getUserScope(user) !== 'admin') return <Navigate to="/app/staff" replace />;
   return children;
 }
 
@@ -70,7 +63,7 @@ export default function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  const showHeader = location.pathname === '/' || location.pathname === '/app';
+  const showHeader = location.pathname === '/';
 
   return (
     <>
@@ -78,30 +71,33 @@ function AppRoutes() {
       <ToastContainer position="top-right" autoClose={3500} newestOnTop pauseOnFocusLoss={false} theme="colored" />
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/app" element={<Landing />} />
+        <Route
+          path="/app"
+          element={
+            <RequireAuth>
+              <ContextSelector />
+            </RequireAuth>
+          }
+        />
         <Route path="/app/login" element={<Login />} />
         <Route
-          path="/app/admin/*"
+          path="/app/checkout/*"
           element={
             <RequireAuth>
-              <RequireAdmin>
-                <AdminApp />
-              </RequireAdmin>
+              <CheckoutApp />
             </RequireAuth>
           }
         />
         <Route
-          path="/app/staff/*"
+          path="/app/trial/*"
           element={
             <RequireAuth>
-              <StaffApp />
+              <TrialApp />
             </RequireAuth>
           }
         />
-        <Route path="/app/customer/*" element={<CustomerApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
 }
-

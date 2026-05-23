@@ -1,10 +1,10 @@
-import { ArrowRight, CheckCircle2, ScanLine, Star, Zap } from 'lucide-react';
+import { ArrowRight, Boxes, CheckCircle2, ScanLine, ShoppingBag, Star, Zap } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '../../store/authStore.js';
+import { enabledModules } from './moduleConfig.js';
 import { motionPresets } from './motionPresets.js';
-import { getUserScope } from './roleUtils.js';
 
 const badges = [
   { text: 'Zero Queue Waiting', Icon: CheckCircle2 },
@@ -12,13 +12,16 @@ const badges = [
   { text: 'Reliable Operations', Icon: Star },
 ];
 
+const moduleIcons = {
+  checkout: ShoppingBag,
+  trial: Boxes,
+};
+
 export function Landing() {
   const navigate = useNavigate();
   const { accessToken, user } = useAuthStore();
 
-  const userScope = getUserScope(user);
   const showWorkspace = Boolean(accessToken && user);
-  const workspacePath = userScope === 'admin' ? '/app/admin' : '/app/staff';
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white font-sans selection:bg-red-100 selection:text-red-900">
@@ -29,7 +32,7 @@ export function Landing() {
             {...motionPresets.fadeInDown}
             {...motionPresets.subtleButton}
             type="button"
-            onClick={() => navigate(showWorkspace ? workspacePath : '/app/login')}
+            onClick={() => navigate('/app')}
             className="mb-5 inline-flex items-center gap-2 rounded-xl border border-brand-red/30 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-soft hover:bg-white"
           >
             <ScanLine size={16} />
@@ -43,7 +46,7 @@ export function Landing() {
           >
             Welcome to <br />
             <span className="relative inline-block text-brand-red">
-              Checkout Queue
+              QuT
             
             </span>
           </Motion.h1>
@@ -68,24 +71,43 @@ export function Landing() {
             className="mb-12 space-y-6 text-lg font-medium leading-relaxed text-gray-600"
           >
             <p>
-              <strong className="text-slate-900">Checkout Queue streamlines retail counters</strong> by reducing waiting time and making token handling predictable.
+              <strong className="text-slate-900">One workspace now supports two queue modules</strong> for different store operations.
             </p>
             <p>
-              Customers can join from QR quickly, while staff and admins get structured dashboards to operate counters and manage store traffic.
+              Checkout Queue manages billing counters, customer tokens, and live store traffic.
             </p>
             <p>
-              Use one platform for live queue visibility, faster service transitions, and a cleaner checkout experience.
+              Trial Queue manages trial zones, studios, and fitting-room style customer movement.
             </p>
+          </Motion.div>
+
+          <Motion.div
+            {...motionPresets.fadeInUp}
+            transition={{ ...motionPresets.fadeInUp.transition, delay: 0.75 }}
+            className="mb-10 grid gap-3 sm:grid-cols-2"
+          >
+            {enabledModules.map((module) => {
+              const Icon = moduleIcons[module.id] || ShoppingBag;
+              return (
+                <div key={module.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-blush text-brand-red">
+                    <Icon size={22} />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900">{module.label}</h2>
+                  <p className="mt-1 text-sm leading-6 text-gray-600">{module.description}</p>
+                </div>
+              );
+            })}
           </Motion.div>
 
           <Motion.button
             {...motionPresets.buttonSpring}
             type="button"
-            onClick={() => navigate('/app/customer')}
+            onClick={() => navigate('/app')}
             className="group relative overflow-hidden rounded-2xl bg-brand-red px-8 py-4 text-lg font-bold text-white shadow-xl shadow-red-500/30"
           >
             <span className="relative z-10 flex items-center gap-2">
-              Launch Customer Flow
+              Open Workspace
               <ArrowRight size={20} className="transition-transform duration-300 group-hover:translate-x-1" />
             </span>
             <div className="absolute inset-0 origin-left scale-x-0 bg-red-600 transition-transform duration-300 group-hover:scale-x-100" />

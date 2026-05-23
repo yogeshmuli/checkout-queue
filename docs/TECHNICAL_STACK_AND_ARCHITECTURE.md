@@ -456,6 +456,13 @@ The first ML implementation should be hybrid:
 | `notification_logs` | SMS, WhatsApp, call notification attempts |
 | `support_tickets` | Customer or staff support tickets |
 | `ml_model_metadata` | Store model training metadata |
+| `trial_zones` | Trial Queue zones linked to shared stores |
+| `trial_studios` | Trial Queue service locations linked to trial zones |
+| `trial_store_configs` | Store-level Trial Queue token and service-time settings |
+| `trial_calendar_days` | Trial-specific weekly store hours |
+| `trial_holidays` | Trial-specific holiday closures |
+| `trial_calendar_events` | Trial-specific promotion, sale, holiday, or other event dates |
+| `trial_queue_tokens` | Customer Trial Queue entries |
 
 ## 7. API Surface
 
@@ -479,6 +486,7 @@ Suggested endpoint groups:
 /api/v1/alerts
 /api/v1/analytics
 /api/v1/ml
+/api/v1/trial
 /api/v1/webhooks
 /api/v1/support
 ```
@@ -532,39 +540,52 @@ POST   /api/v1/ml/stores/{store_id}/predict-service-time
 
 ## 8. Frontend Application Structure
 
-The React app should be organized around user roles:
+The React app should be organized around product modules and then user roles:
 
-- Customer pages for queue joining, token lookup, cancellation, support, FAQ, and contact.
-- Cashier pages for login and live queue operations.
-- Admin pages for store setup, sections, counters, staff, alerts, analytics, and ML model metadata.
+- Checkout module files live under `frontend/src/app/checkout`, with `admin`, `staff`, and `customer` subtrees.
+- Trial module files live under `frontend/src/app/trial`, with `admin`, `staff`, and `customer` subtrees.
+- Shared shell, auth, selector, UI primitives, and role helpers stay under `frontend/src/app/common`.
 
 Implemented frontend routing:
 
 ```text
 /
 /app
-/app/admin
-/app/admin/stores
-/app/admin/store-config
-/app/admin/sections
-/app/admin/counters
-/app/admin/staff
-/app/admin/queue
-/app/admin/calendar
-/app/admin/alerts
-/app/staff
-/app/customer
+/app/checkout/admin
+/app/checkout/admin/stores
+/app/checkout/admin/store-config
+/app/checkout/admin/sections
+/app/checkout/admin/counters
+/app/checkout/admin/staff
+/app/checkout/admin/queue
+/app/checkout/admin/calendar
+/app/checkout/admin/alerts
+/app/checkout/staff
+/app/checkout/customer
+/app/trial/admin
+/app/trial/admin/zones
+/app/trial/admin/studios
+/app/trial/admin/config
+/app/trial/admin/queue
+/app/trial/staff
+/app/trial/customer
 ```
 
-Frontend API handling should be centralized under `src/api/` so pages and components do not manually build URLs or duplicate error handling.
+Frontend API handling should be centralized under `src/api/` so pages and components do not manually build URLs or duplicate error handling:
+
+- Shared API infrastructure stays at `frontend/src/api/httpClient.js` and `frontend/src/api/authApi.js`.
+- Checkout module API clients live under `frontend/src/api/checkout`.
+- Trial module API clients live under `frontend/src/api/trial`, split by resource such as queue, zones, studios, and config.
 
 Current frontend implementation:
 
-- `AdminApp` provides the admin portal shell and dashboard view.
+- `checkout/admin/AdminApp` provides the checkout admin portal shell and dashboard view.
+- `checkout/CheckoutApp` owns checkout admin, staff, and customer nested routing under `/app/checkout/*`.
 - Admin store, section, counter, staff, queue, store config, calendar, and ML pages connect to their implemented APIs.
-- `StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
-- `CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
-- `RoleRedirect` lets a user open the admin, staff, or customer workspace and keeps the preferred role in Zustand/local storage.
+- `checkout/staff/StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
+- `checkout/customer/CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
+- `ContextSelector` lets logged-in users choose Checkout Queue or Trial Queue when multiple product modules are enabled.
+- `TrialApp` owns separate trial admin, staff, and customer route trees under `/app/trial/*`.
 
 ## 9. Request Flow Examples
 
@@ -658,7 +679,7 @@ The implemented ML feature is store-specific and predicts only service duration.
 Training flow:
 
 ```text
-Admin UI /app/admin/ml?store_id={store_id}
+Admin UI /app/checkout/admin/ml?store_id={store_id}
   -> POST /api/v1/ml/stores/{store_id}/train
     -> ml_routes.py
       -> MLTrainingService
@@ -697,7 +718,7 @@ Customer create token
 Metadata/status flow:
 
 ```text
-Admin UI /app/admin/ml?store_id={store_id}
+Admin UI /app/checkout/admin/ml?store_id={store_id}
   -> GET /api/v1/ml/stores/{store_id}/metadata
     -> MLTrainingService
       -> MLRepository returns latest metadata row

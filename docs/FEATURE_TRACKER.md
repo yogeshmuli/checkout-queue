@@ -16,12 +16,14 @@ The backend currently supports:
 - Staff management APIs.
 - Store queue configuration APIs.
 - Store calendar APIs.
+- Trial Queue module APIs behind `ENABLE_TRIAL_QUEUE`.
 - ML service-time training and prediction metadata APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
 - React/Vite frontend scaffold with admin, staff, and customer role views.
 - Customer token status lookup and staff queue processing APIs.
 - Frontend integration for customer token status refresh and staff token transitions.
 - Frontend integration for admin store, section, and staff CRUD flows.
+- Frontend post-login product context selector for enabled modules.
 - Counter management APIs and frontend admin counter CRUD flow.
 - QuT-inspired UI design system with red/blush/navy palette and Poppins/Inter typography.
 
@@ -338,7 +340,7 @@ Result:
 - Auto-creates a default config for stores that do not have one yet.
 - Applies the configured token prefix to new queue tokens.
 - Applies configured base, per-item, and minimum service minutes to queue wait-time calculation.
-- Exposes a frontend admin screen at `/app/admin/store-config?store_id={store_id}`.
+- Exposes a frontend admin screen at `/app/checkout/admin/store-config?store_id={store_id}`.
 
 ### 11. Staff Can Process Queue Token Events
 
@@ -411,14 +413,16 @@ Routes:
 /
 /app
 /app/login
-/app/admin
-/app/staff
-/app/customer
+/app/checkout/admin
+/app/checkout/staff
+/app/checkout/customer
 ```
 
 Result:
 
-- `/app/customer` remains public and does not require authentication.
+- Landing page presents Checkout Queue and Trial Queue as available product modules.
+- Landing page "Open Workspace" sends users to `/app` so the context selector chooses the target module.
+- `/app/checkout/customer` remains public and does not require authentication.
 - `/app/login` is a shared login screen for admin and staff users.
 - Authenticated admin users can access admin and staff workspaces and see all three workspace options.
 - Authenticated staff users are routed directly to the staff workspace.
@@ -430,7 +434,7 @@ As an admin, I can open the store management screen and call implemented store A
 Route:
 
 ```text
-/app/admin/stores
+/app/checkout/admin/stores
 ```
 
 Result:
@@ -450,7 +454,7 @@ As an admin, I can create, list, update, activate/deactivate checkout sections m
 Route:
 
 ```text
-/app/admin/sections
+/app/checkout/admin/sections
 ```
 
 Result:
@@ -461,7 +465,7 @@ Result:
 - Soft-deletes sections through `DELETE /api/v1/sections/{section_id}`.
 - Enforces store linkage in UI and backend (`store_id` is required for sections).
 - Constrains section type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
-- Supports shareable store-filtered section links with `/app/admin/sections?store_id={store_id}`.
+- Supports shareable store-filtered section links with `/app/checkout/admin/sections?store_id={store_id}`.
 - Store and section rows link to related sections, counters, staff, and queue views with matching URL filters.
 
 ### 15B. Admin Can Manage Staff From Frontend
@@ -471,7 +475,7 @@ As an admin, I can create, list, update, activate/deactivate staff users and ass
 Route:
 
 ```text
-/app/admin/staff
+/app/checkout/admin/staff
 ```
 
 Result:
@@ -484,7 +488,7 @@ Result:
 - Uses `Ganesh@123` as the admin UI default password when the create-staff password field is left blank.
 - Validates duplicate email/phone and assignment consistency across store, section, and counter.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
-- Supports shareable staff-filtered links with `/app/admin/staff?store_id={store_id}`, `/app/admin/staff?section_id={section_id}`, and `/app/admin/staff?counter_id={counter_id}`.
+- Supports shareable staff-filtered links with `/app/checkout/admin/staff?store_id={store_id}`, `/app/checkout/admin/staff?section_id={section_id}`, and `/app/checkout/admin/staff?counter_id={counter_id}`.
 - Staff rows link back to related store sections, section counters, counter staff, and queue views.
 
 ### 15C. Admin Can Manage Counters From Frontend
@@ -494,7 +498,7 @@ As an admin, I can create, list, update, and activate/deactivate counters mapped
 Route:
 
 ```text
-/app/admin/counters
+/app/checkout/admin/counters
 ```
 
 Result:
@@ -507,8 +511,8 @@ Result:
 - Constrains counter type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS_EXCHANGE`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
 - Supports store-filtered section selection in the admin form.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
-- Supports shareable section-filtered counter links with `/app/admin/counters?section_id={section_id}`.
-- Supports shareable store-filtered counter links with `/app/admin/counters?store_id={store_id}`.
+- Supports shareable section-filtered counter links with `/app/checkout/admin/counters?section_id={section_id}`.
+- Supports shareable store-filtered counter links with `/app/checkout/admin/counters?store_id={store_id}`.
 - Counter rows link to related section counters, assigned staff, and queue views.
 
 ### 16. Customer Can Create And Track Token From Frontend
@@ -518,7 +522,7 @@ As a customer, I can enter checkout details and create a queue token from the mo
 Route:
 
 ```text
-/app/customer
+/app/checkout/customer
 ```
 
 Result:
@@ -543,7 +547,7 @@ As staff, I can login, view my counter queue, start the next token, complete a s
 Route:
 
 ```text
-/app/staff
+/app/checkout/staff
 ```
 
 Result:
@@ -560,7 +564,7 @@ As an admin or manager, I can view live queue tokens across stores, sections, an
 Route:
 
 ```text
-/app/admin/queue
+/app/checkout/admin/queue
 ```
 
 Result:
@@ -599,7 +603,7 @@ Result:
 - Seeds stores with always-open calendar defaults so existing queue behavior is preserved.
 - Queue join rejects new tokens only when the configured calendar says the store is closed.
 - Existing active tokens and staff queue processing continue unaffected.
-- Exposes a frontend admin screen at `/app/admin/calendar?store_id={store_id}`.
+- Exposes a frontend admin screen at `/app/checkout/admin/calendar?store_id={store_id}`.
 
 ### 20. Admin Can Train Store ML Service-Time Model
 
@@ -631,7 +635,7 @@ Result:
 - Caches loaded model artifacts in process memory by store id, model version, artifact path, and file mtime.
 - Queue token creation uses `ML_PREDICTED` service minutes when a ready model exists.
 - Queue token creation falls back to the existing rule-based service-time calculation when no model is ready or prediction fails.
-- Exposes a frontend admin screen at `/app/admin/ml?store_id={store_id}`.
+- Exposes a frontend admin screen at `/app/checkout/admin/ml?store_id={store_id}`.
 
 Flow:
 
@@ -838,24 +842,49 @@ Admin dashboard UI now supports URL-filterable store/range/view state with three
 - History: promotion-day, time/day, date-based, section, customer-type, and item-bucket analytics.
 - Foresights: ML status, model sample count, churn/utilization signals, operational insights, and active counter pressure links.
 
+### Trial Queue
+
+```text
+GET/POST/PATCH/DELETE /api/v1/trial/zones
+GET/POST/PATCH/DELETE /api/v1/trial/studios
+GET/PUT           /api/v1/stores/{store_id}/trial-config
+GET/PUT           /api/v1/stores/{store_id}/trial-calendar
+GET               /api/v1/trial/queue/store-zones
+POST              /api/v1/trial/queue/join
+GET               /api/v1/trial/queue/status
+GET               /api/v1/trial/queue/tokens
+POST              /api/v1/trial/queue/events
+GET/PATCH         /api/v1/trial/queue/studios/{studio_id}/tokens|status
+POST              /api/v1/trial/queue/tokens/{token_id}/start|complete|cancel
+```
+
+The Trial Queue module shares stores, users, authentication, and role guards with Checkout Queue. It keeps its own zones, studios, configs, calendars, events, and trial queue tokens so the module can be sold and enabled separately.
+
 ## Implemented Frontend Routes
 
 ```text
 /
 /app
 /app/login
-/app/admin
-/app/admin/stores
-/app/admin/store-config
-/app/admin/sections
-/app/admin/counters
-/app/admin/staff
-/app/admin/queue
-/app/admin/calendar
-/app/admin/ml
-/app/admin/alerts
-/app/staff
-/app/customer
+/app/checkout/admin
+/app/checkout/admin/stores
+/app/checkout/admin/store-config
+/app/checkout/admin/sections
+/app/checkout/admin/counters
+/app/checkout/admin/staff
+/app/checkout/admin/queue
+/app/checkout/admin/calendar
+/app/checkout/admin/ml
+/app/checkout/admin/alerts
+/app/checkout/staff
+/app/checkout/customer
+/app/trial/admin
+/app/trial/admin/zones
+/app/trial/admin/studios
+/app/trial/admin/config
+/app/trial/admin/queue
+/app/trial/staff
+/app/trial/customer
 ```
 
 ## Not Implemented Yet

@@ -6,7 +6,6 @@ import brandLogo from '../../assets/images/equilateral_logo.png';
 import { loginUser } from '../../api/authApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../api/httpClient.js';
 import { useAuthStore } from '../../store/authStore.js';
-import { getUserScope } from './roleUtils.js';
 
 export function Login() {
   const navigate = useNavigate();
@@ -16,8 +15,7 @@ export function Login() {
   const [message, setMessage] = useState('');
 
   if (accessToken && user) {
-    const scope = getUserScope(user);
-    return <Navigate to={scope === 'admin' ? '/' : '/app/staff'} replace />;
+    return <Navigate to="/app" replace />;
   }
 
   async function submitLogin(event) {
@@ -27,8 +25,7 @@ export function Login() {
     try {
       const session = await loginUser(form);
       setSession(session);
-      const scope = getUserScope(session.user);
-      navigate(scope === 'admin' ? '/' : '/app/staff', { replace: true });
+      navigate('/app', { replace: true });
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -73,7 +70,7 @@ export function Login() {
             <LogIn size={18} />
             Login
           </button>
-          <Link to="/app/customer" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-4 py-3 text-sm font-medium text-brand-red">
+          <Link to="/app/checkout/customer" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-4 py-3 text-sm font-medium text-brand-red">
             <ScanLine size={18} />
             Continue as customer
           </Link>

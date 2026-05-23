@@ -5,6 +5,17 @@ from app.models.ml_model_metadata import MLModelMetadata
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.store_config import StoreConfig
+from app.models.trial import (
+    TrialCalendarDay,
+    TrialCalendarEvent,
+    TrialCalendarEventType,
+    TrialHoliday,
+    TrialQueueToken,
+    TrialQueueTokenStatus,
+    TrialStoreConfig,
+    TrialStudio,
+    TrialZone,
+)
 from app.models.user import RefreshToken, User, UserRole, UserStoreAccess
 
 __all__ = [
@@ -22,6 +33,15 @@ __all__ = [
     "StoreCalendarEventType",
     "StoreConfig",
     "StoreHoliday",
+    "TrialCalendarDay",
+    "TrialCalendarEvent",
+    "TrialCalendarEventType",
+    "TrialHoliday",
+    "TrialQueueToken",
+    "TrialQueueTokenStatus",
+    "TrialStoreConfig",
+    "TrialStudio",
+    "TrialZone",
     "User",
     "UserRole",
     "UserStoreAccess",
