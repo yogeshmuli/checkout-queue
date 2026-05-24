@@ -1,9 +1,9 @@
-import { Activity, ArrowLeftRight, Boxes, Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Store, Users, X } from 'lucide-react';
+import { Activity, ArrowLeftRight, Boxes, BrainCircuit, Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Store, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../assets/images/equilateral_logo.png';
-import { enabledModules } from '../common/moduleConfig.js';
+import { enabledModules, getAssignedModuleId } from '../common/moduleConfig.js';
 import { getUserScope } from '../common/roleUtils.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { TrialAdmin } from './admin/TrialAdmin.jsx';
@@ -17,6 +17,13 @@ function RequireAdmin({ children }) {
   return children;
 }
 
+function RequireTrialStaff({ children }) {
+  const { user } = useAuthStore();
+  if (!user) return <Navigate to="/app/login" replace />;
+  if (getAssignedModuleId(user) === 'checkout') return <Navigate to="/app/checkout/staff" replace />;
+  return children;
+}
+
 const navItems = [
   { label: 'Dashboard', path: '/app/trial/admin', Icon: LayoutDashboard },
   { label: 'Stores', path: '/app/trial/admin/stores', Icon: Store },
@@ -25,6 +32,7 @@ const navItems = [
   { label: 'Staff', path: '/app/trial/admin/staff', Icon: Users },
   { label: 'Config', path: '/app/trial/admin/config', Icon: Settings },
   { label: 'Calendar', path: '/app/trial/admin/calendar', Icon: CalendarDays },
+  { label: 'ML', path: '/app/trial/admin/ml', Icon: BrainCircuit },
   { label: 'Queue', path: '/app/trial/admin/queue', Icon: Activity },
 ];
 
@@ -185,9 +193,16 @@ export function TrialApp() {
           </RequireAdmin>
         }
       />
-      <Route path="staff/*" element={<TrialStaff />} />
+      <Route
+        path="staff/*"
+        element={
+          <RequireTrialStaff>
+            <TrialStaff />
+          </RequireTrialStaff>
+        }
+      />
       <Route path="customer/*" element={<TrialCustomer />} />
-      <Route path="*" element={<Navigate to={scope === 'admin' ? '/app/trial/admin' : '/app/trial/staff'} replace />} />
+      <Route path="*" element={<Navigate to={user ? (scope === 'admin' ? '/app/trial/admin' : '/app/trial/staff') : '/app/trial/customer'} replace />} />
     </Routes>
   );
 }

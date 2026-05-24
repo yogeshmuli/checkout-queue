@@ -120,13 +120,14 @@ class MLRepository:
         )
         return self.db.scalar(statement) is not None
 
-    def get_latest_metadata(self, store_id: int) -> MLModelMetadata | None:
+    def get_latest_metadata(self, store_id: int, model_type: str | None = None) -> MLModelMetadata | None:
         statement = (
             select(MLModelMetadata)
             .where(MLModelMetadata.store_id == store_id)
-            .order_by(MLModelMetadata.trained_at.desc().nulls_last(), MLModelMetadata.id.desc())
-            .limit(1)
         )
+        if model_type is not None:
+            statement = statement.where(MLModelMetadata.model_type == model_type)
+        statement = statement.order_by(MLModelMetadata.trained_at.desc().nulls_last(), MLModelMetadata.id.desc()).limit(1)
         return self.db.scalar(statement)
 
     def create_metadata(self, metadata: MLModelMetadata) -> MLModelMetadata:

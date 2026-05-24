@@ -1,12 +1,14 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.ml_model_metadata import MLModelMetadata
 from app.models.store import Store
 from app.models.trial import (
     TrialCalendarDay,
     TrialCalendarEvent,
+    TrialCalendarEventType,
     TrialHoliday,
     TrialQueueToken,
     TrialQueueTokenStatus,
@@ -29,6 +31,117 @@ class TrialRepository:
 
     def get_store(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)
+
+    def get_ready_trial_ml_model_metadata(self, store_id: int) -> MLModelMetadata | None:
+        statement = (
+            select(MLModelMetadata)
+            .where(
+                MLModelMetadata.store_id == store_id,
+                MLModelMetadata.status == "READY",
+                MLModelMetadata.model_type == "random_forest_trial_service_time_v1",
+            )
+            .order_by(MLModelMetadata.trained_at.desc().nulls_last(), MLModelMetadata.id.desc())
+            .limit(1)
+        )
+        return self.db.scalar(statement)
+
+    def list_completed_trial_training_tokens(self, store_id: int) -> list[TrialQueueToken]:
+        statement = (
+            select(TrialQueueToken)
+            .where(
+                TrialQueueToken.store_id == store_id,
+                TrialQueueToken.status == TrialQueueTokenStatus.COMPLETED,
+                TrialQueueToken.service_started_at.is_not(None),
+                TrialQueueToken.completed_at.is_not(None),
+            )
+            .order_by(TrialQueueToken.completed_at.asc(), TrialQueueToken.id.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
+    def get_trial_store_timezone(self, store_id: int) -> str | None:
+        statement = (
+            select(TrialCalendarDay.timezone)
+            .where(TrialCalendarDay.store_id == store_id)
+            .order_by(TrialCalendarDay.weekday.asc())
+            .limit(1)
+        )
+        return self.db.scalar(statement)
+
+    def count_trial_zone_busy_tokens_at(
+        self,
+        store_id: int,
+        trial_zone_id: int | None,
+        at_time: datetime,
+        exclude_token_id: int | None = None,
+    ) -> int:
+        statement = select(func.count(TrialQueueToken.id)).where(
+            TrialQueueToken.store_id == store_id,
+            TrialQueueToken.created_at <= at_time,
+            TrialQueueToken.status.in_(ACTIVE_TRIAL_TOKEN_STATUSES),
+            or_(TrialQueueToken.completed_at.is_(None), TrialQueueToken.completed_at > at_time),
+            or_(TrialQueueToken.cancelled_at.is_(None), TrialQueueToken.cancelled_at > at_time),
+        )
+        if trial_zone_id is None:
+            statement = statement.where(TrialQueueToken.trial_zone_id.is_(None))
+        else:
+            statement = statement.where(TrialQueueToken.trial_zone_id == trial_zone_id)
+        if exclude_token_id is not None:
+            statement = statement.where(TrialQueueToken.id != exclude_token_id)
+        return self.db.scalar(statement) or 0
+
+    def count_active_studios_for_zone(self, store_id: int, trial_zone_id: int | None) -> int:
+        statement = (
+            select(func.count(TrialStudio.id))
+            .join(TrialZone, TrialZone.id == TrialStudio.trial_zone_id)
+            .where(
+                TrialZone.store_id == store_id,
+                TrialZone.is_active.is_(True),
+                TrialStudio.is_active.is_(True),
+            )
+        )
+        if trial_zone_id is not None:
+            statement = statement.where(TrialStudio.trial_zone_id == trial_zone_id)
+        return self.db.scalar(statement) or 0
+
+    def list_recent_trial_zone_terminal_tokens(
+        self,
+        store_id: int,
+        trial_zone_id: int | None,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> list[TrialQueueToken]:
+        statement = select(TrialQueueToken).where(
+            TrialQueueToken.store_id == store_id,
+            TrialQueueToken.status.in_(
+                (
+                    TrialQueueTokenStatus.COMPLETED,
+                    TrialQueueTokenStatus.CANCELLED,
+                    TrialQueueTokenStatus.NO_SHOW,
+                )
+            ),
+            or_(
+                TrialQueueToken.completed_at.between(start_time, end_time),
+                TrialQueueToken.cancelled_at.between(start_time, end_time),
+            ),
+        )
+        if trial_zone_id is None:
+            statement = statement.where(TrialQueueToken.trial_zone_id.is_(None))
+        else:
+            statement = statement.where(TrialQueueToken.trial_zone_id == trial_zone_id)
+        return list(self.db.scalars(statement).all())
+
+    def has_active_trial_promotion_event(self, store_id: int, event_date: date) -> bool:
+        statement = (
+            select(TrialCalendarEvent.id)
+            .where(
+                TrialCalendarEvent.store_id == store_id,
+                TrialCalendarEvent.event_date == event_date,
+                TrialCalendarEvent.event_type.in_((TrialCalendarEventType.PROMOTION, TrialCalendarEventType.SALE)),
+                TrialCalendarEvent.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        return self.db.scalar(statement) is not None
 
     def list_active_stores_with_zones(self) -> list[Store]:
         statement = (

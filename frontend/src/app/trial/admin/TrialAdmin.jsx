@@ -11,6 +11,7 @@ import { SectionHeader } from '../../common/SectionHeader.jsx';
 import { Calendar } from './pages/Calendar.jsx';
 import { Config } from './pages/Config.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
+import { MachineLearning } from './pages/MachineLearning.jsx';
 import { Queue } from './pages/Queue.jsx';
 import { Staff } from './pages/Staff.jsx';
 import { Stores } from './pages/Stores.jsx';
@@ -61,6 +62,7 @@ export function TrialAdmin() {
       <Route path="staff" element={<Staff />} />
       <Route path="config" element={<Config />} />
       <Route path="calendar" element={<Calendar />} />
+      <Route path="ml" element={<MachineLearning />} />
       <Route path="queue" element={<Queue />} />
       <Route path="*" element={<Navigate to="/app/trial/admin" replace />} />
     </Routes>
@@ -80,4 +82,3 @@ function TrialOverview({ zones, studios, tokens, message }) {
     </div>
   );
 }
-

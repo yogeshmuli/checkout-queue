@@ -17,6 +17,7 @@ The backend currently supports:
 - Store queue configuration APIs.
 - Store calendar APIs.
 - Trial Queue module APIs behind `ENABLE_TRIAL_QUEUE`.
+- Demo Tools APIs behind `ENABLE_DEMO_TOOLS` for isolated ML training data.
 - Trial admin calendar UI for store-level trial hours, holidays, and event signals.
 - ML service-time training and prediction metadata APIs.
 - Customer queue enrollment with rule-based wait-time estimate.
@@ -494,6 +495,8 @@ Result:
   - Non-trial roles can be assigned only to checkout counters (not trial studios).
   - Counter and studio assignment are mutually exclusive.
   - Studio assignment must belong to the selected store.
+- Requires `TRIAL_ZONE_ASSISTANT` staff to have an assigned trial studio so Trial staff login can route to a usable workspace.
+- Clears incompatible saved assignments during role updates, so changing a checkout staff member to `TRIAL_ZONE_ASSISTANT` removes stale checkout section/counter values before validating the trial studio assignment.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
 - Supports shareable staff-filtered links with `/app/checkout/admin/staff?store_id={store_id}`, `/app/checkout/admin/staff?section_id={section_id}`, `/app/checkout/admin/staff?counter_id={counter_id}`, and `/app/checkout/admin/staff?studio_id={studio_id}`.
 - Staff rows link back to related store sections, section counters, counter staff, studio staff, and queue views.
@@ -863,6 +866,9 @@ GET               /api/v1/trial/queue/tokens
 POST              /api/v1/trial/queue/events
 GET/PATCH         /api/v1/trial/queue/studios/{studio_id}/tokens|status
 POST              /api/v1/trial/queue/tokens/{token_id}/start|complete|cancel
+POST              /api/v1/ml/trial/stores/{store_id}/train
+GET               /api/v1/ml/trial/stores/{store_id}/metadata
+POST              /api/v1/ml/trial/stores/{store_id}/predict-service-time
 ```
 
 The Trial Queue module shares stores, users, authentication, and role guards with Checkout Queue. It keeps its own zones, studios, configs, calendars, events, and trial queue tokens so the module can be sold and enabled separately.
@@ -874,12 +880,40 @@ Trial Queue frontend parity:
 - Checkout and Trial admin sidebars show the logged-in user email with a standard logout action in desktop and mobile navigation.
 - Trial admin store, zone, studio, and config screens use the same CRUD layout pattern as Checkout admin, including filters, search, create/edit panels, refresh actions, validation, and active/inactive status controls where applicable.
 - Trial admin calendar screen under `/app/trial/admin/calendar` supports store-level weekday hours, timezone, holidays, and promotional event management using Trial Calendar APIs.
+- Trial admin ML screen under `/app/trial/admin/ml` trains and displays the latest Trial Queue RandomForest service-time model for a store.
 - Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel).
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
 - Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: store/zone select (with QR scan), create token, mobile lookup, and token status screens.
+- Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
 - Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
 - Staff workspace under `/app/trial/staff` uses studio-specific queue/status APIs to load assigned tokens, start waiting tokens, complete/cancel active tokens, and mark a studio active or inactive. Assigned trial staff automatically load their `assigned_studio_id`.
+
+Trial Queue ML:
+
+- Uses separate `random_forest_trial_service_time_v1` metadata/artifacts from checkout ML, stored under `ML_MODEL_DIR/trial_store_{store_id}`.
+- Trains only on completed `trial_queue_tokens` with `service_started_at` and `completed_at`, using actual trial service duration as the target.
+- Feature set includes item count, trial-zone busy count, active studio count, recent cancellation rate, recent average service minutes, hour/day/weekend, trial promotion/sale flag, customer type, trial zone, assigned studio, zone type, zone gender, and studio type.
+- Trial queue join uses Trial ML when a READY artifact predicts successfully; otherwise it keeps the existing `RULE_BASED` trial config fallback.
+
+### Demo Tools
+
+```text
+POST   /api/v1/demotools/ml-training-data
+GET    /api/v1/demotools/ml-training-data/status
+DELETE /api/v1/demotools/ml-training-data
+```
+
+Demo Tools are disabled unless `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. The ML training-data seed endpoint creates one isolated store with `store_number=DEMO-ML-STORE`, one checkout section with three counters, one trial zone with three studios, checkout/trial configs and calendars, promotion events, and enough completed/cancelled/no-show checkout and trial tokens to train both ML models. Cleanup deletes only that demo store, related demo data, demo ML metadata, and demo artifact folders.
+
+The shared `/app` context selector shows a Super Admin-only Demo Tools panel with status, create, recreate, and cleanup actions for the demo ML training dataset.
+
+Training remains manual after seeding:
+
+```text
+POST /api/v1/ml/stores/{demo_store_id}/train
+POST /api/v1/ml/trial/stores/{demo_store_id}/train
+```
 
 ## Implemented Frontend Routes
 
@@ -904,6 +938,7 @@ Trial Queue frontend parity:
 /app/trial/admin/studios
 /app/trial/admin/config
 /app/trial/admin/calendar
+/app/trial/admin/ml
 /app/trial/admin/queue
 /app/trial/staff
 /app/trial/customer

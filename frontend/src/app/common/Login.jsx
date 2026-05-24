@@ -72,7 +72,11 @@ export function Login() {
           </button>
           <Link to="/app/checkout/customer" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-4 py-3 text-sm font-medium text-brand-red">
             <ScanLine size={18} />
-            Continue as customer
+            Continue as checkout customer
+          </Link>
+          <Link to="/app/trial/customer" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-4 py-3 text-sm font-medium text-brand-red">
+            <ScanLine size={18} />
+            Continue as trial customer
           </Link>
         </form>
       </section>

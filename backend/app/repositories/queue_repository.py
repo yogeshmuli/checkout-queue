@@ -50,6 +50,7 @@ class QueueRepository:
             .where(
                 MLModelMetadata.store_id == store_id,
                 MLModelMetadata.status == "READY",
+                MLModelMetadata.model_type == "random_forest_service_time_v2",
             )
             .order_by(MLModelMetadata.trained_at.desc().nulls_last(), MLModelMetadata.id.desc())
             .limit(1)

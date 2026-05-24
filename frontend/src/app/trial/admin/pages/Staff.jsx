@@ -17,6 +17,7 @@ const emptyStaff = {
   default_role: 'TRIAL_ZONE_ASSISTANT',
   store_id: '',
   assigned_zone_id: '',
+  assigned_studio_id: '',
   is_active: true,
 };
 
@@ -38,7 +39,7 @@ const ROLE_OPTIONS = [
 ];
 
 const STAFF_PER_PAGE = 8;
-const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'assigned_zone_id'];
+const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'assigned_zone_id', 'assigned_studio_id'];
 
 export function Staff() {
   const [staff, setStaff] = useState([]);
@@ -77,18 +78,6 @@ export function Staff() {
     return map;
   }, [zones]);
 
-  // Trial staff API persists assigned_studio_id, so zone assignment maps to the zone's first active studio.
-  const primaryStudioByZoneId = useMemo(() => {
-    const map = new Map();
-    for (const studio of studios) {
-      const zoneKey = String(studio.trial_zone_id);
-      if (!map.has(zoneKey) || studio.is_active) {
-        map.set(zoneKey, studio);
-      }
-    }
-    return map;
-  }, [studios]);
-
   const studioById = useMemo(() => {
     const map = new Map();
     for (const studio of studios) {
@@ -109,11 +98,28 @@ export function Staff() {
     { label: 'No zone', value: '' },
     ...zones
       .filter((zone) => !form.store_id || String(zone.store_id) === String(form.store_id))
-      .filter((zone) => primaryStudioByZoneId.has(String(zone.id)))
       .map((zone) => ({
         label: `${zone.name} (${storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`})`,
         value: String(zone.id),
       })),
+  ];
+
+  const studioOptions = [
+    { label: 'No studio', value: '' },
+    ...studios
+      .filter((studio) => !form.assigned_zone_id || String(studio.trial_zone_id) === String(form.assigned_zone_id))
+      .filter((studio) => {
+        if (!form.store_id) return true;
+        const studioZone = zones.find((zone) => String(zone.id) === String(studio.trial_zone_id));
+        return studioZone && String(studioZone.store_id) === String(form.store_id);
+      })
+      .map((studio) => {
+        const zoneName = zoneNameById.get(String(studio.trial_zone_id)) || `Zone #${studio.trial_zone_id}`;
+        return {
+          label: `${studio.name || `Studio #${studio.id}`} (${zoneName})`,
+          value: String(studio.id),
+        };
+      }),
   ];
 
   const storeFilterOptions = [
@@ -139,7 +145,6 @@ export function Staff() {
   }
 
   function toPayload(values) {
-    const selectedStudio = values.assigned_zone_id ? primaryStudioByZoneId.get(String(values.assigned_zone_id)) : null;
     return {
       email: values.email.trim().toLowerCase(),
       full_name: values.full_name.trim(),
@@ -148,7 +153,7 @@ export function Staff() {
       store_id: values.store_id ? Number(values.store_id) : null,
       section_id: null,
       assigned_counter_id: null,
-      assigned_studio_id: selectedStudio ? Number(selectedStudio.id) : null,
+      assigned_studio_id: values.assigned_studio_id ? Number(values.assigned_studio_id) : null,
       is_active: values.is_active,
       ...(editingStaffId ? {} : { password: values.password.trim() || DEFAULT_STAFF_PASSWORD }),
       ...(editingStaffId && values.password.trim() ? { password: values.password.trim() } : {}),
@@ -184,6 +189,10 @@ export function Staff() {
       errors.assigned_zone_id = 'Assigned zone is required for Trial zone assistant.';
     }
 
+    if (values.default_role === 'TRIAL_ZONE_ASSISTANT' && !values.assigned_studio_id) {
+      errors.assigned_studio_id = 'Assigned studio is required for Trial zone assistant.';
+    }
+
     return errors;
   }
 
@@ -197,9 +206,14 @@ export function Staff() {
       const nextForm = { ...prev, [field]: nextValue };
       if (field === 'store_id' && prev.store_id !== nextValue) {
         nextForm.assigned_zone_id = '';
+        nextForm.assigned_studio_id = '';
+      }
+      if (field === 'assigned_zone_id' && prev.assigned_zone_id !== nextValue) {
+        nextForm.assigned_studio_id = '';
       }
       if (field === 'default_role' && prev.default_role !== nextValue && nextValue !== 'TRIAL_ZONE_ASSISTANT') {
         nextForm.assigned_zone_id = '';
+        nextForm.assigned_studio_id = '';
       }
       return nextForm;
     });
@@ -244,6 +258,7 @@ export function Staff() {
       default_role: staffUser.default_role || 'TRIAL_ZONE_ASSISTANT',
       store_id: staffUser.store_id ? String(staffUser.store_id) : '',
       assigned_zone_id: assignedZoneId,
+      assigned_studio_id: staffUser.assigned_studio_id ? String(staffUser.assigned_studio_id) : '',
       is_active: Boolean(staffUser.is_active),
     };
 
@@ -516,6 +531,25 @@ export function Staff() {
                 readOnly
               />
               {formErrors.assigned_zone_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.assigned_zone_id}</p> : null}
+            </div>
+            <div>
+              <Select
+                label="Assigned studio"
+                value={form.assigned_studio_id}
+                options={studioOptions}
+                onChange={(value) => setFormField('assigned_studio_id', value)}
+                disabled={!isTrialAssistantRole}
+              />
+              <input
+                ref={(el) => {
+                  fieldRefs.current.assigned_studio_id = el;
+                }}
+                tabIndex={-1}
+                className="absolute h-0 w-0 opacity-0"
+                aria-hidden="true"
+                readOnly
+              />
+              {formErrors.assigned_studio_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.assigned_studio_id}</p> : null}
             </div>
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
               <span className="text-sm font-medium text-charcoal">Staff active</span>

@@ -74,11 +74,17 @@ class StaffService:
         if new_phone_number is not None and new_phone_number != user.phone_number:
             self._ensure_phone_available(new_phone_number, current_user_id=user.id)
 
+        new_role = update_data.get("default_role", user.default_role)
+        if new_role == UserRole.TRIAL_ZONE_ASSISTANT:
+            update_data["section_id"] = None
+            update_data["assigned_counter_id"] = None
+        else:
+            update_data["assigned_studio_id"] = None
+
         new_store_id = update_data.get("store_id", user.store_id)
         new_section_id = update_data.get("section_id", user.section_id)
         new_counter_id = update_data.get("assigned_counter_id", user.assigned_counter_id)
         new_studio_id = update_data.get("assigned_studio_id", user.assigned_studio_id)
-        new_role = update_data.get("default_role", user.default_role)
         self._validate_assignment(new_store_id, new_section_id, new_counter_id, new_studio_id, new_role)
 
         for field, value in update_data.items():
@@ -124,6 +130,9 @@ class StaffService:
     ) -> None:
         if assigned_counter_id is not None and assigned_studio_id is not None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assign either counter or studio, not both")
+
+        if role == UserRole.TRIAL_ZONE_ASSISTANT and assigned_studio_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="TRIAL_ZONE_ASSISTANT must be assigned to trial studio")
 
         if store_id is not None and self.repository.get_store_by_id(store_id) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")

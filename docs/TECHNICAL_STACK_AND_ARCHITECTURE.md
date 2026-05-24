@@ -417,6 +417,7 @@ Main APIs:
 - Train store-specific model
 - Get model metadata
 - Predict checkout service time
+- Train and predict Trial Queue service time with separate trial-specific features and artifacts
 - Fall back to rule-based prediction if ML is unavailable
 
 The ML model should predict checkout service duration for a customer token. It should not directly own the full queue wait estimate. Queue wait time should continue to be calculated by the queue scheduling service using:
@@ -430,6 +431,7 @@ The ML model should predict checkout service duration for a customer token. It s
 The first ML implementation should be hybrid:
 
 - Use ML only when enough completed checkout history and a trained model are available.
+- Use separate Trial Queue ML only when enough completed trial history and a trained trial model are available.
 - Fall back to the store's rule-based service-time configuration when ML is disabled, unavailable, stale, under-trained, or fails at runtime.
 - Train from completed queue tokens where `service_started_at` and `completed_at` are present.
 - Use actual service duration from `completed_at - service_started_at` as the target value.
@@ -487,6 +489,7 @@ Suggested endpoint groups:
 /api/v1/analytics
 /api/v1/ml
 /api/v1/trial
+/api/v1/demotools
 /api/v1/webhooks
 /api/v1/support
 ```
@@ -536,7 +539,20 @@ GET    /api/v1/analytics/stores/{store_id}
 POST   /api/v1/ml/stores/{store_id}/train
 GET    /api/v1/ml/stores/{store_id}/metadata
 POST   /api/v1/ml/stores/{store_id}/predict-service-time
+POST   /api/v1/ml/trial/stores/{store_id}/train
+GET    /api/v1/ml/trial/stores/{store_id}/metadata
+POST   /api/v1/ml/trial/stores/{store_id}/predict-service-time
 ```
+
+Example Demo Tools endpoints:
+
+```text
+POST   /api/v1/demotools/ml-training-data?replace=false
+GET    /api/v1/demotools/ml-training-data/status
+DELETE /api/v1/demotools/ml-training-data
+```
+
+Demo Tools are registered only when `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. They create and clean an isolated ML training store identified by `store_number=DEMO-ML-STORE`; cleanup removes that store, demo ML metadata, and demo artifact directories only.
 
 ## 8. Frontend Application Structure
 
@@ -559,6 +575,7 @@ Implemented frontend routing:
 /app/checkout/admin/staff
 /app/checkout/admin/queue
 /app/checkout/admin/calendar
+/app/checkout/admin/ml
 /app/checkout/admin/alerts
 /app/checkout/staff
 /app/checkout/customer
@@ -566,6 +583,8 @@ Implemented frontend routing:
 /app/trial/admin/zones
 /app/trial/admin/studios
 /app/trial/admin/config
+/app/trial/admin/calendar
+/app/trial/admin/ml
 /app/trial/admin/queue
 /app/trial/staff
 /app/trial/customer
@@ -575,7 +594,7 @@ Frontend API handling should be centralized under `src/api/` so pages and compon
 
 - Shared API infrastructure stays at `frontend/src/api/httpClient.js` and `frontend/src/api/authApi.js`.
 - Checkout module API clients live under `frontend/src/api/checkout`.
-- Trial module API clients live under `frontend/src/api/trial`, split by resource such as queue, zones, studios, and config.
+- Trial module API clients live under `frontend/src/api/trial`, split by resource such as queue, zones, studios, config, calendar, and ML.
 
 Current frontend implementation:
 
@@ -586,6 +605,7 @@ Current frontend implementation:
 - `checkout/customer/CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
 - `ContextSelector` lets logged-in users choose Checkout Queue or Trial Queue when multiple product modules are enabled.
 - `TrialApp` owns separate trial admin, staff, and customer route trees under `/app/trial/*`.
+- Trial admin ML connects to `/api/v1/ml/trial/stores/{store_id}/train|metadata` and displays the latest trial service-time model.
 
 ## 9. Request Flow Examples
 
@@ -738,6 +758,23 @@ Important behavior:
 - Loaded model artifacts are cached in process memory by store id, model version, artifact path, and file mtime. A newly trained model gets a new version/path, and an overwritten artifact gets a new mtime, so stale cache entries are naturally bypassed.
 - `queue_tokens.calculation_method` records whether the token used `ML_PREDICTED` or `RULE_BASED`.
 
+Trial ML flow:
+
+```text
+Admin UI /app/trial/admin/ml?store_id={store_id}
+  -> POST /api/v1/ml/trial/stores/{store_id}/train
+    -> TrialMLTrainingService
+      -> TrialRepository validates store
+      -> TrialRepository loads completed trial_queue_tokens
+      -> service duration = completed_at - service_started_at
+      -> trainer builds features from trial zone load, active studios, recent trial history, local time, trial calendar events, zone/studio types, zone gender, and customer type
+      -> trainer fits RandomForestRegressor model
+      -> artifact is written under ML_MODEL_DIR/trial_store_{store_id}
+      -> metadata is saved in ml_model_metadata with model_type=random_forest_trial_service_time_v1
+```
+
+During `POST /api/v1/trial/queue/join`, `TrialService` asks `TrialPredictionService` for a service-time prediction after selecting the best studio. If a READY trial artifact exists and prediction succeeds, `trial_queue_tokens.service_time_minutes` uses the ML result and `calculation_method=ML_PREDICTED`; otherwise the existing trial store config remains the `RULE_BASED` fallback.
+
 ## 11. Background Jobs
 
 Recommended background jobs:
@@ -747,6 +784,7 @@ Recommended background jobs:
 | Alert scheduler | Every 30 seconds | Check wait-time, token-ahead, and utilization alerts |
 | ML retraining check | After checkout completion | Retrain when enough new completed records exist |
 | Demo seed job | Manual script | Create demo store, sections, counters, history, and active queue |
+| Demo Tools ML seed API | Manual protected API | Create and clean isolated checkout/trial ML training data |
 | Queue cleanup job | Manual or scheduled | Mark stale called tokens as no-show if required |
 
 For production, move scheduled work to Celery, RQ, APScheduler, or a separate worker container.

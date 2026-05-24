@@ -5,7 +5,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.trial import TrialCalendarDay, TrialCalendarEvent, TrialHoliday, TrialQueueToken, TrialQueueTokenStatus, TrialStoreConfig, TrialStudio, TrialZone
+from app.models.trial import TrialCalendarDay, TrialCalendarEvent, TrialHoliday, TrialQueueToken, TrialQueueTokenStatus, TrialStoreConfig, TrialStudio, TrialZone, TrialZoneGender
+from app.schemas.ml import TrialServiceTimePredictionRequest
 from app.repositories.trial_repository import TrialRepository
 from app.schemas.trial import (
     TrialCalendarDayResponse,
@@ -32,6 +33,7 @@ from app.schemas.trial import (
     TrialZoneResponse,
     TrialZoneUpdateRequest,
 )
+from app.services.trial_prediction_service import TrialPredictionService
 
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
@@ -231,7 +233,18 @@ class TrialService:
         selected = min(studios, key=lambda studio: self._normalize_to_utc(studio.next_available_time))
         calling_time = max(now, self._normalize_to_utc(selected.next_available_time))
         config = self.get_config(payload.store_id)
-        service_minutes = self._estimate_service_minutes(payload.item_count, config)
+        prediction = TrialPredictionService(self.repository).predict_service_time(
+            payload.store_id,
+            TrialServiceTimePredictionRequest(
+                trial_zone_id=payload.trial_zone_id,
+                assigned_studio_id=selected.id,
+                item_count=payload.item_count,
+                customer_type=payload.customer_type,
+                requested_at=now,
+            ),
+        )
+        calculation_method = prediction.calculation_method if prediction is not None else self.CALCULATION_METHOD
+        service_minutes = prediction.service_time_minutes if prediction is not None else self._estimate_service_minutes(payload.item_count, config)
         wait_minutes = max(0, math.ceil((calling_time - now).total_seconds() / 60))
         position = self._calculate_studio_position(selected.id, calling_time)
         selected.next_available_time = calling_time + timedelta(minutes=service_minutes)
@@ -245,7 +258,7 @@ class TrialService:
             item_count=payload.item_count,
             customer_type=payload.customer_type,
             service_time_minutes=service_minutes,
-            calculation_method=self.CALCULATION_METHOD,
+            calculation_method=calculation_method,
             calling_time=calling_time,
         )
         self.repository.create(token)
@@ -260,7 +273,7 @@ class TrialService:
             status=token.status,
             position=position,
             estimated_wait_minutes=wait_minutes,
-            calculation_method=self.CALCULATION_METHOD,
+            calculation_method=calculation_method,
             calling_time=calling_time,
         )
 

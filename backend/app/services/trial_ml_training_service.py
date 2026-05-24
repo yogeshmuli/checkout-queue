@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.ml_model_metadata import MLModelMetadata
-from app.models.queue_token import QueueToken, QueueTokenStatus
-from app.repositories.ml_repository import MLRepository
+from app.models.trial import TrialQueueToken, TrialQueueTokenStatus
+from app.repositories.trial_repository import TrialRepository
 from app.schemas.ml import MLModelMetadataResponse
 
 
@@ -22,14 +22,14 @@ DEFAULT_TIMEZONE = "Asia/Kolkata"
 RECENT_HISTORY_DAYS = 7
 
 
-class MLTrainingService:
-    MODEL_TYPE = "random_forest_service_time_v2"
+class TrialMLTrainingService:
+    MODEL_TYPE = "random_forest_trial_service_time_v1"
 
     def __init__(self, db: Session) -> None:
-        self.repository = MLRepository(db)
+        self.repository = TrialRepository(db)
 
     def train_store_model(self, store_id: int) -> MLModelMetadataResponse:
-        store = self.repository.get_store_by_id(store_id)
+        store = self.repository.get_store(store_id)
         if store is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
 
@@ -37,7 +37,7 @@ class MLTrainingService:
         if len(rows) < settings.ML_MIN_TRAINING_SAMPLES:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"At least {settings.ML_MIN_TRAINING_SAMPLES} completed checkout records are required for ML training",
+                detail=f"At least {settings.ML_MIN_TRAINING_SAMPLES} completed trial records are required for ML training",
             )
 
         features = [row["features"] for row in rows]
@@ -65,7 +65,7 @@ class MLTrainingService:
         feature_importance = self._feature_importance(model)
 
         trained_at = datetime.now(timezone.utc)
-        model_version = trained_at.strftime("service-time-%Y%m%d%H%M%S")
+        model_version = trained_at.strftime("trial-service-time-%Y%m%d%H%M%S")
         artifact_path = self._write_artifact(
             store_id=store_id,
             model_version=model_version,
@@ -93,27 +93,27 @@ class MLTrainingService:
             data_quality_score=1.0,
             feature_importance=json.dumps(feature_importance),
         )
-        self.repository.create_metadata(metadata)
+        self.repository.create(metadata)
         self.repository.commit()
         self.repository.refresh(metadata)
         return self._to_response(metadata)
 
     def get_store_metadata(self, store_id: int) -> MLModelMetadataResponse:
-        store = self.repository.get_store_by_id(store_id)
+        store = self.repository.get_store(store_id)
         if store is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
 
-        metadata = self.repository.get_latest_metadata(store_id, self.MODEL_TYPE)
+        metadata = self.repository.get_ready_trial_ml_model_metadata(store_id)
         if metadata is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ML model metadata not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial ML model metadata not found")
         return self._to_response(metadata)
 
     def _training_rows(self, store_id: int) -> list[dict[str, object]]:
         rows: list[dict[str, object]] = []
-        timezone_name = self.repository.get_store_timezone(store_id) or DEFAULT_TIMEZONE
+        timezone_name = self.repository.get_trial_store_timezone(store_id) or DEFAULT_TIMEZONE
         store_tz = self._timezone_or_default(timezone_name)
 
-        for token in self.repository.list_completed_training_tokens(store_id):
+        for token in self.repository.list_completed_trial_training_tokens(store_id):
             if token.service_started_at is None or token.completed_at is None:
                 continue
             duration_minutes = (token.completed_at - token.service_started_at).total_seconds() / 60
@@ -128,16 +128,11 @@ class MLTrainingService:
             )
         return rows
 
-    def _build_features(
-        self,
-        token: QueueToken,
-        reference_time: datetime,
-        store_tz: ZoneInfo,
-    ) -> dict[str, int | float | str]:
+    def _build_features(self, token: TrialQueueToken, reference_time: datetime, store_tz: ZoneInfo) -> dict[str, int | float | str]:
         local_time = reference_time.astimezone(store_tz)
-        recent_tokens = self.repository.list_recent_section_terminal_tokens(
+        recent_tokens = self.repository.list_recent_trial_zone_terminal_tokens(
             store_id=token.store_id,
-            section_id=token.section_id,
+            trial_zone_id=token.trial_zone_id,
             start_time=reference_time - timedelta(days=RECENT_HISTORY_DAYS),
             end_time=reference_time,
         )
@@ -146,30 +141,32 @@ class MLTrainingService:
             [
                 recent_token
                 for recent_token in recent_tokens
-                if recent_token.status in (QueueTokenStatus.CANCELLED, QueueTokenStatus.NO_SHOW)
+                if recent_token.status in (TrialQueueTokenStatus.CANCELLED, TrialQueueTokenStatus.NO_SHOW)
             ]
         )
         recent_completed_durations = [
             (recent_token.completed_at - recent_token.service_started_at).total_seconds() / 60
             for recent_token in recent_tokens
-            if recent_token.status == QueueTokenStatus.COMPLETED
+            if recent_token.status == TrialQueueTokenStatus.COMPLETED
             and recent_token.service_started_at is not None
             and recent_token.completed_at is not None
             and recent_token.completed_at > recent_token.service_started_at
         ]
+        zone = self.repository.get_zone(token.trial_zone_id) if token.trial_zone_id is not None else None
+        studio = self.repository.get_studio(token.assigned_studio_id) if token.assigned_studio_id is not None else None
 
         return {
             "item_count": float(token.item_count or 0),
-            "section_busy_count_at_join": float(
-                self.repository.count_section_busy_tokens_at(
+            "trial_zone_busy_count_at_join": float(
+                self.repository.count_trial_zone_busy_tokens_at(
                     token.store_id,
-                    token.section_id,
+                    token.trial_zone_id,
                     reference_time,
                     token.id,
                 )
             ),
-            "section_active_counter_count_at_join": float(
-                self.repository.count_active_counters_for_section(token.store_id, token.section_id)
+            "trial_active_studio_count_at_join": float(
+                self.repository.count_active_studios_for_zone(token.store_id, token.trial_zone_id)
             ),
             "recent_cancellation_rate": (cancelled_count / terminal_count) if terminal_count else 0.0,
             "recent_average_service_minutes": (
@@ -179,17 +176,18 @@ class MLTrainingService:
             "day_of_week": float(local_time.weekday()),
             "is_weekend": 1.0 if local_time.weekday() >= 5 else 0.0,
             "promotion_day_flag": 1.0
-            if self.repository.has_active_promotion_event(token.store_id, local_time.date())
+            if self.repository.has_active_trial_promotion_event(token.store_id, local_time.date())
             else 0.0,
-            "basket_size": (token.basket_size or "unknown").lower(),
-            "cart_type": (token.cart_type or "unknown").lower(),
             "customer_type": (token.customer_type or "unknown").lower(),
-            "section_id": str(token.section_id or "none"),
-            "assigned_counter_id": str(token.assigned_counter_id or "none"),
+            "trial_zone_id": str(token.trial_zone_id or "none"),
+            "assigned_studio_id": str(token.assigned_studio_id or "none"),
+            "trial_zone_type": zone.zone_type.value.lower() if zone is not None else "unknown",
+            "trial_zone_gender": zone.gender.value.lower() if zone is not None else "unknown",
+            "studio_type": studio.studio_type.value.lower() if studio is not None else "unknown",
         }
 
     def _write_artifact(self, store_id: int, model_version: str, artifact: dict[str, object]) -> Path:
-        model_dir = Path(settings.ML_MODEL_DIR) / f"store_{store_id}"
+        model_dir = Path(settings.ML_MODEL_DIR) / f"trial_store_{store_id}"
         model_dir.mkdir(parents=True, exist_ok=True)
         artifact_path = model_dir / f"{model_version}.joblib"
         joblib.dump(artifact, artifact_path)

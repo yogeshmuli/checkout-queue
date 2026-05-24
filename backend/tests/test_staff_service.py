@@ -5,7 +5,7 @@ from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.store import Store
 from app.models.trial import TrialStudio, TrialZone
-from app.models.user import User, UserStoreAccess
+from app.models.user import User, UserRole, UserStoreAccess
 from app.schemas.staff import StaffCreateRequest, StaffUpdateRequest
 from app.services.staff_service import StaffService
 
@@ -18,8 +18,8 @@ class FakeStaffRepository:
             1: CheckoutSection(id=1, store_id=1, name="Grocery", section_type=CheckoutSectionType.REGULAR)
         }
         self.counters: dict[int, Counter] = {1: Counter(id=1, section_id=1, counter_type="billing")}
-        self.zones: dict[int, TrialZone] = {}
-        self.studios: dict[int, TrialStudio] = {}
+        self.zones: dict[int, TrialZone] = {1: TrialZone(id=1, store_id=1, name="Trial Zone")}
+        self.studios: dict[int, TrialStudio] = {1: TrialStudio(id=1, trial_zone_id=1, name="Studio 1")}
         self.store_access: list[UserStoreAccess] = []
         self.next_id = 1
         self.next_access_id = 1
@@ -184,3 +184,42 @@ def test_delete_staff_soft_deletes(staff_service: StaffService) -> None:
     assert deleted_user.is_active is False
     assert staff_service.list_staff() == []
     assert staff_service.list_staff(include_inactive=True) == [deleted_user]
+
+
+def test_update_staff_to_trial_role_clears_checkout_assignment(staff_service: StaffService) -> None:
+    user = staff_service.create_staff(
+        StaffCreateRequest(
+            email="cashier@example.com",
+            password="strong-password",
+            full_name="Cashier One",
+            store_id=1,
+            section_id=1,
+            assigned_counter_id=1,
+        )
+    )
+
+    updated_user = staff_service.update_staff(
+        user.id,
+        StaffUpdateRequest(default_role=UserRole.TRIAL_ZONE_ASSISTANT, store_id=1, assigned_studio_id=1),
+    )
+
+    assert updated_user.default_role == UserRole.TRIAL_ZONE_ASSISTANT
+    assert updated_user.section_id is None
+    assert updated_user.assigned_counter_id is None
+    assert updated_user.assigned_studio_id == 1
+
+
+def test_trial_staff_requires_studio_assignment(staff_service: StaffService) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        staff_service.create_staff(
+            StaffCreateRequest(
+                email="trial@example.com",
+                password="strong-password",
+                full_name="Trial Assistant",
+                store_id=1,
+                default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+            )
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "TRIAL_ZONE_ASSISTANT must be assigned to trial studio"

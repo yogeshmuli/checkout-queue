@@ -12,7 +12,6 @@ import { TrialApp } from './app/trial/TrialApp.jsx';
 import { useAuthStore } from './store/authStore.js';
 
 function RequireAuth({ children }) {
-
   const { accessToken } = useAuthStore();
   if (!accessToken) return <Navigate to="/app/login" replace />;
   return children;
@@ -80,22 +79,8 @@ function AppRoutes() {
           }
         />
         <Route path="/app/login" element={<Login />} />
-        <Route
-          path="/app/checkout/*"
-          element={
-            <RequireAuth>
-              <CheckoutApp />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/app/trial/*"
-          element={
-            <RequireAuth>
-              <TrialApp />
-            </RequireAuth>
-          }
-        />
+        <Route path="/app/checkout/*" element={<CheckoutApp />} />
+        <Route path="/app/trial/*" element={<TrialApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

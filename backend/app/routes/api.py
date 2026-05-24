@@ -6,6 +6,7 @@ from app.routes import (
     auth_routes,
     calendar_routes,
     counter_routes,
+    demo_tools_routes,
     health_routes,
     ml_routes,
     queue_routes,
@@ -33,3 +34,6 @@ if settings.ENABLE_CHECKOUT_QUEUE:
 
 if settings.ENABLE_TRIAL_QUEUE:
     api_router.include_router(trial_routes.router)
+
+if settings.ENABLE_DEMO_TOOLS:
+    api_router.include_router(demo_tools_routes.router)

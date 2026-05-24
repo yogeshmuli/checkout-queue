@@ -33,3 +33,11 @@ class ServiceTimePredictionResponse(BaseModel):
     service_time_minutes: int
     calculation_method: str
     model_version: str | None = None
+
+
+class TrialServiceTimePredictionRequest(BaseModel):
+    trial_zone_id: int | None = Field(default=None, gt=0)
+    assigned_studio_id: int | None = Field(default=None, gt=0)
+    item_count: int | None = Field(default=None, ge=0)
+    customer_type: str | None = Field(default=None, max_length=50)
+    requested_at: datetime | None = None

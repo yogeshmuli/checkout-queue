@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     ML_MIN_TRAINING_SAMPLES: int = 50
     ENABLE_CHECKOUT_QUEUE: bool = True
     ENABLE_TRIAL_QUEUE: bool = True
+    ENABLE_DEMO_TOOLS: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",
