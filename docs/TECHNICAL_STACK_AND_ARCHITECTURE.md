@@ -785,7 +785,29 @@ Recommended background jobs:
 | ML retraining check | After checkout completion | Retrain when enough new completed records exist |
 | Demo seed job | Manual script | Create demo store, sections, counters, history, and active queue |
 | Demo Tools ML seed API | Manual protected API | Create and clean isolated checkout/trial ML training data |
-| Queue cleanup job | Manual or scheduled | Mark stale called tokens as no-show if required |
+| Nightly queue cleanup | Daily at 00:05 local deployment time | Cancel active Checkout and Trial tokens and reset counter/studio availability after store close |
+
+Nightly queue cleanup can run in-process through APScheduler when `ENABLE_IN_APP_SCHEDULER=true`. The default settings run it daily at `00:05` in `SCHEDULER_TIMEZONE`:
+
+```text
+ENABLE_IN_APP_SCHEDULER=true
+NIGHTLY_QUEUE_CLEANUP_HOUR=0
+NIGHTLY_QUEUE_CLEANUP_MINUTE=5
+SCHEDULER_TIMEZONE=Asia/Kolkata
+```
+
+The same cleanup remains available as an external-scheduler entrypoint:
+
+```bash
+cd backend
+python3 -m app.scripts.nightly_queue_cleanup
+```
+
+The job calls `QueueCleanupService.run_nightly_cleanup()`, marks all `WAITING`, `CALLED`, and `SERVING` checkout/trial tokens as `CANCELLED` with reason `Nightly queue cleanup`, and resets `counters.next_available_time` plus `trial_studios.next_available_time` to the cleanup timestamp. For production deployments with multiple API workers, prefer disabling the in-app scheduler and scheduling the script with cron or a container scheduler, for example:
+
+```cron
+5 0 * * * cd /path/to/backend && python3 -m app.scripts.nightly_queue_cleanup
+```
 
 For production, move scheduled work to Celery, RQ, APScheduler, or a separate worker container.
 

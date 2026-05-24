@@ -18,6 +18,7 @@ export function Field({ label, value, onChange }) {
 export function Select({ label, value, onChange, options, disabled = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
+  const labelId = `${String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'select'}-label`;
 
   const normalizedOptions = useMemo(
     () =>
@@ -66,8 +67,10 @@ export function Select({ label, value, onChange, options, disabled = false }) {
   }
 
   return (
-    <label className="block">
-      <span className="text-sm font-medium text-charcoal">{label}</span>
+    <div className="block">
+      <span id={labelId} className="text-sm font-medium text-charcoal">
+        {label}
+      </span>
       <div ref={wrapperRef} className="relative mt-1">
         <button
           type="button"
@@ -82,13 +85,14 @@ export function Select({ label, value, onChange, options, disabled = false }) {
           }`}
           aria-haspopup="listbox"
           aria-expanded={isOpen}
+          aria-labelledby={labelId}
         >
           <span className="truncate text-sm text-charcoal">{selectedOption?.label ?? 'Select option'}</span>
           <ChevronDown size={16} className={`text-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isOpen && !disabled ? (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-white p-1 shadow-soft" role="listbox" aria-label={label}>
+          <div className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-white p-1 shadow-soft" role="listbox" aria-labelledby={labelId}>
             {normalizedOptions.map((option) => {
               const isSelected = String(option.value) === String(value);
               return (
@@ -109,7 +113,7 @@ export function Select({ label, value, onChange, options, disabled = false }) {
           </div>
         ) : null}
       </div>
-    </label>
+    </div>
   );
 }
 

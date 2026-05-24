@@ -6,13 +6,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import sync_database
+from app.core.scheduler import create_scheduler
 from app.routes.api import api_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     sync_database()
-    yield
+    scheduler = None
+    if settings.ENABLE_IN_APP_SCHEDULER:
+        scheduler = create_scheduler()
+        scheduler.start()
+        app.state.scheduler = scheduler
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=False)
 
 
 def create_app() -> FastAPI:

@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     ENABLE_CHECKOUT_QUEUE: bool = True
     ENABLE_TRIAL_QUEUE: bool = True
     ENABLE_DEMO_TOOLS: bool = True
+    ENABLE_IN_APP_SCHEDULER: bool = True
+    NIGHTLY_QUEUE_CLEANUP_HOUR: int = 0
+    NIGHTLY_QUEUE_CLEANUP_MINUTE: int = 5
+    SCHEDULER_TIMEZONE: str = "Asia/Kolkata"
 
     model_config = SettingsConfigDict(
         env_file=".env",

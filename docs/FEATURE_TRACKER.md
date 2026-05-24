@@ -695,6 +695,9 @@ python3 -m scripts.sync_database
 - Reserves lane occupancy for `CALLED` customers until service begins, preventing premature advancement of waiting tokens.
 - Prevents additive drift by avoiding incremental delta-shift updates and always recalculating `counters.next_available_time` from the rebuilt queue.
 - Queue and counter scheduling timestamps are UTC-aware across model and migration updates.
+- Nightly cleanup job cancels all active Checkout and Trial tokens (`WAITING`, `CALLED`, `SERVING`) and resets checkout counter/trial studio availability for close-of-day queue purge.
+- Run close-of-day cleanup from backend with `python3 -m app.scripts.nightly_queue_cleanup`; schedule it externally at `00:05` using cron, Kubernetes CronJob, or the deployment scheduler.
+- FastAPI can also run the cleanup in-process through APScheduler when `ENABLE_IN_APP_SCHEDULER=true`; defaults run the cleanup daily at `00:05` in `SCHEDULER_TIMEZONE`.
 
 ### Database Models
 
