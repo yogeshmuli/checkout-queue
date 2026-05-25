@@ -209,6 +209,8 @@ class TrialQueueTokenResponse(BaseModel):
     service_started_at: datetime | None
     completed_at: datetime | None
     cancelled_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
     cancellation_reason: str | None
     estimated_wait_minutes: int
 

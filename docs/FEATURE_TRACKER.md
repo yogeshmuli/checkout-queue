@@ -28,6 +28,7 @@ The backend currently supports:
 - Frontend integration for admin store, section, and staff CRUD flows.
 - Frontend post-login product context selector for enabled modules.
 - Counter management APIs and frontend admin counter CRUD flow.
+- Checkout admin dashboard uses the Smart View layout with Live, History, and Foresights tabs plus Recharts-based history/ML charts.
 - Installed PWA shell shows a floating refresh action for manual hard reloads.
 - Shared mock-SMS customer notifications for Checkout and Trial called/next-soon events.
 - QuT-inspired UI design system with red/blush/navy palette and Poppins/Inter typography.
@@ -901,6 +902,7 @@ Trial Queue frontend parity:
 - Trial admin calendar screen under `/app/trial/admin/calendar` supports store-level weekday hours, timezone, holidays, and promotional event management using Trial Calendar APIs.
 - Trial admin ML screen under `/app/trial/admin/ml` trains and displays the latest Trial Queue RandomForest service-time model for a store.
 - Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel).
+- Trial admin dashboard now uses a Smart View layout with sticky header tabs for Live, History, and Foresights; Live shows zone/studio queue cards, History shows collapsible Recharts graphs, and Foresights uses Trial ML metadata when the model is ready.
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
 - Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: store/zone select (with QR scan), create token, mobile lookup, and token status screens.
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
@@ -917,6 +919,7 @@ Trial Queue ML:
 - Trains only on completed `trial_queue_tokens` with `service_started_at` and `completed_at`, using actual trial service duration as the target.
 - Feature set includes item count, trial-zone busy count, active studio count, recent cancellation rate, recent average service minutes, hour/day/weekend, trial promotion/sale flag, customer type, trial zone, assigned studio, zone type, zone gender, and studio type.
 - Trial queue join uses Trial ML when a READY artifact predicts successfully; otherwise it keeps the existing `RULE_BASED` trial config fallback.
+- Trial ML APIs are registered when either Checkout Queue or Trial Queue is enabled, so Trial-only deployments can still use `/api/v1/ml/trial/stores/{store_id}/...`.
 
 ### Demo Tools
 

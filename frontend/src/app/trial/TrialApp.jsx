@@ -76,7 +76,7 @@ function TrialAdminShell() {
         <SidebarAccount email={user?.email} onLogout={logout} />
       </aside>
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 bg-white px-4 py-3 ">
+        <header className="sticky top-0 z-30 bg-white px-4 py-3 ">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button

@@ -473,6 +473,8 @@ class TrialService:
             service_started_at=token.service_started_at,
             completed_at=token.completed_at,
             cancelled_at=token.cancelled_at,
+            created_at=token.created_at,
+            updated_at=token.updated_at,
             cancellation_reason=token.cancellation_reason,
             estimated_wait_minutes=self._estimate_wait(token.calling_time),
         )

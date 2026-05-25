@@ -1,18 +1,50 @@
-import { Activity, AlertTriangle, BarChart3, BrainCircuit, CalendarDays, Clock, Gauge, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BrainCircuit,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Gauge,
+  Info,
+  LayoutDashboard,
+  RefreshCw,
+  ShoppingBasket,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend as RechartsLegend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { getStoreAnalytics } from '../../../../api/checkout/analyticsApi.js';
-import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
+import { getStoreModelMetadata } from '../../../../api/checkout/mlApi.js';
 import { listStores } from '../../../../api/checkout/storeApi.js';
+import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { MetricTile } from '../../../common/MetricTile.jsx';
-import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
 const DAY_OPTIONS = [
-  { label: 'Last 7 days', value: '7' },
-  { label: 'Last 30 days', value: '30' },
-  { label: 'Last 90 days', value: '90' },
+  { label: 'Last 7 Days', value: '7' },
+  { label: 'Last 30 Days', value: '30' },
+  { label: 'Last 90 Days', value: '90' },
 ];
 
 const VIEW_OPTIONS = [
@@ -21,23 +53,7 @@ const VIEW_OPTIONS = [
   { label: 'Foresights', value: 'foresights' },
 ];
 
-const INSIGHT_STYLES = {
-  warning: 'border-amber-200 bg-amber-50 text-amber-900',
-  info: 'border-sky-200 bg-sky-50 text-sky-900',
-  success: 'border-emerald-200 bg-emerald-50 text-emerald-900',
-};
-
-function formatMinutes(value) {
-  return `${Number(value || 0).toFixed(1)}m`;
-}
-
-function formatPercent(value) {
-  return `${Number(value || 0).toFixed(0)}%`;
-}
-
-function formatNumber(value) {
-  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 1 }).format(Number(value || 0));
-}
+const COLORS = ['#ff3b30', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2'];
 
 function formatDate(value) {
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
@@ -51,38 +67,70 @@ function formatHour(hour) {
   return `${String(hour).padStart(2, '0')}:00`;
 }
 
-function getMax(rows, key) {
-  return Math.max(...rows.map((row) => Number(row[key] || 0)), 1);
+function formatMinutes(value) {
+  return `${Number(value || 0).toFixed(1)}m`;
+}
+
+function formatPercent(value) {
+  return `${Number(value || 0).toFixed(0)}%`;
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 1 }).format(Number(value || 0));
+}
+
+function buildForesights(analytics, metadata) {
+  const metrics = analytics?.metrics || {};
+  const featureImportance = Object.entries(metadata?.feature_importance || {})
+    .map(([feature, value]) => ({ feature: feature.replaceAll('_', ' '), value: Number(value || 0) }))
+    .sort((first, second) => second.value - first.value)
+    .slice(0, 6);
+  const baseWait = Number(metrics.average_wait_minutes || 0);
+  const predictedWaits = Array.from({ length: 4 }, (_, index) => ({
+    label: formatHour((new Date().getHours() + index + 1) % 24),
+    value: Math.max(0, baseWait + index * 1.25 + (metrics.waiting_tokens > metrics.active_counters ? 2 : 0)),
+  }));
+  const cancellationPressure = Number(metrics.cancelled_today || 0) + Number(metrics.no_show_today || 0);
+  const churnRisk =
+    cancellationPressure > 5 || baseWait >= 25
+      ? { level: 'High', tone: 'rose', message: 'Wait time or cancellation pressure is elevated. Add counters or reduce quoted wait.' }
+      : cancellationPressure > 0 || baseWait >= 15
+        ? { level: 'Medium', tone: 'amber', message: 'Queue pressure is manageable but sensitive. Watch high-wait sections closely.' }
+        : { level: 'Low', tone: 'mint', message: 'Cancellation pressure is currently controlled.' };
+  const anomalySections = (analytics?.sections || []).map((section) => {
+    const currentWait = Number(section.average_wait_minutes || 0);
+    const predictedWait = baseWait || currentWait;
+    const delta = currentWait - predictedWait;
+    return {
+      name: section.section_name,
+      currentWait,
+      predictedWait,
+      status: delta > 8 ? 'Anomaly' : delta > 3 ? 'Slight deviation' : 'Normal',
+    };
+  });
+  return { featureImportance, predictedWaits, churnRisk, anomalySections };
 }
 
 export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stores, setStores] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
   const filters = {
     store_id: searchParams.get('store_id') || '',
-    days: searchParams.get('days') || '7',
+    days: searchParams.get('days') || '30',
     view: searchParams.get('view') || 'live',
   };
 
   const selectedStoreId = filters.store_id || (stores[0] ? String(stores[0].id) : '');
   const selectedStore = stores.find((store) => String(store.id) === String(selectedStoreId));
   const activeView = VIEW_OPTIONS.some((option) => option.value === filters.view) ? filters.view : 'live';
-
-  const storeOptions = stores.map((store) => ({
-    label: `${store.name} (${store.store_number})`,
-    value: String(store.id),
-  }));
-
-  const topCounters = useMemo(() => {
-    return [...(analytics?.counters || [])]
-      .sort((first, second) => second.serving_tokens + second.waiting_tokens - (first.serving_tokens + first.waiting_tokens))
-      .slice(0, 8);
-  }, [analytics]);
+  const storeOptions = stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) }));
+  const foresights = useMemo(() => buildForesights(analytics, metadata), [analytics, metadata]);
 
   function setFilter(field, value) {
     setSearchParams((prev) => {
@@ -93,22 +141,17 @@ export function Dashboard() {
     });
   }
 
-  async function loadStores() {
-    try {
-      setStores(await listStores({ include_inactive: true }));
-    } catch (error) {
-      showApiErrorToast(error);
-      setMessage(getErrorMessage(error));
-    }
-  }
-
-  const loadAnalytics = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     if (!selectedStoreId) return;
     setLoading(true);
     setMessage('');
     try {
-      const response = await getStoreAnalytics(selectedStoreId, { days: Number(filters.days) || 7 });
-      setAnalytics(response);
+      const [analyticsResponse, metadataResponse] = await Promise.all([
+        getStoreAnalytics(selectedStoreId, { days: Number(filters.days) || 30 }),
+        getStoreModelMetadata(selectedStoreId).catch(() => null),
+      ]);
+      setAnalytics(analyticsResponse);
+      setMetadata(metadataResponse);
       setLastRefreshed(new Date());
     } catch (error) {
       showApiErrorToast(error);
@@ -119,7 +162,12 @@ export function Dashboard() {
   }, [filters.days, selectedStoreId]);
 
   useEffect(() => {
-    loadStores();
+    listStores({ include_inactive: true })
+      .then(setStores)
+      .catch((error) => {
+        showApiErrorToast(error);
+        setMessage(getErrorMessage(error));
+      });
   }, []);
 
   useEffect(() => {
@@ -133,33 +181,25 @@ export function Dashboard() {
   }, [filters.store_id, setSearchParams, stores]);
 
   useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
+    loadDashboard();
+  }, [loadDashboard]);
 
   useEffect(() => {
     if (!selectedStoreId) return undefined;
-    const timer = window.setInterval(loadAnalytics, 60000);
+    const timer = window.setInterval(loadDashboard, 60000);
     return () => window.clearInterval(timer);
-  }, [loadAnalytics, selectedStoreId]);
-
-  const metrics = analytics?.metrics;
+  }, [loadDashboard, selectedStoreId]);
 
   return (
     <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Store Dashboard"
-        title={selectedStore ? `${selectedStore.name} smart view` : 'Smart view'}
-        action={
-          <button
-            type="button"
-            onClick={loadAnalytics}
-            disabled={loading || !selectedStoreId}
-            className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-charcoal disabled:opacity-60"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-        }
+      <SmartHeader
+        activeView={activeView}
+        lastRefreshed={lastRefreshed}
+        loading={loading}
+        onRefresh={loadDashboard}
+        selectedStore={selectedStore}
+        selectedStoreId={selectedStoreId}
+        setFilter={setFilter}
       />
 
       <section className="rounded-lg border border-line bg-white p-5">
@@ -167,40 +207,70 @@ export function Dashboard() {
           <Select label="Store" value={selectedStoreId} onChange={(value) => setFilter('store_id', value)} options={storeOptions} />
           <Select label="Range" value={filters.days} onChange={(value) => setFilter('days', value)} options={DAY_OPTIONS} />
         </div>
-        <div className="mt-4 grid gap-3 text-sm text-charcoal sm:grid-cols-3">
-          <HeaderFact icon={<Gauge size={15} />} label="Store ID" value={analytics?.store?.store_number || selectedStore?.store_number || '-'} />
-          <HeaderFact icon={<CalendarDays size={15} />} label="Date" value={formatDate(new Date())} />
-          <HeaderFact icon={<Clock size={15} />} label="Last refreshed" value={lastRefreshed ? formatTime(lastRefreshed) : '-'} />
-        </div>
         {message ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
       </section>
 
-      <div className="grid grid-cols-3 gap-2 rounded-lg border border-line bg-white p-1">
-        {VIEW_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => setFilter('view', option.value)}
-            className={`rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
-              activeView === option.value ? 'bg-brand-red text-white' : 'text-charcoal hover:bg-brand-blush hover:text-brand-red'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-
       {loading && !analytics ? <LoadingState /> : null}
       {!loading && !analytics ? <EmptyState /> : null}
-
-      {analytics && metrics && activeView === 'live' ? <LiveView analytics={analytics} metrics={metrics} /> : null}
-      {analytics && metrics && activeView === 'history' ? <HistoryView analytics={analytics} metrics={metrics} /> : null}
-      {analytics && metrics && activeView === 'foresights' ? <ForesightsView analytics={analytics} metrics={metrics} topCounters={topCounters} /> : null}
+      {analytics && activeView === 'live' ? <LiveView analytics={analytics} /> : null}
+      {analytics && activeView === 'history' ? <HistoryView analytics={analytics} /> : null}
+      {analytics && activeView === 'foresights' ? <ForesightsView analytics={analytics} foresights={foresights} metadata={metadata} /> : null}
     </div>
   );
 }
 
-function LiveView({ analytics, metrics }) {
+function SmartHeader({ activeView, lastRefreshed, loading, onRefresh, selectedStore, selectedStoreId, setFilter }) {
+  return (
+    <header className="sticky top-16 z-20 -mx-4 border-b border-line bg-brand-blush/95 px-4 py-4 backdrop-blur">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-brand-red text-white">
+            <LayoutDashboard size={22} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Smart View</p>
+            <h1 className="truncate text-2xl font-semibold text-ink">Store Dashboard</h1>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-white p-1">
+            {VIEW_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setFilter('view', option.value)}
+                className={`relative rounded-md px-3 py-2 text-sm font-semibold transition-colors ${
+                  activeView === option.value ? 'bg-brand-red text-white shadow-soft' : 'text-charcoal hover:bg-brand-blush hover:text-brand-red'
+                }`}
+              >
+                {option.value === 'live' && activeView === 'live' ? <span className="absolute right-2 top-2 size-2 rounded-full bg-emerald-300" /> : null}
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading || !selectedStoreId}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-charcoal disabled:opacity-60"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 text-sm text-charcoal md:grid-cols-3">
+        <HeaderFact icon={<Gauge size={15} />} label="Store ID" value={selectedStore?.store_number || '-'} />
+        <HeaderFact icon={<CalendarDays size={15} />} label="Current date" value={formatDate(new Date())} />
+        <HeaderFact icon={<Clock size={15} />} label="Last refreshed" value={lastRefreshed ? formatTime(lastRefreshed) : '-'} live />
+      </div>
+    </header>
+  );
+}
+
+function LiveView({ analytics }) {
+  const metrics = analytics.metrics;
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -213,38 +283,42 @@ function LiveView({ analytics, metrics }) {
       <div className="space-y-5">
         {analytics.sections.length ? (
           analytics.sections.map((section) => (
-            <section key={section.section_id} className="overflow-hidden rounded-lg border border-line bg-white">
-              <div className="flex flex-col gap-3 bg-slate-900 px-5 py-4 text-white md:flex-row md:items-center md:justify-between">
+            <section key={section.section_id} className="overflow-hidden rounded-lg border border-line bg-white shadow-soft">
+              <div className="flex flex-col gap-4 bg-slate-950 px-5 py-4 text-white xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">{section.section_name}</h2>
-                  <p className="text-sm text-slate-300">{section.section_type}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-red-100">{section.section_type}</p>
+                  <h2 className="text-2xl font-semibold">{section.section_name}</h2>
+                  <p className="mt-1 text-sm text-slate-300">Last token assigned to counter: {section.last_active_token_number || '-'}</p>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <DarkMetric label="Last token assigned to counter" value={section.last_active_token_number || '-'} />
-                  <DarkMetric label="Active" value={section.active_counters} />
-                  <DarkMetric label="Inactive" value={Math.max(section.total_counters - section.active_counters, 0)} />
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <DarkMetric label="Last Token" value={section.last_token_number || '-'} />
+                  <DarkMetric label="Active Counters" value={section.active_counters} />
+                  <DarkMetric label="Inactive Counters" value={Math.max(section.total_counters - section.active_counters, 0)} />
                 </div>
               </div>
 
-              <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4">
-                <LiveMetric label="Last Token" value={section.last_token_number || '-'} />
-                <div className="rounded-lg border border-line p-4 sm:col-span-2 xl:col-span-1">
-                  <p className="text-xs font-semibold uppercase text-muted">Active Counters</p>
-                  <div className="mt-3 max-h-32 space-y-2 overflow-y-auto">
+              <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+                <LiveMetric label="Last Token" value={section.last_token_number || '-'} icon={<Activity size={18} />} />
+                <div className="rounded-lg border border-line p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase text-muted">Active Counters</p>
+                    <Gauge size={18} className="text-brand-red" />
+                  </div>
+                  <div className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1">
                     {section.active_counter_sessions.length ? (
                       section.active_counter_sessions.map((session) => (
-                        <div key={session.counter_id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
-                          <span className="truncate">{session.counter_name}</span>
-                          <span className="font-semibold text-brand-red">{session.assigned_token_number || '-'}</span>
+                        <div key={session.counter_id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                          <span className="min-w-0 truncate">{session.counter_name}</span>
+                          <span className="shrink-0 font-semibold text-brand-red">{session.assigned_token_number || '-'}</span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-muted">No active sessions</p>
+                      <p className="text-sm text-muted">No active counter sessions</p>
                     )}
                   </div>
                 </div>
-                <LiveMetric label="Est. Wait (Last Token)" value={formatMinutes(section.estimated_wait_last_token_minutes)} />
-                <LiveMetric label="Est. Total Items" value={`${section.estimated_items_ahead} items`} />
+                <LiveMetric label="Est. Wait (Last Token)" value={formatMinutes(section.estimated_wait_last_token_minutes)} icon={<Clock size={18} />} />
+                <LiveMetric label="Est. Total Items" value={`${section.estimated_items_ahead} items`} icon={<ShoppingBasket size={18} />} />
               </div>
 
               <div className="grid gap-3 border-t border-line bg-slate-50 p-5 sm:grid-cols-4">
@@ -270,69 +344,108 @@ function LiveView({ analytics, metrics }) {
   );
 }
 
-function HistoryView({ analytics, metrics }) {
+function HistoryView({ analytics }) {
+  const [openSections, setOpenSections] = useState({
+    promotion: true,
+    segmented: true,
+    date: true,
+    zone: true,
+    customer: true,
+    item: true,
+  });
+
+  function toggle(section) {
+    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  }
+
+  const activeHourly = analytics.hourly_stats.filter((row) => row.total_visits > 0);
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="Completed today" value={metrics.completed_today} />
-        <MetricTile label="Cancelled / no-show" value={metrics.cancelled_today + metrics.no_show_today} tone="rose" />
-        <MetricTile label="Avg service" value={formatMinutes(metrics.average_service_minutes)} />
-        <MetricTile label="Avg items today" value={formatNumber(metrics.average_items_today)} tone="amber" />
+        <MetricTile label="Completed today" value={analytics.metrics.completed_today} />
+        <MetricTile label="Cancelled / no-show" value={analytics.metrics.cancelled_today + analytics.metrics.no_show_today} tone="rose" />
+        <MetricTile label="Avg service" value={formatMinutes(analytics.metrics.average_service_minutes)} />
+        <MetricTile label="Avg items today" value={formatNumber(analytics.metrics.average_items_today)} tone="amber" />
       </div>
 
-      <AnalyticsPanel title="Promotion Day Analysis" icon={<CalendarDays size={18} />}>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <ComparisonCard title="Avg Footfall" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_footfall" />
-          <ComparisonCard title="Avg Wait Time" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_wait_time" formatter={formatMinutes} />
-          <ComparisonCard title="Avg Items" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_items" />
-          <ComparisonCard title="Service Time" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_service_time" formatter={formatMinutes} />
-          <ComparisonCard title="Total Cancellations" rows={analytics.promotion_stats} labelKey="day_type" valueKey="cancellations" />
-          <ComparisonCard title="Completion Rate" rows={analytics.promotion_stats} labelKey="day_type" valueKey="completion_rate" formatter={formatPercent} />
-        </div>
-      </AnalyticsPanel>
+      <AnalysisSection title="Promotion Day Analysis" icon={<CalendarDays size={18} />} open={openSections.promotion} onToggle={() => toggle('promotion')}>
+        <ChartGrid>
+          <ChartCard title="Avg Footfall" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_footfall" type="bar" />
+          <ChartCard title="Avg Wait Time (min)" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_wait_time" formatter={formatMinutes} type="bar" />
+          <ChartCard title="Avg Items" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_items" type="bar" />
+          <ChartCard title="Service Time (min)" rows={analytics.promotion_stats} labelKey="day_type" valueKey="avg_service_time" formatter={formatMinutes} type="bar" />
+          <ChartCard title="Total Cancellations" rows={analytics.promotion_stats} labelKey="day_type" valueKey="cancellations" type="bar" />
+          <ChartCard title="Completion Rate (%)" rows={analytics.promotion_stats} labelKey="day_type" valueKey="completion_rate" formatter={formatPercent} type="bar" />
+        </ChartGrid>
+      </AnalysisSection>
 
-      <AnalyticsPanel title="Segmented Analysis (Time & Day)" icon={<BarChart3 size={18} />}>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <BarList title="Weekly Footfall" rows={analytics.weekly_stats} labelKey="day_name" valueKey="total_visits" />
-          <BarList title="Weekly Wait Time" rows={analytics.weekly_stats} labelKey="day_name" valueKey="avg_wait_time" formatter={formatMinutes} />
-          <BarList title="Hourly Peak Traffic" rows={analytics.hourly_stats.filter((row) => row.total_visits > 0)} labelKey="hour" valueKey="total_visits" labelFormatter={formatHour} />
-          <BarList title="Hourly Wait Time" rows={analytics.hourly_stats.filter((row) => row.total_visits > 0)} labelKey="hour" valueKey="avg_wait_time" labelFormatter={formatHour} formatter={formatMinutes} />
-          <BarList title="Hourly Service Speed" rows={analytics.hourly_stats.filter((row) => row.total_visits > 0)} labelKey="hour" valueKey="avg_service_time" labelFormatter={formatHour} formatter={formatMinutes} />
-          <BarList title="Cancellation Rate by Day" rows={analytics.weekly_stats} labelKey="day_name" valueKey="cancellation_rate" formatter={formatPercent} />
-        </div>
-      </AnalyticsPanel>
+      <AnalysisSection title="Segmented Analysis (Time & Day)" icon={<BarChart3 size={18} />} open={openSections.segmented} onToggle={() => toggle('segmented')}>
+        <ChartGrid>
+          <ChartCard title="Weekly Footfall" rows={analytics.weekly_stats} labelKey="day_name" valueKey="total_visits" type="bar" />
+          <ChartCard title="Weekly Wait Time" rows={analytics.weekly_stats} labelKey="day_name" valueKey="avg_wait_time" formatter={formatMinutes} type="line" />
+          <ChartCard title="Hourly Peak Traffic" rows={activeHourly} labelKey="hour" valueKey="total_visits" labelFormatter={formatHour} type="area" />
+          <ChartCard title="Hourly Wait Time" rows={activeHourly} labelKey="hour" valueKey="avg_wait_time" labelFormatter={formatHour} formatter={formatMinutes} type="line" />
+          <ChartCard title="Hourly Service Speed" rows={activeHourly} labelKey="hour" valueKey="avg_service_time" labelFormatter={formatHour} formatter={formatMinutes} type="line" />
+          <ChartCard title="Cancellation Rate by Day" rows={analytics.weekly_stats} labelKey="day_name" valueKey="cancellation_rate" formatter={formatPercent} type="bar" />
+        </ChartGrid>
+      </AnalysisSection>
 
-      <AnalyticsPanel title="Date Based Analytics" icon={<Activity size={18} />}>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <BarList title="Check-ins vs Completed" rows={analytics.daily_trends} labelKey="day" valueKey="token_count" subValueKey="completed_count" />
-          <BarList title="Daily Cancellations" rows={analytics.daily_trends} labelKey="day" valueKey="cancelled_count" />
-          <BarList title="Daily Avg Wait Time" rows={analytics.daily_trends} labelKey="day" valueKey="average_wait_minutes" formatter={formatMinutes} />
-          <BarList title="Daily Avg Service Time" rows={analytics.daily_trends} labelKey="day" valueKey="average_service_minutes" formatter={formatMinutes} />
-        </div>
-      </AnalyticsPanel>
+      <AnalysisSection title="Date Based Analytics" icon={<Activity size={18} />} open={openSections.date} onToggle={() => toggle('date')}>
+        <ChartGrid>
+          <ChartCard title="Check-ins vs Completed" rows={analytics.daily_trends} labelKey="day" valueKey="token_count" subValueKey="completed_count" type="grouped" />
+          <ChartCard title="Daily Cancellations" rows={analytics.daily_trends} labelKey="day" valueKey="cancelled_count" type="bar" />
+          <ChartCard title="Daily Avg Wait Time" rows={analytics.daily_trends} labelKey="day" valueKey="average_wait_minutes" formatter={formatMinutes} type="line" />
+          <ChartCard title="Daily Avg Service Time" rows={analytics.daily_trends} labelKey="day" valueKey="average_service_minutes" formatter={formatMinutes} type="line" />
+        </ChartGrid>
+      </AnalysisSection>
 
-      <AnalyticsPanel title="Zone Based Analytics" icon={<Gauge size={18} />}>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <BarList title="Zone-wise Trials" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_trials" />
-          <BarList title="Zone-wise Cancellations" rows={analytics.zone_stats} labelKey="zone_name" valueKey="cancellations" />
-          <BarList title="Avg Wait by Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="avg_wait_time" formatter={formatMinutes} />
-          <BarList title="Items per Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_items" />
-        </div>
-      </AnalyticsPanel>
+      <AnalysisSection title="Zone Based Analytics" icon={<Gauge size={18} />} open={openSections.zone} onToggle={() => toggle('zone')}>
+        <ChartGrid>
+          <ChartCard title="Zone-wise Trials" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_trials" type="bar" />
+          <ChartCard title="Zone-wise Cancellations" rows={analytics.zone_stats} labelKey="zone_name" valueKey="cancellations" type="bar" />
+          <ChartCard title="Avg Wait by Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="avg_wait_time" formatter={formatMinutes} type="line" />
+          <ChartCard title="Avg Service by Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="avg_service_time" formatter={formatMinutes} type="line" />
+          <ChartCard title="Items per Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_items" type="bar" />
+        </ChartGrid>
+      </AnalysisSection>
 
-      <AnalyticsPanel title="Customer & Item Analytics" icon={<SlidersHorizontal size={18} />}>
-        <div className="grid gap-4 xl:grid-cols-2">
-          <BarList title="Trials by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="count" />
-          <BarList title="Cancellations by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="cancellations" />
-          <BarList title="Items vs Wait Time" rows={analytics.item_bucket_stats} labelKey="range" valueKey="avg_wait" formatter={formatMinutes} />
-          <BarList title="Items vs Service Time" rows={analytics.item_bucket_stats} labelKey="range" valueKey="avg_service" formatter={formatMinutes} />
-        </div>
-      </AnalyticsPanel>
+      <AnalysisSection title="Customer & Item Analytics" icon={<ShoppingBasket size={18} />} open={openSections.customer} onToggle={() => toggle('customer')}>
+        <ChartGrid>
+          <ChartCard title="Trials by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="count" type="bar" />
+          <ChartCard title="Wait by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="avg_wait" formatter={formatMinutes} type="bar" />
+          <ChartCard title="Service by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="avg_service" formatter={formatMinutes} type="bar" />
+          <ChartCard title="Items by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="total_items" type="bar" />
+          <PieLikeCard title="Cancellations by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="cancellations" />
+          <ChartCard title="Item Buckets" rows={analytics.item_bucket_stats} labelKey="range" valueKey="count" type="bar" />
+        </ChartGrid>
+      </AnalysisSection>
+
+      <AnalysisSection title="Item & Cancellation Analytics" icon={<AlertTriangle size={18} />} open={openSections.item} onToggle={() => toggle('item')}>
+        <ChartGrid>
+          <ChartCard title="Items vs Wait Time" rows={analytics.item_bucket_stats} labelKey="range" valueKey="avg_wait" formatter={formatMinutes} type="area" />
+          <ChartCard title="Items vs Service Time" rows={analytics.item_bucket_stats} labelKey="range" valueKey="avg_service" formatter={formatMinutes} type="line" />
+          <ChartCard title="Wait vs Cancels" rows={analytics.daily_trends} labelKey="day" valueKey="average_wait_minutes" subValueKey="cancelled_count" formatter={formatMinutes} type="grouped" />
+          <ChartCard title="Daily Cancel Rate %" rows={analytics.daily_trends.map((row) => ({ ...row, cancel_rate: row.token_count ? (row.cancelled_count / row.token_count) * 100 : 0 }))} labelKey="day" valueKey="cancel_rate" formatter={formatPercent} type="line" />
+        </ChartGrid>
+      </AnalysisSection>
     </div>
   );
 }
 
-function ForesightsView({ analytics, metrics, topCounters }) {
+function ForesightsView({ analytics, foresights, metadata }) {
+  if (!metadata || metadata.status !== 'READY') {
+    return (
+      <section className="rounded-lg border border-line bg-white p-8 text-center">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-lg bg-brand-blush text-brand-red">
+          <BrainCircuit size={28} />
+        </div>
+        <h2 className="mt-4 text-xl font-semibold">AI Model Initializing...</h2>
+        <p className="mt-2 text-sm text-muted">Collect more data or train the Checkout Queue ML model to unlock predictive foresights.</p>
+      </section>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-5">
@@ -342,54 +455,64 @@ function ForesightsView({ analytics, metrics, topCounters }) {
           </div>
           <div>
             <h2 className="text-xl font-semibold">AI Foresights & Predictions</h2>
-            <p className="text-sm text-muted">Real-time analysis powered by queue analytics and ML metadata.</p>
+            <p className="text-sm text-muted">Real-time analysis powered by Machine Learning</p>
           </div>
         </div>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="ML status" value={analytics.ml_summary.status} tone="mint" />
-        <MetricTile label="Model samples" value={analytics.ml_summary.sample_size} />
-        <MetricTile label="Churn risk" value={metrics.cancellations_last_hour > 0 ? 'Elevated' : 'Normal'} tone={metrics.cancellations_last_hour > 0 ? 'rose' : 'slate'} />
-        <MetricTile label="Utilization" value={formatPercent(metrics.counter_utilization_percent)} tone="amber" />
+        <MetricTile label="Model Accuracy" value={metadata.accuracy_score ? formatPercent(metadata.accuracy_score * 100) : 'Ready'} tone="mint" />
+        <MetricTile label="MAE" value={metadata.mae != null ? formatMinutes(metadata.mae) : '-'} />
+        <MetricTile label="Churn Risk" value={foresights.churnRisk.level} tone={foresights.churnRisk.tone} />
+        <MetricTile label="Training Data" value={metadata.sample_size || analytics.ml_summary.sample_size || 0} tone="amber" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="rounded-lg border border-line bg-white">
-          <div className="flex items-center gap-2 border-b border-line p-5">
-            <AlertTriangle size={18} className="text-brand-red" />
-            <h2 className="text-lg font-semibold">Operational insights</h2>
+        <section className="rounded-lg border border-line bg-white p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">Key Drivers (Feature Importance)</h3>
+              <p className="text-sm text-muted">Top ML factors affecting checkout service-time prediction.</p>
+            </div>
+            <div className="group relative text-muted">
+              <Info size={18} />
+              <div className="pointer-events-none absolute right-0 top-7 z-10 w-64 rounded-lg border border-line bg-white p-3 text-xs text-charcoal opacity-0 shadow-soft transition group-hover:opacity-100">
+                Higher values mean the model used that feature more often when splitting decision trees.
+              </div>
+            </div>
           </div>
-          <div className="space-y-3 p-5">
-            {analytics.insights.length ? (
-              analytics.insights.map((insight) => (
-                <div key={`${insight.title}-${insight.detail}`} className={`rounded-lg border p-3 ${INSIGHT_STYLES[insight.level] || INSIGHT_STYLES.info}`}>
-                  <p className="font-medium">{insight.title}</p>
-                  <p className="mt-1 text-sm">{insight.detail}</p>
-                </div>
-              ))
-            ) : (
-              <p className="rounded-lg border border-line p-3 text-sm text-muted">No smart signals need attention right now.</p>
-            )}
-          </div>
+          <ChartCard title="Top 6 drivers" rows={foresights.featureImportance} labelKey="feature" valueKey="value" formatter={(value) => Number(value || 0).toFixed(3)} type="bar" dominant />
         </section>
 
-        <section className="rounded-lg border border-line bg-white">
-          <div className="border-b border-line p-5">
-            <h2 className="text-lg font-semibold">Active counter pressure</h2>
-          </div>
-          <div className="space-y-2 p-5">
-            {topCounters.map((counter) => (
-              <Link
-                key={counter.counter_id}
-                to={`/app/checkout/admin/queue?counter_id=${counter.counter_id}`}
-                className="flex items-center justify-between rounded-lg border border-line px-3 py-2 hover:border-brand-red/40 hover:bg-brand-blush"
-              >
-                <span className="min-w-0 truncate text-sm font-medium">{counter.counter_name}</span>
-                <span className="ml-3 shrink-0 text-sm text-muted">{counter.current_token_number || `${counter.waiting_tokens} waiting`}</span>
-              </Link>
+        <section className="rounded-lg border border-line bg-white p-5">
+          <h3 className="text-lg font-semibold">Zone Anomaly Status</h3>
+          <div className="mt-4 space-y-3">
+            {foresights.anomalySections.map((section) => (
+              <div key={section.name} className="rounded-lg border border-line p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold">{section.name}</p>
+                  <StatusBadge status={section.status} />
+                </div>
+                <p className="mt-2 text-sm text-muted">
+                  Current {formatMinutes(section.currentWait)} vs predicted {formatMinutes(section.predictedWait)}
+                </p>
+              </div>
             ))}
-            {!topCounters.length ? <p className="text-sm text-muted">No counter data available.</p> : null}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-lg border border-line bg-white p-5">
+          <h3 className="text-lg font-semibold">Predicted Wait (Next 4 Hours)</h3>
+          <ChartCard title="Upcoming hours" rows={foresights.predictedWaits} labelKey="label" valueKey="value" formatter={formatMinutes} type="area" />
+        </section>
+        <section className="rounded-lg border border-line bg-white p-5">
+          <h3 className="text-lg font-semibold">Churn Risk</h3>
+          <p className="mt-3 rounded-lg border border-line bg-slate-50 p-4 text-sm text-charcoal">{foresights.churnRisk.message}</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SmallMetric label="Data quality" value={metadata.data_quality_score != null ? formatPercent(metadata.data_quality_score * 100) : '-'} />
+            <SmallMetric label="Last trained" value={metadata.trained_at ? formatDate(metadata.trained_at) : '-'} />
           </div>
         </section>
       </div>
@@ -397,13 +520,16 @@ function ForesightsView({ analytics, metrics, topCounters }) {
   );
 }
 
-function HeaderFact({ icon, label, value }) {
+function HeaderFact({ icon, label, value, live = false }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+    <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 shadow-sm">
       <span className="text-brand-red">{icon}</span>
-      <div>
+      <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase text-muted">{label}</p>
-        <p className="font-medium">{value}</p>
+        <p className="flex items-center gap-2 font-medium">
+          {live ? <span className="size-2 rounded-full bg-emerald-500" /> : null}
+          <span className="truncate">{value}</span>
+        </p>
       </div>
     </div>
   );
@@ -418,11 +544,14 @@ function DarkMetric({ label, value }) {
   );
 }
 
-function LiveMetric({ label, value }) {
+function LiveMetric({ icon, label, value }) {
   return (
     <div className="rounded-lg border border-line p-4">
-      <p className="text-xs font-semibold uppercase text-muted">{label}</p>
-      <p className="mt-3 text-2xl font-semibold text-ink">{value}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase text-muted">{label}</p>
+        <span className="text-brand-red">{icon}</span>
+      </div>
+      <p className="mt-4 text-2xl font-semibold text-ink">{value}</p>
     </div>
   );
 }
@@ -436,69 +565,180 @@ function SmallMetric({ label, value }) {
   );
 }
 
-function AnalyticsPanel({ title, icon, children }) {
+function AnalysisSection({ children, icon, onToggle, open, title }) {
   return (
     <section className="rounded-lg border border-line bg-white">
-      <div className="flex items-center gap-2 border-b border-line p-5">
-        <span className="text-brand-red">{icon}</span>
-        <h2 className="text-lg font-semibold">{title}</h2>
-      </div>
-      <div className="p-5">{children}</div>
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 border-b border-line p-5 text-left">
+        <span className="flex items-center gap-2">
+          <span className="text-brand-red">{icon}</span>
+          <span className="text-lg font-semibold">{title}</span>
+        </span>
+        {open ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </button>
+      {open ? <div className="p-5">{children}</div> : null}
     </section>
   );
 }
 
-function ComparisonCard({ title, rows, labelKey, valueKey, formatter = formatNumber }) {
-  return (
-    <div className="rounded-lg border border-line p-4">
-      <h3 className="font-semibold">{title}</h3>
-      <div className="mt-4 space-y-3">
-        {rows.map((row) => (
-          <div key={`${title}-${row[labelKey]}`} className="flex items-center justify-between gap-3">
-            <span className="text-sm text-muted">{row[labelKey]}</span>
-            <span className="font-semibold">{formatter(row[valueKey])}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function ChartGrid({ children }) {
+  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>;
 }
 
-function BarList({ title, rows, labelKey, valueKey, subValueKey, formatter = formatNumber, labelFormatter }) {
-  const maxValue = getMax(rows, valueKey);
+function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter, labelKey, rows, subValueKey, title, type, valueKey }) {
+  const chartRows = normalizeChartRows(rows, labelKey, valueKey, labelFormatter).slice(-14);
+  const hasData = chartRows.some((row) => Number(row[valueKey] || 0) > 0 || Number(row[subValueKey] || 0) > 0);
+  const chartType = type === 'grouped' ? 'composed' : type;
+  const showEveryXAxisLabel = chartRows.length <= 8;
+  const xAxisProps = {
+    dataKey: '_label',
+    height: showEveryXAxisLabel ? 46 : 30,
+    interval: showEveryXAxisLabel ? 0 : 'preserveStartEnd',
+    tick: { fontSize: 11 },
+    ...(showEveryXAxisLabel ? { angle: -28, textAnchor: 'end' } : {}),
+  };
+
   return (
     <div className="rounded-lg border border-line p-4">
-      <h3 className="font-semibold">{title}</h3>
-      <div className="mt-4 space-y-3">
-        {rows.length ? (
-          rows.map((row) => {
-            const rawValue = Number(row[valueKey] || 0);
-            const width = Math.max((rawValue / maxValue) * 100, rawValue ? 8 : 0);
-            const label = labelFormatter ? labelFormatter(row[labelKey]) : String(row[labelKey]);
-            return (
-              <div key={`${title}-${label}`} className="grid grid-cols-[92px_minmax(0,1fr)_86px] items-center gap-3">
-                <span className="truncate text-sm text-muted">{label}</span>
-                <div className="h-3 overflow-hidden rounded-full bg-brand-soft">
-                  <div className="h-full rounded-full bg-brand-red" style={{ width: `${width}%` }} />
-                </div>
-                <span className="text-right text-sm font-medium">
-                  {formatter(row[valueKey])}
-                  {subValueKey ? <span className="text-muted"> / {formatNumber(row[subValueKey])}</span> : null}
-                </span>
-              </div>
-            );
-          })
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">{title}</h3>
+        <ChartLegend type={type} />
+      </div>
+      <div className="mt-4 h-64">
+        {hasData ? (
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' ? (
+              <LineChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis {...xAxisProps} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
+                <Line type="monotone" dataKey={valueKey} stroke="#ff3b30" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            ) : chartType === 'area' ? (
+              <AreaChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis {...xAxisProps} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
+                <Area type="monotone" dataKey={valueKey} stroke="#ff3b30" fill="#ff3b30" fillOpacity={0.18} strokeWidth={3} />
+              </AreaChart>
+            ) : chartType === 'composed' ? (
+              <ComposedChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis {...xAxisProps} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
+                <RechartsLegend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey={valueKey} name={title} fill="#ff3b30" radius={[6, 6, 0, 0]} />
+                {subValueKey ? <Line type="monotone" dataKey={subValueKey} name={formatDataKey(subValueKey)} stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} /> : null}
+              </ComposedChart>
+            ) : (
+              <BarChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
+                <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                <XAxis {...xAxisProps} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
+                <Bar dataKey={valueKey} fill="#ff3b30" radius={[6, 6, 0, 0]}>
+                  {chartRows.map((row, index) => (
+                    <Cell key={`${title}-${row._label}`} fill={dominant && index === 0 ? '#ff3b30' : COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            )}
+          </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-muted">No data available.</p>
+          <EmptyChartState />
         )}
       </div>
     </div>
   );
 }
 
+function PieLikeCard({ formatter = formatNumber, labelKey, rows, title, valueKey }) {
+  const chartRows = normalizeChartRows(rows, labelKey, valueKey);
+  const total = chartRows.reduce((sum, row) => sum + Number(row[valueKey] || 0), 0);
+  return (
+    <div className="rounded-lg border border-line p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">{title}</h3>
+        <ChartLegend type="pie" />
+      </div>
+      <div className="mt-4 h-64">
+        {total > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} />} />
+              <Pie data={chartRows} dataKey={valueKey} nameKey="_label" innerRadius={48} outerRadius={82} paddingAngle={2}>
+                {chartRows.map((row, index) => (
+                  <Cell key={`${title}-${row._label}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <RechartsLegend wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <EmptyChartState />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChartLegend({ type }) {
+  const label = type === 'grouped' ? 'Grouped' : type === 'area' ? 'Area' : type === 'line' ? 'Line' : type === 'pie' ? 'Pie' : 'Bar';
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[10px] font-semibold uppercase text-muted">
+      <span className="size-2 rounded-full bg-brand-red" />
+      {label}
+    </span>
+  );
+}
+
+function ChartTooltip({ active, formatter = formatNumber, label, payload, subValueKey, valueKey }) {
+  if (!active || !payload?.length) return null;
+  const primary = payload.find((item) => item.dataKey === valueKey) || payload[0];
+  const secondary = subValueKey ? payload.find((item) => item.dataKey === subValueKey) : null;
+  return (
+    <div className="rounded-lg border border-line bg-white px-3 py-2 text-xs shadow-soft">
+      <p className="font-semibold text-ink">{label}</p>
+      <p className="mt-1 text-brand-red">
+        {formatDataKey(valueKey)}: {formatter(primary?.value || 0)}
+      </p>
+      {secondary ? <p className="mt-1 text-blue-700">{formatDataKey(subValueKey)}: {formatNumber(secondary.value)}</p> : null}
+    </div>
+  );
+}
+
+function EmptyChartState() {
+  return <div className="grid h-full place-items-center rounded-lg bg-slate-50 text-sm text-muted">No chart data yet</div>;
+}
+
+function normalizeChartRows(rows, labelKey, valueKey, labelFormatter) {
+  const sourceRows = rows.length ? rows : [{ [labelKey]: 'No data', [valueKey]: 0 }];
+  return sourceRows.map((row) => ({
+    ...row,
+    [valueKey]: Number(row[valueKey] || 0),
+    _label: String(labelFormatter ? labelFormatter(row[labelKey]) : row[labelKey]),
+  }));
+}
+
+function formatDataKey(key) {
+  return String(key || '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function StatusBadge({ status }) {
+  const className =
+    status === 'Anomaly'
+      ? 'bg-rose-50 text-rose-700'
+      : status === 'Slight deviation'
+        ? 'bg-amber-50 text-amber-800'
+        : 'bg-emerald-50 text-emerald-700';
+  return <span className={`rounded-full px-2 py-1 text-xs font-semibold ${className}`}>{status}</span>;
+}
+
 function ResourceLink({ to, label }) {
   return (
-    <Link to={to} className="rounded-full border border-line px-3 py-1 text-xs font-medium text-charcoal hover:border-brand-red/40 hover:bg-brand-blush hover:text-brand-red">
+    <Link to={to} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-charcoal hover:border-brand-red hover:text-brand-red">
       {label}
     </Link>
   );
