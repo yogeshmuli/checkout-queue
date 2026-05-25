@@ -16,15 +16,17 @@ const COUNTER_QUEUE_REFRESH_MS = 30000;
 
 export function StaffApp() {
   const { activeCounterId, setActiveCounterId } = useQueueStore();
-  const { accessToken, clearSession } = useAuthStore();
+  const { accessToken, clearSession, user } = useAuthStore();
   const [counterQueue, setCounterQueue] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const assignedCounterId = user?.assigned_counter_id ? String(user.assigned_counter_id) : '';
 
   const tokens = useMemo(() => counterQueue?.tokens || [], [counterQueue]);
   const currentToken = tokens.find((token) => token.status === 'SERVING' || token.status === 'CALLED');
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
   const counterActive = counterQueue?.is_active ?? true;
+  const counterName = counterQueue?.counter_name || '';
 
   const loadCounterQueue = useCallback(async () => {
     if (!accessToken || !activeCounterId) return;
@@ -45,6 +47,12 @@ export function StaffApp() {
     const intervalId = window.setInterval(loadCounterQueue, COUNTER_QUEUE_REFRESH_MS);
     return () => window.clearInterval(intervalId);
   }, [loadCounterQueue]);
+
+  useEffect(() => {
+    if (assignedCounterId) {
+      setActiveCounterId(assignedCounterId);
+    }
+  }, [assignedCounterId, setActiveCounterId]);
 
   async function runAction(action) {
     setLoading(true);
@@ -69,6 +77,7 @@ export function StaffApp() {
   return (
     <Counter
       activeCounterId={activeCounterId}
+      counterName={counterName}
       setActiveCounterId={setActiveCounterId}
       clearSession={clearSession}
       counterActive={counterActive}

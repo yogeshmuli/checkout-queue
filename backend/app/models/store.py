@@ -30,3 +30,5 @@ class Store(TimestampMixin, Base):
     trial_holidays = relationship("TrialHoliday", back_populates="store", cascade="all, delete-orphan")
     trial_calendar_events = relationship("TrialCalendarEvent", back_populates="store", cascade="all, delete-orphan")
     trial_queue_tokens = relationship("TrialQueueToken", back_populates="store", cascade="all, delete-orphan")
+    notification_config = relationship("StoreNotificationConfig", back_populates="store", cascade="all, delete-orphan", uselist=False)
+    notification_logs = relationship("NotificationLog", back_populates="store", cascade="all, delete-orphan")

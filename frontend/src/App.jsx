@@ -8,6 +8,7 @@ import { ContextSelector } from './app/common/ContextSelector.jsx';
 import { Landing } from './app/common/Landing.jsx';
 import { Login } from './app/common/Login.jsx';
 import { BrandHeader } from './app/common/BrandHeader.jsx';
+import { PwaRefreshButton } from './app/common/PwaRefreshButton.jsx';
 import { TrialApp } from './app/trial/TrialApp.jsx';
 import { useAuthStore } from './store/authStore.js';
 
@@ -20,6 +21,18 @@ function RequireAuth({ children }) {
 export default function App() {
   const { accessToken, user, setUser, clearSession } = useAuthStore();
   const [bootstrapping, setBootstrapping] = useState(Boolean(accessToken && !user));
+
+  useEffect(() => {
+    const loader = document.getElementById('app-boot-loader');
+    if (!loader) return undefined;
+
+    loader.classList.add('is-hidden');
+    const removeLoader = window.setTimeout(() => {
+      loader.remove();
+    }, 260);
+
+    return () => window.clearTimeout(removeLoader);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +81,7 @@ function AppRoutes() {
     <>
       {showHeader ? <BrandHeader /> : null}
       <ToastContainer position="top-right" autoClose={3500} newestOnTop pauseOnFocusLoss={false} theme="colored" />
+      <PwaRefreshButton />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route

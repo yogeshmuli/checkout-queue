@@ -12,6 +12,7 @@ import { Calendar } from './pages/Calendar.jsx';
 import { Config } from './pages/Config.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { MachineLearning } from './pages/MachineLearning.jsx';
+import { NotificationSettings } from '../../common/NotificationSettings.jsx';
 import { Queue } from './pages/Queue.jsx';
 import { Staff } from './pages/Staff.jsx';
 import { Stores } from './pages/Stores.jsx';
@@ -63,6 +64,7 @@ export function TrialAdmin() {
       <Route path="config" element={<Config />} />
       <Route path="calendar" element={<Calendar />} />
       <Route path="ml" element={<MachineLearning />} />
+      <Route path="notifications" element={<NotificationSettings moduleLabel="Trial Queue" />} />
       <Route path="queue" element={<Queue />} />
       <Route path="*" element={<Navigate to="/app/trial/admin" replace />} />
     </Routes>

@@ -9,8 +9,170 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Checkout Queue</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        background: #fff5f4;
+      }
+
+      .app-boot-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 22% 18%, rgba(255, 59, 48, 0.12), transparent 30%),
+          radial-gradient(circle at 80% 14%, rgba(15, 23, 42, 0.10), transparent 26%),
+          linear-gradient(135deg, #fff7f6 0%, #ffffff 45%, #f8fafc 100%);
+        font-family:
+          Poppins, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        transition: opacity 220ms ease, visibility 220ms ease;
+      }
+
+      .app-boot-loader.is-hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .app-boot-panel {
+        width: min(420px, calc(100vw - 48px));
+        text-align: center;
+      }
+
+      .app-boot-mark {
+        position: relative;
+        display: grid;
+        width: 84px;
+        height: 84px;
+        margin: 0 auto 22px;
+        place-items: center;
+        border-radius: 24px;
+        background: #ff3b30;
+        color: #ffffff;
+        box-shadow: 0 20px 50px rgba(255, 59, 48, 0.26);
+      }
+
+      .app-boot-mark::before,
+      .app-boot-mark::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        border: 1px solid rgba(255, 59, 48, 0.22);
+        border-radius: 30px;
+        animation: appBootPulse 1.8s ease-out infinite;
+      }
+
+      .app-boot-mark::after {
+        animation-delay: 0.45s;
+      }
+
+      .app-boot-ticket {
+        width: 42px;
+        height: 52px;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: inset 0 -10px 0 rgba(255, 59, 48, 0.12);
+      }
+
+      .app-boot-ticket::before,
+      .app-boot-ticket::after {
+        content: "";
+        display: block;
+        width: 24px;
+        height: 4px;
+        margin: 12px auto 0;
+        border-radius: 99px;
+        background: #ff3b30;
+      }
+
+      .app-boot-ticket::after {
+        width: 16px;
+        margin-top: 8px;
+        opacity: 0.7;
+      }
+
+      .app-boot-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 1.45rem;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .app-boot-copy {
+        margin: 8px 0 0;
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+
+      .app-boot-bar {
+        position: relative;
+        height: 6px;
+        margin: 24px auto 0;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.08);
+      }
+
+      .app-boot-bar::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        width: 42%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #ff3b30, #0f172a);
+        animation: appBootSlide 1.25s ease-in-out infinite;
+      }
+
+      @keyframes appBootPulse {
+        0% {
+          transform: scale(0.82);
+          opacity: 0.72;
+        }
+        100% {
+          transform: scale(1.18);
+          opacity: 0;
+        }
+      }
+
+      @keyframes appBootSlide {
+        0% {
+          transform: translateX(-110%);
+        }
+        55%,
+        100% {
+          transform: translateX(250%);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-boot-mark::before,
+        .app-boot-mark::after,
+        .app-boot-bar::after {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="app-boot-loader" class="app-boot-loader" role="status" aria-live="polite">
+      <div class="app-boot-panel">
+        <div class="app-boot-mark" aria-hidden="true">
+          <span class="app-boot-ticket"></span>
+        </div>
+        <p class="app-boot-title">Checkout Queue</p>
+        <p class="app-boot-copy">Preparing your queue workspace</p>
+        <div class="app-boot-bar" aria-hidden="true"></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

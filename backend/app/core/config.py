@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     NIGHTLY_QUEUE_CLEANUP_HOUR: int = 0
     NIGHTLY_QUEUE_CLEANUP_MINUTE: int = 5
     SCHEDULER_TIMEZONE: str = "Asia/Kolkata"
+    MOCK_SMS_SHOULD_FAIL: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -343,6 +343,19 @@ def test_called_event_rebuilds_waiting_without_additive_drift(queue_service: Que
     assert third_token.calling_time > second_token.calling_time
 
 
+def test_called_event_rejects_already_called_token(queue_service: QueueService) -> None:
+    queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+    token = queue_service.repository.tokens[0]
+
+    queue_service.handle_queue_event(QueueEventRequest(token_id=token.id, event=QueueEventType.CALLED))
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.handle_queue_event(QueueEventRequest(token_id=token.id, event=QueueEventType.CALLED))
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Only waiting token can be called"
+
+
 def test_complete_event_moves_waiting_earlier_when_served_faster(queue_service: QueueService) -> None:
     queue_service.repository.counters = [queue_service.repository.counters[0]]
 

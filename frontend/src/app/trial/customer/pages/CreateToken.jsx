@@ -110,7 +110,7 @@ export function CreateToken() {
             >
               <ArrowLeft size={18} />
             </button>
-            <Link to="/app/trial/customer" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Trial customer home">
+            <Link to="/" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Go to landing page">
               <img src={brandLogo} alt="Trial Queue logo" className="h-full w-full object-cover" />
             </Link>
             <div className="min-w-0">

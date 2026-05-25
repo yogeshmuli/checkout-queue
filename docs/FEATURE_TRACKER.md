@@ -16,6 +16,7 @@ The backend currently supports:
 - Staff management APIs.
 - Store queue configuration APIs.
 - Store calendar APIs.
+- Store customer notification config and logs APIs.
 - Trial Queue module APIs behind `ENABLE_TRIAL_QUEUE`.
 - Demo Tools APIs behind `ENABLE_DEMO_TOOLS` for isolated ML training data.
 - Trial admin calendar UI for store-level trial hours, holidays, and event signals.
@@ -27,6 +28,8 @@ The backend currently supports:
 - Frontend integration for admin store, section, and staff CRUD flows.
 - Frontend post-login product context selector for enabled modules.
 - Counter management APIs and frontend admin counter CRUD flow.
+- Installed PWA shell shows a floating refresh action for manual hard reloads.
+- Shared mock-SMS customer notifications for Checkout and Trial called/next-soon events.
 - QuT-inspired UI design system with red/blush/navy palette and Poppins/Inter typography.
 
 ## Implemented User Stories
@@ -691,6 +694,7 @@ python3 -m scripts.sync_database
 
 - Queue service uses deterministic per-counter schedule rebuild for waiting tokens.
 - Recomputes `calling_time` from current lane truth (current serving token and pending waiting tokens) after queue lifecycle events.
+- Rejects repeated call actions unless the Checkout/Trial token is still `WAITING`, preventing duplicate customer call transitions and duplicate called notifications from stale UI actions.
 - Applies post-event queue correction for early/late service completion so downstream waiting times move earlier/later accordingly.
 - Reserves lane occupancy for `CALLED` customers until service begins, preventing premature advancement of waiting tokens.
 - Prevents additive drift by avoiding incremental delta-shift updates and always recalculating `counters.next_available_time` from the rebuilt queue.
@@ -698,6 +702,14 @@ python3 -m scripts.sync_database
 - Nightly cleanup job cancels all active Checkout and Trial tokens (`WAITING`, `CALLED`, `SERVING`) and resets checkout counter/trial studio availability for close-of-day queue purge.
 - Run close-of-day cleanup from backend with `python3 -m app.scripts.nightly_queue_cleanup`; schedule it externally at `00:05` using cron, Kubernetes CronJob, or the deployment scheduler.
 - FastAPI can also run the cleanup in-process through APScheduler when `ENABLE_IN_APP_SCHEDULER=true`; defaults run the cleanup daily at `00:05` in `SCHEDULER_TIMEZONE`.
+
+### Customer Notifications
+
+- Per-store notification config controls whether customer SMS notifications are enabled for called and next-soon events.
+- Checkout and Trial token `CALLED` transitions create a `TOKEN_CALLED` notification log and send through the mock SMS client when enabled.
+- APScheduler scans every minute for lane position `2` Checkout/Trial tokens and creates one `NEXT_SOON` notification per token.
+- Notification logs prevent duplicates with `(module_type, token_id, notification_type)` and record `SENT`, `FAILED`, or `SKIPPED` status.
+- Checkout and Trial admin workspaces include a Notifications page for config and recent log review.
 
 ### Database Models
 
@@ -744,6 +756,7 @@ Implemented migrations:
 - `20260522_0009_add_store_calendar.py`
 - `20260522_0010_add_ml_model_metadata.py`
 - `20260522_0011_add_store_calendar_events.py`
+- `20260524_0016_add_customer_notifications.py`
 
 ### Authentication
 
@@ -786,6 +799,9 @@ GET    /api/v1/stores/{store_id}/config
 PUT    /api/v1/stores/{store_id}/config
 GET    /api/v1/stores/{store_id}/calendar
 PUT    /api/v1/stores/{store_id}/calendar
+GET    /api/v1/stores/{store_id}/notification-config
+PUT    /api/v1/stores/{store_id}/notification-config
+GET    /api/v1/stores/{store_id}/notification-logs
 ```
 
 ### Queue
@@ -888,9 +904,12 @@ Trial Queue frontend parity:
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
 - Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: store/zone select (with QR scan), create token, mobile lookup, and token status screens.
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
+- Checkout and Trial customer headers link the brand logo back to the public landing page.
 - Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
 - Staff workspace under `/app/trial/staff` uses studio-specific queue/status APIs to load assigned tokens, start waiting tokens, complete/cancel active tokens, and mark a studio active or inactive. Assigned trial staff automatically load their `assigned_studio_id`.
+- Checkout and Trial staff consoles show the assigned counter/studio name from staff queue APIs instead of exposing raw lane ids when a name exists.
+- Checkout and Trial staff console headers use the same safe-area-aware sticky header behavior as customer queue screens.
 
 Trial Queue ML:
 
@@ -933,6 +952,7 @@ POST /api/v1/ml/trial/stores/{demo_store_id}/train
 /app/checkout/admin/queue
 /app/checkout/admin/calendar
 /app/checkout/admin/ml
+/app/checkout/admin/notifications
 /app/checkout/admin/alerts
 /app/checkout/staff
 /app/checkout/customer
@@ -942,6 +962,7 @@ POST /api/v1/ml/trial/stores/{demo_store_id}/train
 /app/trial/admin/config
 /app/trial/admin/calendar
 /app/trial/admin/ml
+/app/trial/admin/notifications
 /app/trial/admin/queue
 /app/trial/staff
 /app/trial/customer
@@ -951,7 +972,7 @@ POST /api/v1/ml/trial/stores/{demo_store_id}/train
 
 - Alert configuration.
 - Alert scheduler.
-- WhatsApp/SMS integrations.
+- Real WhatsApp/SMS provider integrations.
 - Demo seed data scripts.
 - Frontend API integration for admin alerts.
 
@@ -967,5 +988,5 @@ npm run lint
 Current backend test status:
 
 ```text
-36 passed
+53 passed
 ```

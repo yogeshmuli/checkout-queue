@@ -21,6 +21,7 @@ from app.schemas.queue import (
     QueueTokenResponse,
 )
 from app.schemas.ml import ServiceTimePredictionRequest
+from app.services.notification_service import NotificationService
 from app.services.prediction_service import PredictionService
 
 
@@ -179,6 +180,7 @@ class QueueService:
         tokens = self.repository.list_tokens_for_counter(counter_id)
         return CounterQueueResponse(
             counter_id=counter.id,
+            counter_name=counter.name,
             is_active=counter.is_active,
             next_available_time=self._normalize_to_utc(counter.next_available_time),
             tokens=[self._build_token_response(token) for token in tokens],
@@ -276,6 +278,9 @@ class QueueService:
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
 
+        if new_status == QueueTokenStatus.CALLED and token.status != QueueTokenStatus.WAITING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting token can be called")
+
         token.status = new_status
         now_utc = datetime.now(timezone.utc)
 
@@ -300,6 +305,8 @@ class QueueService:
 
         self.repository.commit()
         self.repository.refresh(token)
+        if new_status == QueueTokenStatus.CALLED and getattr(self.repository, "db", None) is not None:
+            NotificationService(self.repository.db).notify_checkout_called(token)
         return token
 
     def _build_event_response(self, token: QueueToken) -> QueueEventResponse:

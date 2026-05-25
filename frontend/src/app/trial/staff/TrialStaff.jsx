@@ -18,6 +18,7 @@ export function TrialStaff() {
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
   const currentToken = useMemo(() => tokens.find((token) => token.status === 'SERVING' || token.status === 'CALLED'), [tokens]);
   const studioActive = studioQueue?.is_active ?? true;
+  const studioName = studioQueue?.studio_name || '';
 
   const loadStudioQueue = useCallback(async () => {
     if (!accessToken || !studioId) return;
@@ -71,6 +72,7 @@ export function TrialStaff() {
   return (
     <Studio
       studioId={studioId}
+      studioName={studioName}
       setStudioId={setStudioId}
       clearSession={clearSession}
       studioActive={studioActive}

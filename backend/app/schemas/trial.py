@@ -228,6 +228,7 @@ class TrialQueueEventResponse(BaseModel):
 
 class TrialStudioQueueResponse(BaseModel):
     studio_id: int
+    studio_name: str | None = None
     is_active: bool
     next_available_time: datetime
     tokens: list[TrialQueueTokenResponse]

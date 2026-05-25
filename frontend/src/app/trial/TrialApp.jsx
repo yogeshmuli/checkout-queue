@@ -1,4 +1,4 @@
-import { Activity, ArrowLeftRight, Boxes, BrainCircuit, Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Store, Users, X } from 'lucide-react';
+import { Activity, ArrowLeftRight, Bell, Boxes, BrainCircuit, Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Store, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
@@ -33,6 +33,7 @@ const navItems = [
   { label: 'Config', path: '/app/trial/admin/config', Icon: Settings },
   { label: 'Calendar', path: '/app/trial/admin/calendar', Icon: CalendarDays },
   { label: 'ML', path: '/app/trial/admin/ml', Icon: BrainCircuit },
+  { label: 'Notifications', path: '/app/trial/admin/notifications', Icon: Bell },
   { label: 'Queue', path: '/app/trial/admin/queue', Icon: Activity },
 ];
 

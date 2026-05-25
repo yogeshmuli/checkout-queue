@@ -33,6 +33,7 @@ from app.schemas.trial import (
     TrialZoneResponse,
     TrialZoneUpdateRequest,
 )
+from app.services.notification_service import NotificationService
 from app.services.trial_prediction_service import TrialPredictionService
 
 
@@ -309,7 +310,7 @@ class TrialService:
 
     def get_studio_queue(self, studio_id: int) -> TrialStudioQueueResponse:
         studio = self.get_studio(studio_id)
-        return TrialStudioQueueResponse(studio_id=studio.id, is_active=studio.is_active, next_available_time=self._normalize_to_utc(studio.next_available_time), tokens=[self._build_token_response(token) for token in self.repository.list_tokens_for_studio(studio.id)])
+        return TrialStudioQueueResponse(studio_id=studio.id, studio_name=studio.name, is_active=studio.is_active, next_available_time=self._normalize_to_utc(studio.next_available_time), tokens=[self._build_token_response(token) for token in self.repository.list_tokens_for_studio(studio.id)])
 
     def update_studio_status(self, studio_id: int, payload: TrialStudioStatusUpdateRequest) -> TrialStudioQueueResponse:
         studio = self.get_studio(studio_id)
@@ -343,6 +344,8 @@ class TrialService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
         if token.status in self.TERMINAL_STATUSES and token.status != new_status:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is already in terminal state")
+        if new_status == TrialQueueTokenStatus.CALLED and token.status != TrialQueueTokenStatus.WAITING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting trial token can be called")
         now = datetime.now(timezone.utc)
         token.status = new_status
         if new_status == TrialQueueTokenStatus.CALLED:
@@ -360,6 +363,8 @@ class TrialService:
             self._rebuild_studio_schedule(token.assigned_studio_id, now)
         self.repository.commit()
         self.repository.refresh(token)
+        if new_status == TrialQueueTokenStatus.CALLED and getattr(self.repository, "db", None) is not None:
+            NotificationService(self.repository.db).notify_trial_called(token)
         return token
 
     def _ensure_store_exists(self, store_id: int) -> None:

@@ -5,6 +5,7 @@ import { formatTime } from '../utils/staffUtils.js';
 
 export function Counter({
   activeCounterId,
+  counterName,
   setActiveCounterId,
   clearSession,
   counterActive,
@@ -20,15 +21,17 @@ export function Counter({
   startNextToken,
   loadCounterQueue,
 }) {
+  const counterLabel = counterName || (activeCounterId ? `Counter #${activeCounterId}` : 'Counter');
+
   return (
     <main className="min-h-screen text-white animate-fadeIn">
       <section className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-5 animate-slideUp">
-        <header className="flex items-center justify-between rounded-lg bg-brand-red px-4 py-3 shadow-brand">
+        <header className="customer-sticky-header flex items-center justify-between rounded-lg bg-brand-red px-4 py-3 shadow-brand">
           <div className="flex items-center gap-3">
             <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
             <div>
             <p className="text-sm text-red-100">Counter console</p>
-            <h1 className="text-2xl font-semibold text-white">Counter {activeCounterId}</h1>
+            <h1 className="text-2xl font-semibold text-white">{counterLabel}</h1>
             </div>
           </div>
           <button type="button" onClick={clearSession} className="rounded-lg bg-white/15 p-2 text-white" title="Logout">
@@ -37,12 +40,17 @@ export function Counter({
         </header>
 
         <div className="mt-5 rounded-lg bg-white p-4 text-ink glass-panel">
-          <label className="text-sm font-medium text-charcoal">Counter ID</label>
-          <input
-            value={activeCounterId}
-            onChange={(event) => setActiveCounterId(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-brand-red"
-          />
+          <label className="text-sm font-medium text-charcoal">Assigned counter</label>
+          {counterName ? (
+            <div className="mt-1 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-ink">{counterName}</div>
+          ) : (
+            <input
+              value={activeCounterId}
+              onChange={(event) => setActiveCounterId(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-brand-red"
+              aria-label="Counter ID"
+            />
+          )}
           <button
             type="button"
             onClick={() => runAction(() => updateCounterStatus(activeCounterId, { is_active: !counterActive }))}

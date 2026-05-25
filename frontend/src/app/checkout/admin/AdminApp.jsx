@@ -25,6 +25,7 @@ import { Calendar } from './pages/Calendar.jsx';
 import { Counters } from './pages/Counters.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { MachineLearning } from './pages/MachineLearning.jsx';
+import { NotificationSettings } from '../../common/NotificationSettings.jsx';
 import { Queue } from './pages/Queue.jsx';
 import { Sections } from './pages/Sections.jsx';
 import { Staff } from './pages/Staff.jsx';
@@ -41,6 +42,7 @@ const navItems = [
   { label: 'Queue', path: '/app/checkout/admin/queue', Icon: Activity },
   { label: 'Calendar', path: '/app/checkout/admin/calendar', Icon: CalendarDays },
   { label: 'ML', path: '/app/checkout/admin/ml', Icon: BrainCircuit },
+  { label: 'Notifications', path: '/app/checkout/admin/notifications', Icon: Bell },
   { label: 'Alerts', path: '/app/checkout/admin/alerts', Icon: Bell },
 ];
 
@@ -186,6 +188,7 @@ export function AdminApp() {
             <Route path="queue" element={<Queue />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="ml" element={<MachineLearning />} />
+            <Route path="notifications" element={<NotificationSettings moduleLabel="Checkout Queue" />} />
             <Route path="alerts" element={<Alerts />} />
           </Routes>
         </main>

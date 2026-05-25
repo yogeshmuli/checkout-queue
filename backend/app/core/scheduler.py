@@ -2,9 +2,11 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.services.notification_service import NotificationService
 from app.services.queue_cleanup_service import QueueCleanupService
 
 
@@ -26,6 +28,12 @@ def run_nightly_queue_cleanup_job() -> None:
     )
 
 
+def run_next_soon_notifications_job() -> None:
+    with SessionLocal() as db:
+        sent_count = NotificationService(db).send_next_soon_notifications()
+    logger.info("Next-soon notification scan completed: notifications_sent=%s", sent_count)
+
+
 def create_scheduler() -> BackgroundScheduler:
     scheduler = BackgroundScheduler(timezone=settings.SCHEDULER_TIMEZONE)
     scheduler.add_job(
@@ -41,5 +49,15 @@ def create_scheduler() -> BackgroundScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=60 * 30,
+    )
+    scheduler.add_job(
+        run_next_soon_notifications_job,
+        trigger=IntervalTrigger(minutes=1, timezone=settings.SCHEDULER_TIMEZONE),
+        id="next_soon_notifications",
+        name="Next-soon notifications",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60,
     )
     return scheduler
