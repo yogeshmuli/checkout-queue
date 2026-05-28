@@ -72,6 +72,17 @@ export function ContextSelector() {
     return message;
   }
 
+  function onClickModule(module) {
+
+    let enabledModules = getEnabledModulesForUser(user);
+    if (!enabledModules.find((m) => m.id === module.id)) {
+      showApiErrorToast(new Error('You do not have access to this module.'));
+      return;
+    }
+
+    navigate(getModuleHomePath(module.id, scope));
+  }
+
   return (
     <main className="min-h-screen bg-brand-blush px-4 py-6 text-ink">
       <section className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center">
@@ -90,7 +101,7 @@ export function ContextSelector() {
               <button
                 key={module.id}
                 type="button"
-                onClick={() => navigate(getModuleHomePath(module.id, scope))}
+                onClick={() => onClickModule(module)}
                 className="rounded-lg border border-line bg-white p-5 text-left shadow-soft transition hover:border-brand-red"
               >
                 <div className="flex items-center justify-between gap-3">

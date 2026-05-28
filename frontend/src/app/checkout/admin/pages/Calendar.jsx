@@ -66,16 +66,17 @@ export function Calendar() {
   const [form, setForm] = useState({ timezone: 'Asia/Kolkata', days: emptyDays(), holidays: [], events: [] });
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
   const storeId = searchParams.get('store_id') || '';
 
   const storeOptions = useMemo(
-    () => [
-      { label: 'Select store', value: '' },
-      ...stores.map((store) => ({
+    () =>
+      stores.length
+        ? stores.map((store) => ({
         label: `${store.name} (${store.store_number})`,
         value: String(store.id),
-      })),
-    ],
+      }))
+        : [{ label: 'No stores found', value: '' }],
     [stores]
   );
 
@@ -88,11 +89,23 @@ export function Calendar() {
       } catch (error) {
         showApiErrorToast(error);
         setMessage(getErrorMessage(error));
+      } finally {
+        setStoresLoaded(true);
       }
     }
 
     loadStores();
   }, []);
+
+  useEffect(() => {
+    if (!stores.length) return;
+    if (stores.some((store) => String(store.id) === String(storeId))) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('store_id', String(stores[0].id));
+      return next;
+    });
+  }, [setSearchParams, storeId, stores]);
 
   useEffect(() => {
     async function loadCalendar() {
@@ -234,7 +247,8 @@ export function Calendar() {
         <SectionHeader eyebrow="Store calendar" title={selectedStore ? `${selectedStore.name} hours` : 'Configure store hours'} />
 
         <div className="mt-5 grid gap-4 md:grid-cols-[1fr_220px]">
-          <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} />
+          <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} disabled={!stores.length} />
+          {selectedStore ? (
           <label className="block">
             <span className="text-sm font-medium text-charcoal">Timezone</span>
             <input
@@ -243,8 +257,16 @@ export function Calendar() {
               className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"
             />
           </label>
+          ) : null}
         </div>
 
+        {storesLoaded && !stores.length ? (
+          <p className="mt-5 rounded-lg border border-dashed border-line p-4 text-sm text-muted">Create a store first, then calendar settings will appear here.</p>
+        ) : null}
+        {message && !selectedStore ? <p className="mt-4 rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">{message}</p> : null}
+
+        {selectedStore ? (
+        <>
         <div className="mt-5 divide-y divide-brand-soft rounded-lg border border-line">
           {form.days.map((day) => (
             <div key={day.weekday} className="grid gap-3 p-4 md:grid-cols-[1fr_120px_120px_auto] md:items-center">
@@ -299,8 +321,11 @@ export function Calendar() {
             Reload
           </button>
         </div>
+        </>
+        ) : null}
       </section>
 
+      {selectedStore ? (
       <div className="space-y-6">
         <section className="rounded-lg border border-line bg-white p-5">
           <SectionHeader
@@ -406,6 +431,7 @@ export function Calendar() {
           </div>
         </section>
       </div>
+      ) : null}
     </form>
   );
 }

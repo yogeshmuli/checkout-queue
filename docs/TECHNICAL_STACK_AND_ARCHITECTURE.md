@@ -602,13 +602,14 @@ Frontend API handling should be centralized under `src/api/` so pages and compon
 
 Current frontend implementation:
 
-- `checkout/admin/AdminApp` provides the checkout admin portal shell and dashboard view.
+- `checkout/admin/AdminApp` provides the checkout admin portal shell, sidebar, header, and admin route outlet.
 - `checkout/CheckoutApp` owns checkout admin, staff, and customer nested routing under `/app/checkout/*`.
 - Admin store, section, counter, staff, queue, store config, calendar, and ML pages connect to their implemented APIs.
 - `checkout/staff/StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
 - `checkout/customer/CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
 - `ContextSelector` lets logged-in users choose Checkout Queue or Trial Queue when multiple product modules are enabled.
 - `TrialApp` owns separate trial admin, staff, and customer route trees under `/app/trial/*`.
+- `trial/admin/AdminApp` provides the trial admin portal shell, sidebar, header, and nested admin routes, matching the checkout admin module pattern.
 - Trial admin ML connects to `/api/v1/ml/trial/stores/{store_id}/train|metadata` and displays the latest trial service-time model.
 
 ## 9. Request Flow Examples

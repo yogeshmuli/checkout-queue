@@ -117,6 +117,7 @@ export function Dashboard() {
   const [analytics, setAnalytics] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
   const [message, setMessage] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
@@ -167,17 +168,18 @@ export function Dashboard() {
       .catch((error) => {
         showApiErrorToast(error);
         setMessage(getErrorMessage(error));
-      });
+      })
+      .finally(() => setStoresLoaded(true));
   }, []);
 
   useEffect(() => {
-    if (!filters.store_id && stores[0]) {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('store_id', String(stores[0].id));
-        return next;
-      });
-    }
+    if (!stores.length) return;
+    if (stores.some((store) => String(store.id) === String(filters.store_id))) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('store_id', String(stores[0].id));
+      return next;
+    });
   }, [filters.store_id, setSearchParams, stores]);
 
   useEffect(() => {
@@ -204,18 +206,32 @@ export function Dashboard() {
 
       <section className="rounded-lg border border-line bg-white p-5">
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px]">
-          <Select label="Store" value={selectedStoreId} onChange={(value) => setFilter('store_id', value)} options={storeOptions} />
+          <Select label="Store" value={selectedStoreId} onChange={(value) => setFilter('store_id', value)} options={storeOptions} disabled={!stores.length} />
           <Select label="Range" value={filters.days} onChange={(value) => setFilter('days', value)} options={DAY_OPTIONS} />
         </div>
         {message ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
       </section>
 
-      {loading && !analytics ? <LoadingState /> : null}
-      {!loading && !analytics ? <EmptyState /> : null}
-      {analytics && activeView === 'live' ? <LiveView analytics={analytics} /> : null}
-      {analytics && activeView === 'history' ? <HistoryView analytics={analytics} /> : null}
-      {analytics && activeView === 'foresights' ? <ForesightsView analytics={analytics} foresights={foresights} metadata={metadata} /> : null}
+      {storesLoaded && !stores.length ? <NoStoresCard /> : null}
+      {stores.length ? (
+        <>
+          {loading && !analytics ? <LoadingState /> : null}
+          {!loading && !analytics ? <EmptyState /> : null}
+          {analytics && activeView === 'live' ? <LiveView analytics={analytics} /> : null}
+          {analytics && activeView === 'history' ? <HistoryView analytics={analytics} /> : null}
+          {analytics && activeView === 'foresights' ? <ForesightsView analytics={analytics} foresights={foresights} metadata={metadata} /> : null}
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function NoStoresCard() {
+  return (
+    <section className="rounded-lg border border-dashed border-line bg-white p-5">
+      <p className="text-sm font-medium text-charcoal">No stores available.</p>
+      <p className="mt-1 text-sm text-muted">Create a store first, then dashboard details will appear here.</p>
+    </section>
   );
 }
 

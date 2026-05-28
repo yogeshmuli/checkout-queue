@@ -1,49 +1,32 @@
-import {
-  Activity,
-  ArrowLeftRight,
-  Bell,
-  BrainCircuit,
-  CalendarDays,
-  Gauge,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  SlidersHorizontal,
-  Settings2,
-  Store,
-  UsersRound,
-  X,
-} from 'lucide-react';
+import { Activity, ArrowLeftRight, Bell, Boxes, BrainCircuit, Building2, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, Store, Users, X } from 'lucide-react';
 import { useState } from 'react';
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../../assets/images/equilateral_logo.png';
 import { useAuthStore } from '../../../store/authStore.js';
 import { enabledModules } from '../../common/moduleConfig.js';
-import { Alerts } from './pages/Alerts.jsx';
+import { NotificationSettings } from '../../common/NotificationSettings.jsx';
 import { Calendar } from './pages/Calendar.jsx';
-import { Counters } from './pages/Counters.jsx';
+import { Config } from './pages/Config.jsx';
 import { Dashboard } from './pages/Dashboard.jsx';
 import { MachineLearning } from './pages/MachineLearning.jsx';
-import { NotificationSettings } from '../../common/NotificationSettings.jsx';
 import { Queue } from './pages/Queue.jsx';
-import { Sections } from './pages/Sections.jsx';
 import { Staff } from './pages/Staff.jsx';
-import { StoreConfig } from './pages/StoreConfig.jsx';
 import { Stores } from './pages/Stores.jsx';
+import { Studios } from './pages/Studios.jsx';
+import { Zones } from './pages/Zones.jsx';
 
 const navItems = [
-  { label: 'Dashboard', path: '/app/checkout/admin', Icon: LayoutDashboard },
-  { label: 'Stores', path: '/app/checkout/admin/stores', Icon: Store },
-  { label: 'Store Config', path: '/app/checkout/admin/store-config', Icon: SlidersHorizontal },
-  { label: 'Sections', path: '/app/checkout/admin/sections', Icon: Settings2 },
-  { label: 'Counters', path: '/app/checkout/admin/counters', Icon: Gauge },
-  { label: 'Staff', path: '/app/checkout/admin/staff', Icon: UsersRound },
-  { label: 'Queue', path: '/app/checkout/admin/queue', Icon: Activity },
-  { label: 'Calendar', path: '/app/checkout/admin/calendar', Icon: CalendarDays },
-  { label: 'ML', path: '/app/checkout/admin/ml', Icon: BrainCircuit },
-  { label: 'Notifications', path: '/app/checkout/admin/notifications', Icon: Bell },
- 
+  { label: 'Dashboard', path: '/app/trial/admin', Icon: LayoutDashboard },
+  { label: 'Stores', path: '/app/trial/admin/stores', Icon: Store },
+  { label: 'Zones', path: '/app/trial/admin/zones', Icon: Boxes },
+  { label: 'Studios', path: '/app/trial/admin/studios', Icon: Building2 },
+  { label: 'Staff', path: '/app/trial/admin/staff', Icon: Users },
+  { label: 'Config', path: '/app/trial/admin/config', Icon: Settings },
+  { label: 'Calendar', path: '/app/trial/admin/calendar', Icon: CalendarDays },
+  { label: 'ML', path: '/app/trial/admin/ml', Icon: BrainCircuit },
+  { label: 'Notifications', path: '/app/trial/admin/notifications', Icon: Bell },
+  { label: 'Queue', path: '/app/trial/admin/queue', Icon: Activity },
 ];
 
 const canChangeContext = enabledModules.length > 1;
@@ -67,21 +50,16 @@ export function AdminApp() {
   return (
     <div className="min-h-screen bg-brand-blush text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-brand-deep bg-brand-red px-4 py-5 text-white lg:flex">
-        <div className="mb-7 flex items-start gap-3 px-2 flex-col justify-center">
-          <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
+        <div className="mb-7 flex flex-col items-start justify-center gap-3 px-2">
+          <img src={brandLogo} alt="Trial Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
           <div>
             <p className="font-semibold">Admin Portal</p>
-            <p className="text-xs text-red-100">Checkout Queue</p>
+            <p className="text-xs text-red-100">Trial Queue</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1">
           {navItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.path}
-              end={item.path === '/app/checkout/admin'}
-              className={({ isActive }) => getNavItemClass(isActive)}
-            >
+            <NavLink key={item.label} to={item.path} end={item.path === '/app/trial/admin'} className={({ isActive }) => getNavItemClass(isActive)}>
               <item.Icon size={18} className="shrink-0" />
               <span className="truncate">{item.label}</span>
             </NavLink>
@@ -90,20 +68,20 @@ export function AdminApp() {
         <SidebarAccount email={user?.email} onLogout={logout} />
       </aside>
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 bg-white px-4 py-3 ">
+        <header className="sticky top-0 z-30 bg-white px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen(true)}
                 className="inline-flex items-center justify-center rounded-lg border border-line p-2 text-charcoal lg:hidden"
-                aria-label="Open admin navigation"
+                aria-label="Open trial navigation"
               >
                 <Menu size={18} />
               </button>
-              <img src={brandLogo} alt="Checkout Queue logo" className="h-8 w-16 shrink-0 rounded-lg bg-white p-1 object-cover sm:h-9 sm:w-20 lg:hidden" />
+              <img src={brandLogo} alt="Trial Queue logo" className="h-8 w-16 shrink-0 rounded-lg bg-white p-1 object-cover sm:h-9 sm:w-20 lg:hidden" />
               <div className="min-w-0">
-                <p className="truncate text-xs sm:text-sm">Retail checkout operations</p>
+                <p className="truncate text-xs sm:text-sm">Retail trial operations</p>
                 <h1 className="truncate text-sm font-semibold sm:text-lg">Admin workspace</h1>
               </div>
             </div>
@@ -119,7 +97,7 @@ export function AdminApp() {
                 </NavLink>
               ) : null}
               <NavLink
-                to="/app/checkout/customer"
+                to="/app/trial/customer"
                 className="max-w-[38vw] shrink-0 truncate whitespace-nowrap rounded-lg border border-brand-red/30 bg-brand-blush px-2.5 py-2 text-xs font-medium text-brand-red hover:bg-white sm:max-w-none sm:px-3 sm:text-sm"
               >
                 Customer view
@@ -140,32 +118,31 @@ export function AdminApp() {
           className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-y-auto bg-brand-red p-4 text-white shadow-2xl transition-transform lg:hidden ${
             isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
-          aria-label="Admin mobile navigation drawer"
+          aria-label="Trial admin mobile navigation drawer"
         >
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
+              <img src={brandLogo} alt="Trial Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
               <div>
                 <p className="font-semibold">Admin Portal</p>
-                <p className="text-xs text-red-100">Checkout Queue</p>
+                <p className="text-xs text-red-100">Trial Queue</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setIsMobileNavOpen(false)}
               className="rounded-lg border border-white/30 p-2 text-white"
-              aria-label="Close admin navigation"
+              aria-label="Close trial navigation"
             >
               <X size={18} />
             </button>
           </div>
-
           <nav className="flex-1 space-y-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.path}
-                end={item.path === '/app/checkout/admin'}
+                end={item.path === '/app/trial/admin'}
                 onClick={() => setIsMobileNavOpen(false)}
                 className={({ isActive }) => getNavItemClass(isActive)}
               >
@@ -176,20 +153,19 @@ export function AdminApp() {
           </nav>
           <SidebarAccount email={user?.email} onLogout={logout} />
         </aside>
-
         <main className="mx-auto max-w-7xl px-4 py-6">
           <Routes>
             <Route index element={<Dashboard />} />
             <Route path="stores" element={<Stores />} />
-            <Route path="store-config" element={<StoreConfig />} />
-            <Route path="sections" element={<Sections />} />
-            <Route path="counters" element={<Counters />} />
+            <Route path="zones" element={<Zones />} />
+            <Route path="studios" element={<Studios />} />
             <Route path="staff" element={<Staff />} />
-            <Route path="queue" element={<Queue />} />
+            <Route path="config" element={<Config />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="ml" element={<MachineLearning />} />
-            <Route path="notifications" element={<NotificationSettings moduleLabel="Checkout Queue" />} />
-            <Route path="alerts" element={<Alerts />} />
+            <Route path="notifications" element={<NotificationSettings moduleLabel="Trial Queue" />} />
+            <Route path="queue" element={<Queue />} />
+            <Route path="*" element={<Navigate to="/app/trial/admin" replace />} />
           </Routes>
         </main>
       </div>

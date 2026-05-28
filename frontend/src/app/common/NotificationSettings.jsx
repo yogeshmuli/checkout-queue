@@ -23,13 +23,13 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
   const [logs, setLogs] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
   const storeId = searchParams.get('store_id') || '';
 
   const selectedStore = useMemo(() => stores.find((store) => String(store.id) === String(storeId)), [storeId, stores]);
-  const storeOptions = [
-    { label: 'Select store', value: '' },
-    ...stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) })),
-  ];
+  const storeOptions = stores.length
+    ? stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) }))
+    : [{ label: 'No stores found', value: '' }];
 
   function setStoreId(value) {
     setSearchParams((prev) => {
@@ -47,6 +47,8 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
+    } finally {
+      setStoresLoaded(true);
     }
   }, []);
 
@@ -80,6 +82,16 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
   useEffect(() => {
     loadStores();
   }, [loadStores]);
+
+  useEffect(() => {
+    if (!stores.length) return;
+    if (stores.some((store) => String(store.id) === String(storeId))) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('store_id', String(stores[0].id));
+      return next;
+    });
+  }, [setSearchParams, storeId, stores]);
 
   useEffect(() => {
     loadNotificationData();
@@ -122,10 +134,19 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
       <section className="rounded-lg border border-line bg-white p-5">
         <SectionHeader eyebrow={`${moduleLabel} notifications`} title="Customer SMS settings" />
         <div className="mt-5 max-w-xl">
-          <Select label="Store" value={storeId} options={storeOptions} onChange={setStoreId} />
+          <Select label="Store" value={storeId} options={storeOptions} onChange={setStoreId} disabled={!stores.length} />
         </div>
       </section>
 
+      {storesLoaded && !stores.length ? (
+        <section className="rounded-lg border border-dashed border-line bg-white p-5">
+          <p className="text-sm font-medium text-charcoal">No stores available.</p>
+          <p className="mt-1 text-sm text-muted">Create a store first, then notification settings will appear here.</p>
+        </section>
+      ) : null}
+
+      {selectedStore ? (
+      <>
       <section className="rounded-lg border border-line bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -197,6 +218,8 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
           )}
         </div>
       </section>
+      </>
+      ) : null}
     </div>
   );
 }

@@ -14,16 +14,17 @@ export function MachineLearning() {
   const [metadata, setMetadata] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
   const storeId = searchParams.get('store_id') || '';
 
   const storeOptions = useMemo(
-    () => [
-      { label: 'Select store', value: '' },
-      ...stores.map((store) => ({
+    () =>
+      stores.length
+        ? stores.map((store) => ({
         label: `${store.name} (${store.store_number})`,
         value: String(store.id),
-      })),
-    ],
+      }))
+        : [{ label: 'No stores found', value: '' }],
     [stores]
   );
 
@@ -34,11 +35,23 @@ export function MachineLearning() {
       } catch (error) {
         showApiErrorToast(error);
         setMessage(getErrorMessage(error));
+      } finally {
+        setStoresLoaded(true);
       }
     }
 
     loadStores();
   }, []);
+
+  useEffect(() => {
+    if (!stores.length) return;
+    if (stores.some((store) => String(store.id) === String(storeId))) return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('store_id', String(stores[0].id));
+      return next;
+    });
+  }, [setSearchParams, storeId, stores]);
 
   const loadMetadata = useCallback(async () => {
     if (!storeId) return;
@@ -99,7 +112,7 @@ export function MachineLearning() {
       <section className="rounded-lg border border-line bg-white p-5">
         <SectionHeader eyebrow="Trial machine learning" title="Trial service-time prediction" />
         <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
-          <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} />
+          <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} disabled={!stores.length} />
           <button
             type="button"
             onClick={trainModel}
@@ -121,7 +134,12 @@ export function MachineLearning() {
         </div>
 
         {message ? <p className="mt-4 rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">{message}</p> : null}
+        {storesLoaded && !stores.length ? (
+          <p className="mt-5 rounded-lg border border-dashed border-line p-4 text-sm text-muted">Create a store first, then trial ML training and metadata will appear here.</p>
+        ) : null}
 
+        {stores.length ? (
+        <>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Status" value={metadata?.status || 'Not trained'} />
           <Metric label="Samples" value={metadata?.sample_size ?? '-'} />
@@ -143,8 +161,11 @@ export function MachineLearning() {
             </dl>
           </div>
         ) : null}
+        </>
+        ) : null}
       </section>
 
+      {stores.length ? (
       <section className="rounded-lg border border-line bg-white p-5">
         <SectionHeader eyebrow="Trial features" title="What the model learns" />
         <div className="mt-4 space-y-3 text-sm leading-6 text-charcoal">
@@ -152,6 +173,7 @@ export function MachineLearning() {
           <p>Training uses completed trial tokens plus zone load, active studios, recent cancellations, recent average trial time, hour/day, weekend flag, trial promotion days, zone type, zone gender, studio type, and customer type.</p>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }

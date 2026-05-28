@@ -112,7 +112,7 @@ export function CreateToken() {
             </Link>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">QR checkout queue</p>
-              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Join billing queue</h1>
+              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Create token</h1>
             </div>
           </div>
           <p className="mt-3 text-sm text-white/95">{storesLoading ? 'Loading store details...' : qrStoreLabel}</p>
