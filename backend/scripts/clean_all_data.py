@@ -4,6 +4,7 @@ from sqlalchemy import text
 
 import app.models  # noqa: F401
 from app.core.database import Base, SessionLocal
+from scripts.create_superadmin import create_superadmin
 
 
 def clean_all_data() -> None:
@@ -21,6 +22,7 @@ def clean_all_data() -> None:
         quoted_tables = ", ".join(f'"{name}"' for name in table_names)
         db.execute(text(f"TRUNCATE TABLE {quoted_tables} RESTART IDENTITY CASCADE"))
         db.commit()
+        create_superadmin()
         print("All application data has been cleaned. Tables were preserved.")
     except Exception as exc:
         db.rollback()

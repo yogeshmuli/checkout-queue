@@ -29,6 +29,7 @@ export function StaffApp() {
   const counterName = counterQueue?.counter_name || '';
 
   const loadCounterQueue = useCallback(async () => {
+    debugger
     if (!accessToken || !activeCounterId) return;
     setLoading(true);
     setMessage('');

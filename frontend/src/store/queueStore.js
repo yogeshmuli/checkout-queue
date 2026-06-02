@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export const useQueueStore = create((set) => ({
   lastToken: null,
-  activeCounterId: '1',
+  activeCounterId: "",
   setLastToken: (token) => set({ lastToken: token }),
   setActiveCounterId: (counterId) => set({ activeCounterId: counterId }),
 }));

@@ -110,7 +110,7 @@ export function MachineLearning() {
   return (
     <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
       <section className="rounded-lg border border-line bg-white p-5">
-        <SectionHeader eyebrow="Machine learning" title="Service-time prediction" />
+        <SectionHeader eyebrow="Intelligence hub" title="Service-time prediction" />
         <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
           <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} disabled={!stores.length} />
           <button

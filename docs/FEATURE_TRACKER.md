@@ -975,6 +975,10 @@ POST /api/v1/ml/trial/stores/{demo_store_id}/train
 /app/trial/customer
 ```
 
+Checkout admin groups store setup screens under one `Configuration` sidebar item. The existing Stores, Store Config, Sections, Counters, Staff, and Calendar URLs remain shareable deep links and display a shared horizontal configuration tab bar. Switching between compatible tabs preserves the selected `store_id` filter while dropping page-specific filters.
+
+Trial admin follows the same navigation structure: Stores, Config, Zones, Studios, Staff, and Calendar are grouped under one `Configuration` sidebar item and display shared horizontal tabs. Existing Trial admin URLs remain shareable deep links, and compatible tab switches preserve the selected `store_id` filter while dropping page-specific filters.
+
 ## Not Implemented Yet
 
 - Alert configuration.

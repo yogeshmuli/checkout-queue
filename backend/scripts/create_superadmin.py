@@ -7,7 +7,7 @@ SUPERADMIN_PASSWORD = "admin123"
 SUPERADMIN_FULL_NAME = "Super Admin"
 
 
-def main() -> None:
+def create_superadmin() -> None:
     db = SessionLocal()
     try:
         existing = db.query(User).filter(User.email == SUPERADMIN_EMAIL).first()
@@ -32,4 +32,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    create_superadmin()
