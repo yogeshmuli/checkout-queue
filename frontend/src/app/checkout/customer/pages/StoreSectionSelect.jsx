@@ -1,80 +1,60 @@
-import { ArrowLeft, Camera, QrCode, RefreshCw, Store } from 'lucide-react';
+import { ArrowLeft, Camera, ImageUp, QrCode } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import QrScanner from 'qr-scanner';
 import { Link, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
-import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { listStoreSections } from '../../../../api/checkout/queueApi.js';
-import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 
-const SECTION_TYPE_LABELS = {
-  REGULAR: 'Regular',
-  EXPRESS: 'Express',
-  SELF_CHECKOUT: 'Self Checkout',
-  RETURNS: 'Returns',
-  PRIORITY: 'Priority',
-};
-
-function getSectionTypeLabel(sectionType) {
-  return SECTION_TYPE_LABELS[sectionType] || sectionType;
-}
-
-function parseQrPayload(rawValue) {
+function getQrDestination(rawValue) {
   if (!rawValue) return null;
 
   try {
     const url = new URL(rawValue);
-    const store_id = url.searchParams.get('store_id') || '';
-    const section_id = url.searchParams.get('section_id') || '';
-    const token_id = url.searchParams.get('token_id') || '';
-    if (store_id) {
-      return { store_id, section_id, token_id };
-    }
+    const isHttpUrl = url.protocol === 'http:' || url.protocol === 'https:';
+    const isCheckoutCustomerUrl = url.pathname.startsWith('/app/checkout/customer/');
+    return isHttpUrl && isCheckoutCustomerUrl ? url.href : null;
   } catch {
     return null;
   }
-
-  return null;
 }
 
 export function StoreSectionSelect() {
-  const [form, setForm] = useState({ store_id: '', section_id: '' });
-  const [stores, setStores] = useState([]);
-  const [storesLoading, setStoresLoading] = useState(true);
-  const [message, setMessage] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState('');
 
+  const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const qrScannerRef = useRef(null);
   const navigate = useNavigate();
-
-  async function loadStoreSections() {
-    setStoresLoading(true);
-    try {
-      const data = await listStoreSections();
-      setStores(data);
-    } catch (error) {
-      showApiErrorToast(error);
-      setMessage(getErrorMessage(error));
-    } finally {
-      setStoresLoading(false);
-    }
-  }
-
-  function goToCreateToken({ store_id, section_id, token_id }) {
-    const params = new URLSearchParams();
-    params.set('store_id', store_id);
-    if (section_id) params.set('section_id', section_id);
-    if (token_id) params.set('token_id', token_id);
-    navigate(`/app/checkout/customer/create?${params.toString()}`);
-  }
 
   function stopScanning() {
     qrScannerRef.current?.stop();
 
     setIsScanning(false);
+  }
+
+  function handleQrPayload(rawValue) {
+    const destination = getQrDestination(rawValue || '');
+    if (!destination) {
+      setScanMessage('Invalid QR. Use a store QR code and try again.');
+      return;
+    }
+    stopScanning();
+    window.location.assign(destination);
+  }
+
+  async function uploadQrImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setScanMessage('');
+    try {
+      const scanResult = await QrScanner.scanImage(file, { returnDetailedScanResult: true });
+      handleQrPayload(typeof scanResult === 'string' ? scanResult : scanResult?.data);
+    } catch {
+      setScanMessage('Unable to read a QR code from this image. Choose a clearer image and try again.');
+    }
   }
 
   async function startScanning() {
@@ -97,13 +77,7 @@ export function StoreSectionSelect() {
           videoRef.current,
           (scanResult) => {
             const rawValue = typeof scanResult === 'string' ? scanResult : scanResult?.data;
-            const parsed = parseQrPayload(rawValue || '');
-            if (!parsed?.store_id) {
-              setScanMessage('Invalid QR. Use a URL QR with store_id and optional section_id/token_id query params.');
-              return;
-            }
-            stopScanning();
-            goToCreateToken(parsed);
+            handleQrPayload(rawValue);
           },
           {
             preferredCamera: 'environment',
@@ -119,69 +93,6 @@ export function StoreSectionSelect() {
       setScanMessage('Unable to access camera. Please allow camera permission and retry.');
     }
   }
-
-  function submitForm(event) {
-    event.preventDefault();
-    setMessage('');
-
-    if (!form.store_id) {
-      setMessage('Store is required.');
-      return;
-    }
-
-    const hasSections = Boolean((selectedStore?.sections || []).length);
-    if (hasSections && !form.section_id) {
-      setMessage('Please select a section for the chosen store.');
-      return;
-    }
-
-    goToCreateToken({ store_id: form.store_id, section_id: form.section_id, token_id: '' });
-  }
-
-  const selectedStore = stores.find((store) => String(store.id) === String(form.store_id));
-
-  const storeOptions = [
-    { label: storesLoading ? 'Loading stores...' : 'Select store', value: '' },
-    ...stores.map((store) => ({
-      label: `${store.name} (${store.store_number})`,
-      value: String(store.id),
-    })),
-  ];
-
-  const sectionOptions = [
-    {
-      label: selectedStore
-        ? (selectedStore.sections?.length ? 'Select section' : 'No active sections available')
-        : 'Select store first',
-      value: '',
-    },
-    ...((selectedStore?.sections || []).map((section) => ({
-      label: `${section.name} (${getSectionTypeLabel(section.section_type)})`,
-      value: String(section.id),
-    }))),
-  ];
-
-  useEffect(() => {
-    loadStoreSections();
-
-    function handleVisibilityChange() {
-      if (!document.hidden) {
-        loadStoreSections();
-      }
-    }
-
-    function handleWindowFocus() {
-      loadStoreSections();
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleWindowFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleWindowFocus);
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -209,61 +120,33 @@ export function StoreSectionSelect() {
             </Link>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Customer check-in</p>
-              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Select store </h1>
+              <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Scan store QR</h1>
             </div>
           </div>
-          <p className="mt-3 text-sm text-white/95">Use form entry or scan the store QR code.</p>
+          <p className="mt-3 text-sm text-white/95">Scan the QR code at the store or upload a saved QR image.</p>
         </header>
 
-        <form className="mt-5 space-y-4 rounded-lg bg-white p-5 text-ink shadow-soft" onSubmit={submitForm}>
-          <div className="flex items-center gap-2">
-            <Store size={20} className="text-brand-red" />
-            <h2 className="font-semibold">Manual selection</h2>
-            <button
-              type="button"
-              onClick={loadStoreSections}
-              className="ml-auto rounded-lg border border-line p-2 text-charcoal hover:border-brand-red"
-              title="Refresh stores"
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3">
-            <Select
-              label="Store"
-              value={form.store_id}
-              options={storeOptions}
-              onChange={(store_id) => {
-                setForm({ store_id, section_id: '' });
-                setMessage('');
-              }}
-            />
-            <Select
-              label="Section"
-              value={form.section_id}
-              options={sectionOptions}
-              onChange={(section_id) => setForm({ ...form, section_id })}
-            />
-          </div>
-
-          {selectedStore && selectedStore.sections.length === 0 ? (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              This store has no active sections configured yet. You can continue and create token without section.
-            </p>
-          ) : null}
-
-          {message ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
-
-          <button type="submit" className="w-full rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
-            Continue to token form
-          </button>
-        </form>
-
-        <section className="mt-4 space-y-3 rounded-lg bg-white p-5 text-ink shadow-soft">
+        <section className="mt-5 space-y-3 rounded-lg bg-white p-5 text-ink shadow-soft">
           <div className="flex items-center gap-2">
             <QrCode size={20} className="text-brand-red" />
-            <h2 className="font-semibold">Scan QR</h2>
+            <h2 className="font-semibold">Scan or upload QR</h2>
+          </div>
+
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadQrImage} className="hidden" />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-4 py-3 text-sm font-semibold text-brand-red hover:bg-white"
+          >
+            <ImageUp size={17} />
+            Upload QR from gallery
+          </button>
+
+          <div className="flex items-center gap-3 py-1 text-xs font-medium uppercase tracking-wide text-muted">
+            <span className="h-px flex-1 bg-line" />
+            or scan with camera
+            <span className="h-px flex-1 bg-line" />
           </div>
 
           <div className="overflow-hidden rounded-lg border border-line bg-slate-100">
@@ -292,7 +175,7 @@ export function StoreSectionSelect() {
             </button>
           </div>
 
-          <p className="text-xs text-muted">Supported QR format: URL containing `store_id` and optional `section_id`/`token_id` query params.</p>
+          <p className="text-xs text-muted">Use the Checkout Queue QR code displayed at your store.</p>
         </section>
 
         <Link to="/app/checkout/customer/status" className="mt-4 block rounded-lg bg-brand-blush px-3 py-2 text-center text-sm font-medium text-brand-red">

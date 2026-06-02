@@ -429,6 +429,7 @@ Result:
 
 - Landing page presents Checkout Queue and Trial Queue as available product modules.
 - Landing page "Open Workspace" sends users to `/app` so the context selector chooses the target module.
+- Landing page displays a shared Equilateral footer with placeholder Terms, Privacy, Contact, and FAQ links.
 - `/app/checkout/customer` remains public and does not require authentication.
 - `/app/login` is a shared login screen for admin and staff users.
 - Authenticated admin users can access admin and staff workspaces and see all three workspace options.
@@ -545,7 +546,7 @@ Result:
 - Shows active stores in a dropdown and populates section dropdown based on selected store.
 - Loads store/section options from public API `GET /api/v1/queue/store-sections`.
 - Includes active stores even when no section is configured yet (section remains optional for that case).
-- Supports browser-camera QR scanning for store payloads.
+- Uses QR-only store entry with browser-camera scanning or gallery image upload; the manual store/section selection form is hidden from customers, and a valid Checkout customer QR redirects to its complete encoded URL.
 - Supports installable PWA behavior with manifest/service-worker caching for home-screen install.
 - Calls `POST /api/v1/queue/join`.
 - Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with confirmation.
@@ -907,7 +908,7 @@ Trial Queue frontend parity:
 - Trial admin dashboard now uses a Smart View layout with sticky header tabs for Live, History, and Foresights; Live shows zone/studio queue cards, History shows collapsible Recharts graphs, and Foresights uses Trial ML metadata when the model is ready.
 - Trial store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
-- Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: store/zone select (with QR scan), create token, mobile lookup, and token status screens.
+- Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: QR-only store entry with camera scan or gallery upload, complete encoded Trial customer URL redirect, create token, mobile lookup, and token status screens.
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
 - Checkout and Trial customer headers link the brand logo back to the public landing page.
 - Checkout and Trial customer token status cards include a compact manual refresh icon that reloads the latest token status from the backend.

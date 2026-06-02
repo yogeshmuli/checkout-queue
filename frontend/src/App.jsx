@@ -8,6 +8,7 @@ import { ContextSelector } from './app/common/ContextSelector.jsx';
 import { Landing } from './app/common/Landing.jsx';
 import { Login } from './app/common/Login.jsx';
 import { BrandHeader } from './app/common/BrandHeader.jsx';
+import { Footer } from './app/common/Footer.jsx';
 import { PwaRefreshButton } from './app/common/PwaRefreshButton.jsx';
 import { TrialApp } from './app/trial/TrialApp.jsx';
 import { useAuthStore } from './store/authStore.js';
@@ -97,6 +98,7 @@ function AppRoutes() {
         <Route path="/app/trial/*" element={<TrialApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {showHeader ? <Footer /> : null}
     </>
   );
 }
