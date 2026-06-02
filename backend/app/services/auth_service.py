@@ -34,7 +34,7 @@ class AuthService:
             store_id=payload.store_id,
             section_id=payload.section_id,
             assigned_counter_id=payload.assigned_counter_id,
-            assigned_studio_id=payload.assigned_studio_id,
+            assigned_zone_id=payload.assigned_zone_id,
         )
         self.repository.create_user(user)
 
@@ -93,4 +93,3 @@ class AuthService:
             refresh_token=refresh_token,
             expires_in_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
         )
-

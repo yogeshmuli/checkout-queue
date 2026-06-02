@@ -24,7 +24,7 @@ class User(TimestampMixin, Base):
     store_id: Mapped[int | None] = mapped_column(ForeignKey("stores.id", ondelete="SET NULL"), index=True)
     section_id: Mapped[int | None] = mapped_column(ForeignKey("checkout_sections.id", ondelete="SET NULL"), index=True)
     assigned_counter_id: Mapped[int | None] = mapped_column(ForeignKey("counters.id", ondelete="SET NULL"), index=True)
-    assigned_studio_id: Mapped[int | None] = mapped_column(ForeignKey("trial_studios.id", ondelete="SET NULL"), index=True)
+    assigned_zone_id: Mapped[int | None] = mapped_column(ForeignKey("trial_zones.id", ondelete="SET NULL"), index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     phone_number: Mapped[str | None] = mapped_column(String(10), unique=True, index=True, nullable=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -36,7 +36,7 @@ class User(TimestampMixin, Base):
     store = relationship("Store")
     section = relationship("CheckoutSection")
     assigned_counter = relationship("Counter", back_populates="assigned_users")
-    assigned_studio = relationship("TrialStudio")
+    assigned_zone = relationship("TrialZone")
     store_access = relationship("UserStoreAccess", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
@@ -65,4 +65,3 @@ class RefreshToken(TimestampMixin, Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", back_populates="refresh_tokens")
-

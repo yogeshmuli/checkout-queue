@@ -21,6 +21,7 @@ from app.schemas.trial import (
     TrialStudioResponse,
     TrialStudioStatusUpdateRequest,
     TrialStudioUpdateRequest,
+    TrialZoneStudioQueuesResponse,
     TrialTokenCancelRequest,
     TrialZoneCreateRequest,
     TrialZoneResponse,
@@ -35,8 +36,6 @@ trial_staff_roles = (
     UserRole.SUPER_ADMIN,
     UserRole.STORE_ADMIN,
     UserRole.MANAGER,
-    UserRole.CASHIER,
-    UserRole.SUPPORT,
     UserRole.TRIAL_ZONE_ASSISTANT,
 )
 
@@ -118,34 +117,39 @@ def get_trial_token_status(token_id: int | None = None, store_id: int | None = N
 
 @router.get("/trial/queue/tokens", response_model=list[TrialQueueTokenResponse])
 def list_trial_queue_tokens(store_id: int | None = None, trial_zone_id: int | None = None, studio_id: int | None = None, status: TrialQueueTokenStatus | None = None, include_terminal: bool = Query(default=False), db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> list[TrialQueueTokenResponse]:
-    return TrialService(db).list_queue_tokens(store_id=store_id, trial_zone_id=trial_zone_id, studio_id=studio_id, token_status=status, include_terminal=include_terminal)
+    return TrialService(db).list_queue_tokens(store_id=store_id, trial_zone_id=trial_zone_id, studio_id=studio_id, token_status=status, include_terminal=include_terminal, current_user=current_user)
 
 
 @router.post("/trial/queue/events", response_model=TrialQueueEventResponse)
 def process_trial_queue_event(payload: TrialQueueEventRequest, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
-    return TrialService(db).handle_queue_event(payload)
+    return TrialService(db).handle_queue_event(payload, current_user=current_user)
+
+
+@router.get("/trial/queue/zones/{zone_id}/studios", response_model=TrialZoneStudioQueuesResponse)
+def get_trial_zone_studios(zone_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialZoneStudioQueuesResponse:
+    return TrialService(db).get_zone_studio_queues(zone_id, current_user=current_user)
 
 
 @router.get("/trial/queue/studios/{studio_id}/tokens", response_model=TrialStudioQueueResponse)
 def get_trial_studio_queue(studio_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialStudioQueueResponse:
-    return TrialService(db).get_studio_queue(studio_id)
+    return TrialService(db).get_studio_queue(studio_id, current_user=current_user)
 
 
 @router.patch("/trial/queue/studios/{studio_id}/status", response_model=TrialStudioQueueResponse)
 def update_trial_studio_status(studio_id: int, payload: TrialStudioStatusUpdateRequest, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialStudioQueueResponse:
-    return TrialService(db).update_studio_status(studio_id, payload)
+    return TrialService(db).update_studio_status(studio_id, payload, current_user=current_user)
 
 
 @router.post("/trial/queue/tokens/{token_id}/start", response_model=TrialQueueEventResponse)
 def start_trial_token(token_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
-    return TrialService(db).start_token(token_id)
+    return TrialService(db).start_token(token_id, current_user=current_user)
 
 
 @router.post("/trial/queue/tokens/{token_id}/complete", response_model=TrialQueueEventResponse)
 def complete_trial_token(token_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
-    return TrialService(db).complete_token(token_id)
+    return TrialService(db).complete_token(token_id, current_user=current_user)
 
 
 @router.post("/trial/queue/tokens/{token_id}/cancel", response_model=TrialQueueEventResponse)
 def cancel_trial_token(token_id: int, payload: TrialTokenCancelRequest | None = None, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
-    return TrialService(db).cancel_token(token_id, payload.cancellation_reason if payload else None)
+    return TrialService(db).cancel_token(token_id, payload.cancellation_reason if payload else None, current_user=current_user)

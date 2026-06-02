@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
 from app.models.store import Store
-from app.models.trial import TrialStudio, TrialZone
+from app.models.trial import TrialZone
 from app.models.user import User, UserStoreAccess
 
 
@@ -23,7 +23,7 @@ class StaffRepository:
         store_id: int | None = None,
         section_id: int | None = None,
         counter_id: int | None = None,
-        studio_id: int | None = None,
+        zone_id: int | None = None,
     ) -> list[User]:
         statement = select(User).order_by(User.id.asc())
         if not include_inactive:
@@ -34,8 +34,8 @@ class StaffRepository:
             statement = statement.where(User.section_id == section_id)
         if counter_id is not None:
             statement = statement.where(User.assigned_counter_id == counter_id)
-        if studio_id is not None:
-            statement = statement.where(User.assigned_studio_id == studio_id)
+        if zone_id is not None:
+            statement = statement.where(User.assigned_zone_id == zone_id)
         return list(self.db.scalars(statement).all())
 
     def get_staff_by_id(self, staff_id: int) -> User | None:
@@ -57,9 +57,6 @@ class StaffRepository:
 
     def get_counter_by_id(self, counter_id: int) -> Counter | None:
         return self.db.get(Counter, counter_id)
-
-    def get_studio_by_id(self, studio_id: int) -> TrialStudio | None:
-        return self.db.get(TrialStudio, studio_id)
 
     def get_zone_by_id(self, zone_id: int) -> TrialZone | None:
         return self.db.get(TrialZone, zone_id)

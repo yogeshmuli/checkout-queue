@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
 import { createStaff, deleteStaff, listStaff, updateStaff } from '../../../../api/checkout/staffApi.js';
 import { listStores } from '../../../../api/checkout/storeApi.js';
-import { listTrialStudios } from '../../../../api/trial/studiosApi.js';
 import { listTrialZones } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
@@ -17,7 +16,6 @@ const emptyStaff = {
   default_role: 'TRIAL_ZONE_ASSISTANT',
   store_id: '',
   assigned_zone_id: '',
-  assigned_studio_id: '',
   is_active: true,
 };
 
@@ -39,13 +37,12 @@ const ROLE_OPTIONS = [
 ];
 
 const STAFF_PER_PAGE = 8;
-const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'assigned_zone_id', 'assigned_studio_id'];
+const FIELD_ORDER = ['email', 'password', 'full_name', 'phone_number', 'store_id', 'assigned_zone_id'];
 
 export function Staff() {
   const [staff, setStaff] = useState([]);
   const [stores, setStores] = useState([]);
   const [zones, setZones] = useState([]);
-  const [studios, setStudios] = useState([]);
   const [form, setForm] = useState(emptyStaff);
   const [initialFormState, setInitialFormState] = useState(emptyStaff);
   const [formErrors, setFormErrors] = useState({});
@@ -78,14 +75,6 @@ export function Staff() {
     return map;
   }, [zones]);
 
-  const studioById = useMemo(() => {
-    const map = new Map();
-    for (const studio of studios) {
-      map.set(String(studio.id), studio);
-    }
-    return map;
-  }, [studios]);
-
   const storeOptions = [
     { label: 'No store', value: '' },
     ...stores.map((store) => ({
@@ -102,24 +91,6 @@ export function Staff() {
         label: `${zone.name} (${storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`})`,
         value: String(zone.id),
       })),
-  ];
-
-  const studioOptions = [
-    { label: 'No studio', value: '' },
-    ...studios
-      .filter((studio) => !form.assigned_zone_id || String(studio.trial_zone_id) === String(form.assigned_zone_id))
-      .filter((studio) => {
-        if (!form.store_id) return true;
-        const studioZone = zones.find((zone) => String(zone.id) === String(studio.trial_zone_id));
-        return studioZone && String(studioZone.store_id) === String(form.store_id);
-      })
-      .map((studio) => {
-        const zoneName = zoneNameById.get(String(studio.trial_zone_id)) || `Zone #${studio.trial_zone_id}`;
-        return {
-          label: `${studio.name || `Studio #${studio.id}`} (${zoneName})`,
-          value: String(studio.id),
-        };
-      }),
   ];
 
   const storeFilterOptions = [
@@ -153,7 +124,7 @@ export function Staff() {
       store_id: values.store_id ? Number(values.store_id) : null,
       section_id: null,
       assigned_counter_id: null,
-      assigned_studio_id: values.assigned_studio_id ? Number(values.assigned_studio_id) : null,
+      assigned_zone_id: values.assigned_zone_id ? Number(values.assigned_zone_id) : null,
       is_active: values.is_active,
       ...(editingStaffId ? {} : { password: values.password.trim() || DEFAULT_STAFF_PASSWORD }),
       ...(editingStaffId && values.password.trim() ? { password: values.password.trim() } : {}),
@@ -189,10 +160,6 @@ export function Staff() {
       errors.assigned_zone_id = 'Assigned zone is required for Trial zone assistant.';
     }
 
-    if (values.default_role === 'TRIAL_ZONE_ASSISTANT' && !values.assigned_studio_id) {
-      errors.assigned_studio_id = 'Assigned studio is required for Trial zone assistant.';
-    }
-
     return errors;
   }
 
@@ -206,14 +173,9 @@ export function Staff() {
       const nextForm = { ...prev, [field]: nextValue };
       if (field === 'store_id' && prev.store_id !== nextValue) {
         nextForm.assigned_zone_id = '';
-        nextForm.assigned_studio_id = '';
-      }
-      if (field === 'assigned_zone_id' && prev.assigned_zone_id !== nextValue) {
-        nextForm.assigned_studio_id = '';
       }
       if (field === 'default_role' && prev.default_role !== nextValue && nextValue !== 'TRIAL_ZONE_ASSISTANT') {
         nextForm.assigned_zone_id = '';
-        nextForm.assigned_studio_id = '';
       }
       return nextForm;
     });
@@ -247,9 +209,6 @@ export function Staff() {
       return;
     }
 
-    const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
-    const assignedZoneId = assignedStudio ? String(assignedStudio.trial_zone_id) : '';
-
     const nextForm = {
       email: staffUser.email || '',
       password: '',
@@ -257,8 +216,7 @@ export function Staff() {
       phone_number: staffUser.phone_number || '',
       default_role: staffUser.default_role || 'TRIAL_ZONE_ASSISTANT',
       store_id: staffUser.store_id ? String(staffUser.store_id) : '',
-      assigned_zone_id: assignedZoneId,
-      assigned_studio_id: staffUser.assigned_studio_id ? String(staffUser.assigned_studio_id) : '',
+      assigned_zone_id: staffUser.assigned_zone_id ? String(staffUser.assigned_zone_id) : '',
       is_active: Boolean(staffUser.is_active),
     };
 
@@ -310,14 +268,12 @@ export function Staff() {
 
   async function loadLookups() {
     try {
-      const [storeRows, zoneRows, studioRows] = await Promise.all([
+      const [storeRows, zoneRows] = await Promise.all([
         listStores({ include_inactive: true }),
         listTrialZones({ include_inactive: true }),
-        listTrialStudios({ include_inactive: true }),
       ]);
       setStores(storeRows);
       setZones(zoneRows);
-      setStudios(studioRows);
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -420,18 +376,13 @@ export function Staff() {
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredStaff = staff.filter((staffUser) => {
-    const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
-    const assignedZoneName = assignedStudio ? zoneNameById.get(String(assignedStudio.trial_zone_id)) || '' : '';
+    const assignedZoneName = staffUser.assigned_zone_id ? zoneNameById.get(String(staffUser.assigned_zone_id)) || '' : '';
 
     if (storeFilter && String(staffUser.store_id || '') !== String(storeFilter)) {
       return false;
     }
 
-    if (zoneFilter && assignedStudio && String(assignedStudio.trial_zone_id) !== String(zoneFilter)) {
-      return false;
-    }
-
-    if (zoneFilter && !assignedStudio) {
+    if (zoneFilter && String(staffUser.assigned_zone_id || '') !== String(zoneFilter)) {
       return false;
     }
 
@@ -531,25 +482,6 @@ export function Staff() {
                 readOnly
               />
               {formErrors.assigned_zone_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.assigned_zone_id}</p> : null}
-            </div>
-            <div>
-              <Select
-                label="Assigned studio"
-                value={form.assigned_studio_id}
-                options={studioOptions}
-                onChange={(value) => setFormField('assigned_studio_id', value)}
-                disabled={!isTrialAssistantRole}
-              />
-              <input
-                ref={(el) => {
-                  fieldRefs.current.assigned_studio_id = el;
-                }}
-                tabIndex={-1}
-                className="absolute h-0 w-0 opacity-0"
-                aria-hidden="true"
-                readOnly
-              />
-              {formErrors.assigned_studio_id ? <p className="mt-1 text-xs text-rose-700">{formErrors.assigned_studio_id}</p> : null}
             </div>
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
               <span className="text-sm font-medium text-charcoal">Staff active</span>
@@ -656,8 +588,7 @@ export function Staff() {
           ) : (
             visibleStaff.map((staffUser) => {
               const isEditing = editingStaffId === staffUser.id;
-              const assignedStudio = staffUser.assigned_studio_id ? studioById.get(String(staffUser.assigned_studio_id)) : null;
-              const assignedZoneName = assignedStudio ? zoneNameById.get(String(assignedStudio.trial_zone_id)) || 'None' : 'None';
+              const assignedZoneName = staffUser.assigned_zone_id ? zoneNameById.get(String(staffUser.assigned_zone_id)) || 'None' : 'None';
 
               return (
                 <div

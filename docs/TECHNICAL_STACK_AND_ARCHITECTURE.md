@@ -610,6 +610,8 @@ Current frontend implementation:
 - `ContextSelector` lets logged-in users choose Checkout Queue or Trial Queue when multiple product modules are enabled.
 - `TrialApp` owns separate trial admin, staff, and customer route trees under `/app/trial/*`.
 - `trial/admin/AdminApp` provides the trial admin portal shell, sidebar, header, and nested admin routes, matching the checkout admin module pattern.
+- Trial assistants persist `users.assigned_zone_id` rather than a studio assignment. Trial tokens remain assigned to individual studios for scheduling, while the Trial staff workspace aggregates studio queues through `/api/v1/trial/queue/zones/{zone_id}/studios`.
+- Trial staff API authorization scopes `TRIAL_ZONE_ASSISTANT` users to their assigned zone and managers to zones inside their assigned store.
 - Trial admin ML connects to `/api/v1/ml/trial/stores/{store_id}/train|metadata` and displays the latest trial service-time model.
 
 ## 9. Request Flow Examples

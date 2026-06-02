@@ -201,7 +201,7 @@ export function Staff() {
       store_id: values.store_id ? Number(values.store_id) : null,
       section_id: values.section_id ? Number(values.section_id) : null,
       assigned_counter_id: values.assigned_counter_id ? Number(values.assigned_counter_id) : null,
-      assigned_studio_id: null,
+      assigned_zone_id: null,
       is_active: values.is_active,
     };
 

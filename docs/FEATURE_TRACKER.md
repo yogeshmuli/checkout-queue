@@ -478,7 +478,7 @@ Result:
 
 ### 15B. Admin Can Manage Staff From Frontend
 
-As an admin, I can create, list, update, activate/deactivate staff users and assign them to stores, sections, checkout counters, and trial studios.
+As an admin, I can create, list, update, activate/deactivate staff users and assign them to stores, sections, checkout counters, and trial zones.
 
 Route:
 
@@ -496,14 +496,14 @@ Result:
 - Uses `Ganesh@123` as the admin UI default password when the create-staff password field is left blank.
 - Validates duplicate email/phone and assignment consistency across store, section, counter, and studio.
 - Enforces role-based assignment rules:
-  - `TRIAL_ZONE_ASSISTANT` can be assigned only to trial studios (not checkout counters).
-  - Non-trial roles can be assigned only to checkout counters (not trial studios).
+  - `TRIAL_ZONE_ASSISTANT` can be assigned only to trial zones (not checkout counters).
+  - Non-trial roles can be assigned only to checkout counters (not trial zones).
   - Counter and studio assignment are mutually exclusive.
   - Studio assignment must belong to the selected store.
-- Requires `TRIAL_ZONE_ASSISTANT` staff to have an assigned trial studio so Trial staff login can route to a usable workspace.
-- Clears incompatible saved assignments during role updates, so changing a checkout staff member to `TRIAL_ZONE_ASSISTANT` removes stale checkout section/counter values before validating the trial studio assignment.
+- Requires `TRIAL_ZONE_ASSISTANT` staff to have an assigned trial zone so Trial staff login can route to a usable workspace.
+- Clears incompatible saved assignments during role updates, so changing a checkout staff member to `TRIAL_ZONE_ASSISTANT` removes stale checkout section/counter values before validating the trial zone assignment.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
-- Supports shareable staff-filtered links with `/app/checkout/admin/staff?store_id={store_id}`, `/app/checkout/admin/staff?section_id={section_id}`, `/app/checkout/admin/staff?counter_id={counter_id}`, and `/app/checkout/admin/staff?studio_id={studio_id}`.
+- Supports staff API filtering by `store_id`, `section_id`, `counter_id`, and Trial `zone_id`; Checkout admin shareable staff links remain store-, section-, and counter-filtered.
 - Staff rows link back to related store sections, section counters, counter staff, studio staff, and queue views.
 
 ### 15C. Admin Can Manage Counters From Frontend
@@ -887,6 +887,7 @@ GET               /api/v1/trial/queue/status
 GET               /api/v1/trial/queue/tokens
 POST              /api/v1/trial/queue/events
 GET/PATCH         /api/v1/trial/queue/studios/{studio_id}/tokens|status
+GET               /api/v1/trial/queue/zones/{zone_id}/studios
 POST              /api/v1/trial/queue/tokens/{token_id}/start|complete|cancel
 POST              /api/v1/ml/trial/stores/{store_id}/train
 GET               /api/v1/ml/trial/stores/{store_id}/metadata
@@ -914,7 +915,8 @@ Trial Queue frontend parity:
 - Checkout and Trial customer token status cards include a compact manual refresh icon that reloads the latest token status from the backend.
 - Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
-- Staff workspace under `/app/trial/staff` uses studio-specific queue/status APIs to load assigned tokens, start waiting tokens, complete/cancel active tokens, and mark a studio active or inactive. Assigned trial staff automatically load their `assigned_studio_id`.
+- Staff workspace under `/app/trial/staff` loads a zone console for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The responsive console shows every studio in the selected zone as a horizontally scrollable tab-card row that expands across wider screens, preserves the last selected studio, and uses studio-specific queue/status APIs to start waiting tokens, complete/cancel active tokens, and mark studios active or inactive. Assigned trial staff automatically load their `assigned_zone_id`.
+- Trial staff queue APIs enforce assistant zone scope and manager store scope on zone summaries, studio queues, studio status updates, and token actions.
 - Checkout and Trial staff consoles show the assigned counter/studio name from staff queue APIs instead of exposing raw lane ids when a name exists.
 - Checkout and Trial staff console headers use the same safe-area-aware sticky header behavior as customer queue screens.
 

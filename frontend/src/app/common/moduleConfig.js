@@ -14,7 +14,7 @@ export const enabledModules = [
 ].filter(Boolean);
 
 export function getEnabledModulesForUser(user) {
-  if (user?.assigned_studio_id) {
+  if (user?.assigned_zone_id) {
     return enabledModules.filter((module) => module.id === 'trial');
   }
   if (user?.assigned_counter_id || user?.section_id) {
@@ -30,7 +30,7 @@ export function getEnabledModulesForUser(user) {
 }
 
 export function getAssignedModuleId(user) {
-  if (user?.assigned_studio_id) return 'trial';
+  if (user?.assigned_zone_id) return 'trial';
   if (user?.assigned_counter_id || user?.section_id) return 'checkout';
   if (user?.default_role === 'TRIAL_ZONE_ASSISTANT') return 'trial';
   if (user?.default_role === 'CASHIER') return 'checkout';

@@ -14,7 +14,7 @@ class UserRegisterRequest(BaseModel):
     store_id: int | None = None
     section_id: int | None = None
     assigned_counter_id: int | None = None
-    assigned_studio_id: int | None = None
+    assigned_zone_id: int | None = None
 
 
 class UserLoginRequest(BaseModel):
@@ -38,7 +38,7 @@ class UserResponse(BaseModel):
     store_id: int | None
     section_id: int | None
     assigned_counter_id: int | None
-    assigned_studio_id: int | None
+    assigned_zone_id: int | None
     is_active: bool
     last_login_at: datetime | None
 
@@ -56,4 +56,3 @@ class LogoutRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
-

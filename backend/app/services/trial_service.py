@@ -32,7 +32,9 @@ from app.schemas.trial import (
     TrialZoneCreateRequest,
     TrialZoneResponse,
     TrialZoneUpdateRequest,
+    TrialZoneStudioQueuesResponse,
 )
+from app.models.user import User, UserRole
 from app.services.notification_service import NotificationService
 from app.services.trial_prediction_service import TrialPredictionService
 
@@ -302,46 +304,61 @@ class TrialService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
         return self._build_token_response(token)
 
-    def list_queue_tokens(self, store_id=None, trial_zone_id=None, studio_id=None, token_status=None, include_terminal=False) -> list[TrialQueueTokenResponse]:
+    def list_queue_tokens(self, store_id=None, trial_zone_id=None, studio_id=None, token_status=None, include_terminal=False, current_user: User | None = None) -> list[TrialQueueTokenResponse]:
+        if current_user is not None:
+            store_id, trial_zone_id = self._scope_queue_filters(store_id, trial_zone_id, studio_id, current_user)
         return [
             self._build_token_response(token)
             for token in self.repository.list_queue_tokens(store_id, trial_zone_id, studio_id, token_status, include_terminal)
         ]
 
-    def get_studio_queue(self, studio_id: int) -> TrialStudioQueueResponse:
+    def get_zone_studio_queues(self, zone_id: int, current_user: User | None = None) -> TrialZoneStudioQueuesResponse:
+        zone = self.get_zone(zone_id)
+        self._ensure_zone_access(zone, current_user)
+        return TrialZoneStudioQueuesResponse(
+            zone_id=zone.id,
+            zone_name=zone.name,
+            store_id=zone.store_id,
+            studios=[self.get_studio_queue(studio.id, current_user=current_user) for studio in self.repository.list_studios(include_inactive=True, trial_zone_id=zone.id)],
+        )
+
+    def get_studio_queue(self, studio_id: int, current_user: User | None = None) -> TrialStudioQueueResponse:
         studio = self.get_studio(studio_id)
+        self._ensure_studio_access(studio, current_user)
         return TrialStudioQueueResponse(studio_id=studio.id, studio_name=studio.name, is_active=studio.is_active, next_available_time=self._normalize_to_utc(studio.next_available_time), tokens=[self._build_token_response(token) for token in self.repository.list_tokens_for_studio(studio.id)])
 
-    def update_studio_status(self, studio_id: int, payload: TrialStudioStatusUpdateRequest) -> TrialStudioQueueResponse:
+    def update_studio_status(self, studio_id: int, payload: TrialStudioStatusUpdateRequest, current_user: User | None = None) -> TrialStudioQueueResponse:
         studio = self.get_studio(studio_id)
+        self._ensure_studio_access(studio, current_user)
         studio.is_active = payload.is_active
         if payload.is_active:
             studio.next_available_time = max(datetime.now(timezone.utc), self._normalize_to_utc(studio.next_available_time))
         self.repository.commit()
-        return self.get_studio_queue(studio_id)
+        return self.get_studio_queue(studio_id, current_user=current_user)
 
-    def handle_queue_event(self, payload: TrialQueueEventRequest) -> TrialQueueEventResponse:
+    def handle_queue_event(self, payload: TrialQueueEventRequest, current_user: User | None = None) -> TrialQueueEventResponse:
         status_map = {
             TrialQueueEventType.CALLED: TrialQueueTokenStatus.CALLED,
             TrialQueueEventType.SERVING: TrialQueueTokenStatus.SERVING,
             TrialQueueEventType.COMPLETED: TrialQueueTokenStatus.COMPLETED,
             TrialQueueEventType.CANCELLED: TrialQueueTokenStatus.CANCELLED,
         }
-        return self._build_event_response(self.process_queue_event(payload.token_id, status_map[payload.event], payload.cancellation_reason))
+        return self._build_event_response(self.process_queue_event(payload.token_id, status_map[payload.event], payload.cancellation_reason, current_user=current_user))
 
-    def start_token(self, token_id: int) -> TrialQueueEventResponse:
-        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.SERVING))
+    def start_token(self, token_id: int, current_user: User | None = None) -> TrialQueueEventResponse:
+        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.SERVING, current_user=current_user))
 
-    def complete_token(self, token_id: int) -> TrialQueueEventResponse:
-        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.COMPLETED))
+    def complete_token(self, token_id: int, current_user: User | None = None) -> TrialQueueEventResponse:
+        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.COMPLETED, current_user=current_user))
 
-    def cancel_token(self, token_id: int, reason: str | None = None) -> TrialQueueEventResponse:
-        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.CANCELLED, reason))
+    def cancel_token(self, token_id: int, reason: str | None = None, current_user: User | None = None) -> TrialQueueEventResponse:
+        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.CANCELLED, reason, current_user=current_user))
 
-    def process_queue_event(self, token_id: int, new_status: TrialQueueTokenStatus, cancellation_reason: str | None = None) -> TrialQueueToken:
+    def process_queue_event(self, token_id: int, new_status: TrialQueueTokenStatus, cancellation_reason: str | None = None, current_user: User | None = None) -> TrialQueueToken:
         token = self.repository.get_token(token_id)
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
+        self._ensure_token_access(token, current_user)
         if token.status in self.TERMINAL_STATUSES and token.status != new_status:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is already in terminal state")
         if new_status == TrialQueueTokenStatus.CALLED and token.status != TrialQueueTokenStatus.WAITING:
@@ -366,6 +383,52 @@ class TrialService:
         if new_status == TrialQueueTokenStatus.CALLED and getattr(self.repository, "db", None) is not None:
             NotificationService(self.repository.db).notify_trial_called(token)
         return token
+
+    def _scope_queue_filters(self, store_id, trial_zone_id, studio_id, current_user: User):
+        if studio_id is not None:
+            self._ensure_studio_access(self.get_studio(studio_id), current_user)
+        if current_user.default_role == UserRole.TRIAL_ZONE_ASSISTANT:
+            if current_user.assigned_zone_id is None:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trial zone assignment required")
+            if trial_zone_id is not None and trial_zone_id != current_user.assigned_zone_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trial zone access denied")
+            zone = self.get_zone(current_user.assigned_zone_id)
+            if store_id is not None and store_id != zone.store_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
+            return zone.store_id, current_user.assigned_zone_id
+        if current_user.default_role == UserRole.MANAGER:
+            if current_user.store_id is None:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager store assignment required")
+            if store_id is not None and store_id != current_user.store_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
+            if trial_zone_id is not None:
+                self._ensure_zone_access(self.get_zone(trial_zone_id), current_user)
+            return current_user.store_id, trial_zone_id
+        return store_id, trial_zone_id
+
+    def _ensure_token_access(self, token: TrialQueueToken, current_user: User | None) -> None:
+        if current_user is None:
+            return
+        if token.assigned_studio_id is not None:
+            self._ensure_studio_access(self.get_studio(token.assigned_studio_id), current_user)
+        elif token.trial_zone_id is not None:
+            self._ensure_zone_access(self.get_zone(token.trial_zone_id), current_user)
+
+    def _ensure_studio_access(self, studio: TrialStudio, current_user: User | None) -> None:
+        if current_user is None:
+            return
+        self._ensure_zone_access(self.get_zone(studio.trial_zone_id), current_user)
+
+    def _ensure_zone_access(self, zone: TrialZone, current_user: User | None) -> None:
+        if current_user is None:
+            return
+        if current_user.default_role == UserRole.TRIAL_ZONE_ASSISTANT and current_user.assigned_zone_id != zone.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trial zone access denied")
+        if current_user.default_role == UserRole.MANAGER:
+            if current_user.store_id is None:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager store assignment required")
+            if current_user.store_id != zone.store_id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
 
     def _ensure_store_exists(self, store_id: int) -> None:
         if self.repository.get_store(store_id) is None:

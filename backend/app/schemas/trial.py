@@ -236,6 +236,13 @@ class TrialStudioQueueResponse(BaseModel):
     tokens: list[TrialQueueTokenResponse]
 
 
+class TrialZoneStudioQueuesResponse(BaseModel):
+    zone_id: int
+    zone_name: str
+    store_id: int
+    studios: list[TrialStudioQueueResponse]
+
+
 class TrialStudioStatusUpdateRequest(BaseModel):
     is_active: bool
 

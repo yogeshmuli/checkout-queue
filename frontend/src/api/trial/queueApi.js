@@ -21,6 +21,10 @@ export function getTrialStudioQueue(studioId) {
   return trialRequest(() => httpClient.get(`/trial/queue/studios/${studioId}/tokens`));
 }
 
+export function getTrialZoneStudios(zoneId) {
+  return trialRequest(() => httpClient.get(`/trial/queue/zones/${zoneId}/studios`));
+}
+
 export function updateTrialStudioStatus(studioId, payload) {
   return trialRequest(() => httpClient.patch(`/trial/queue/studios/${studioId}/status`, payload));
 }

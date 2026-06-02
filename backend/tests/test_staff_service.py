@@ -37,7 +37,7 @@ class FakeStaffRepository:
         store_id: int | None = None,
         section_id: int | None = None,
         counter_id: int | None = None,
-        studio_id: int | None = None,
+        zone_id: int | None = None,
     ) -> list[User]:
         users = list(self.users.values())
         if not include_inactive:
@@ -48,8 +48,8 @@ class FakeStaffRepository:
             users = [user for user in users if user.section_id == section_id]
         if counter_id is not None:
             users = [user for user in users if user.assigned_counter_id == counter_id]
-        if studio_id is not None:
-            users = [user for user in users if user.assigned_studio_id == studio_id]
+        if zone_id is not None:
+            users = [user for user in users if user.assigned_zone_id == zone_id]
         return users
 
     def get_staff_by_id(self, staff_id: int) -> User | None:
@@ -75,9 +75,6 @@ class FakeStaffRepository:
 
     def get_counter_by_id(self, counter_id: int) -> Counter | None:
         return self.counters.get(counter_id)
-
-    def get_studio_by_id(self, studio_id: int) -> TrialStudio | None:
-        return self.studios.get(studio_id)
 
     def get_zone_by_id(self, zone_id: int) -> TrialZone | None:
         return self.zones.get(zone_id)
@@ -200,16 +197,16 @@ def test_update_staff_to_trial_role_clears_checkout_assignment(staff_service: St
 
     updated_user = staff_service.update_staff(
         user.id,
-        StaffUpdateRequest(default_role=UserRole.TRIAL_ZONE_ASSISTANT, store_id=1, assigned_studio_id=1),
+        StaffUpdateRequest(default_role=UserRole.TRIAL_ZONE_ASSISTANT, store_id=1, assigned_zone_id=1),
     )
 
     assert updated_user.default_role == UserRole.TRIAL_ZONE_ASSISTANT
     assert updated_user.section_id is None
     assert updated_user.assigned_counter_id is None
-    assert updated_user.assigned_studio_id == 1
+    assert updated_user.assigned_zone_id == 1
 
 
-def test_trial_staff_requires_studio_assignment(staff_service: StaffService) -> None:
+def test_trial_staff_requires_zone_assignment(staff_service: StaffService) -> None:
     with pytest.raises(HTTPException) as exc_info:
         staff_service.create_staff(
             StaffCreateRequest(
@@ -222,4 +219,87 @@ def test_trial_staff_requires_studio_assignment(staff_service: StaffService) -> 
         )
 
     assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "TRIAL_ZONE_ASSISTANT must be assigned to trial studio"
+    assert exc_info.value.detail == "TRIAL_ZONE_ASSISTANT must be assigned to trial zone"
+
+
+def test_create_trial_staff_with_zone_assignment(staff_service: StaffService) -> None:
+    user = staff_service.create_staff(
+        StaffCreateRequest(
+            email="trial@example.com",
+            password="strong-password",
+            full_name="Trial Assistant",
+            store_id=1,
+            assigned_zone_id=1,
+            default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+        )
+    )
+
+    assert user.assigned_zone_id == 1
+
+
+def test_create_trial_staff_rejects_checkout_assignment(staff_service: StaffService) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        staff_service.create_staff(
+            StaffCreateRequest(
+                email="trial@example.com",
+                password="strong-password",
+                full_name="Trial Assistant",
+                store_id=1,
+                section_id=1,
+                assigned_zone_id=1,
+                default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+            )
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_trial_staff_rejects_zone_from_other_store(staff_service: StaffService) -> None:
+    staff_service.repository.zones[2] = TrialZone(id=2, store_id=2, name="Other Store Zone")
+
+    with pytest.raises(HTTPException) as exc_info:
+        staff_service.create_staff(
+            StaffCreateRequest(
+                email="trial@example.com",
+                password="strong-password",
+                full_name="Trial Assistant",
+                store_id=1,
+                assigned_zone_id=2,
+                default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+            )
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_update_away_from_trial_role_clears_zone_assignment(staff_service: StaffService) -> None:
+    user = staff_service.create_staff(
+        StaffCreateRequest(
+            email="trial@example.com",
+            password="strong-password",
+            full_name="Trial Assistant",
+            store_id=1,
+            assigned_zone_id=1,
+            default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+        )
+    )
+
+    updated_user = staff_service.update_staff(user.id, StaffUpdateRequest(default_role=UserRole.SUPPORT))
+
+    assert updated_user.assigned_zone_id is None
+
+
+def test_list_staff_filters_by_zone(staff_service: StaffService) -> None:
+    user = staff_service.create_staff(
+        StaffCreateRequest(
+            email="trial@example.com",
+            password="strong-password",
+            full_name="Trial Assistant",
+            store_id=1,
+            assigned_zone_id=1,
+            default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+        )
+    )
+
+    assert staff_service.list_staff(zone_id=1) == [user]
+    assert staff_service.list_staff(zone_id=2) == []
