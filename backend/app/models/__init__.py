@@ -1,6 +1,6 @@
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreCalendarEventType, StoreHoliday
-from app.models.counter import Counter, CounterType
+from app.models.counter import Counter, CounterBasketSizeBand, CounterType
 from app.models.ml_model_metadata import MLModelMetadata
 from app.models.notification import (
     NotificationChannel,
@@ -30,6 +30,7 @@ __all__ = [
     "CheckoutSection",
     "CheckoutSectionType",
     "Counter",
+    "CounterBasketSizeBand",
     "CounterType",
     "MLModelMetadata",
     "NotificationChannel",

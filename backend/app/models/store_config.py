@@ -19,5 +19,6 @@ class StoreConfig(TimestampMixin, Base):
     base_service_minutes: Mapped[int] = mapped_column(default=4, nullable=False)
     per_item_service_minutes: Mapped[float] = mapped_column(Float, default=0.25, nullable=False)
     min_service_minutes: Mapped[int] = mapped_column(default=5, nullable=False)
+    default_item_count: Mapped[int] = mapped_column(default=10, nullable=False)
 
     store = relationship("Store", back_populates="config")

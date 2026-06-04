@@ -230,7 +230,7 @@ export function TokenStatus() {
             </button>
             {isCancelled ? (
               <Link
-                to="/app/checkout/customer/create"
+                to="/app/checkout/customer"
                 className="mt-3 block w-full rounded-lg bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white"
               >
                 Create new token

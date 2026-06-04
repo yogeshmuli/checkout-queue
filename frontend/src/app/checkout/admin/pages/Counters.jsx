@@ -15,6 +15,7 @@ const emptyCounter = {
   counter_type: '',
   name: '',
   token_prefix: '',
+  basket_size_bands: [],
   is_active: true,
 };
 
@@ -32,11 +33,21 @@ const COUNTER_TYPE_OPTIONS = [
   { label: 'Priority', value: 'PRIORITY' },
 ];
 
+const BASKET_SIZE_BAND_OPTIONS = [
+  { label: 'Small (<10 items)', value: 'SMALL' },
+  { label: 'Medium (10-20 items)', value: 'MEDIUM' },
+  { label: 'Large (>20 items)', value: 'LARGE' },
+];
+
 const COUNTERS_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'section_id', 'counter_type', 'name', 'token_prefix'];
+const FIELD_ORDER = ['store_id', 'section_id', 'counter_type', 'name', 'token_prefix', 'basket_size_bands'];
 
 function getCounterTypeLabel(counterType) {
   return COUNTER_TYPE_OPTIONS.find((option) => option.value === counterType)?.label || counterType;
+}
+
+function getBasketSizeBandLabel(band) {
+  return BASKET_SIZE_BAND_OPTIONS.find((option) => option.value === band)?.label || band;
 }
 
 export function Counters() {
@@ -140,6 +151,7 @@ export function Counters() {
       counter_type: values.counter_type,
       name: values.name.trim() || null,
       token_prefix: values.token_prefix.trim() || null,
+      basket_size_bands: values.basket_size_bands.length > 0 ? values.basket_size_bands : null,
       is_active: values.is_active,
     };
   }
@@ -190,6 +202,16 @@ export function Counters() {
     });
   }
 
+  function toggleBasketSizeBand(band) {
+    setForm((prev) => {
+      const currentBands = prev.basket_size_bands || [];
+      const nextBands = currentBands.includes(band)
+        ? currentBands.filter((currentBand) => currentBand !== band)
+        : [...currentBands, band];
+      return { ...prev, basket_size_bands: nextBands };
+    });
+  }
+
   const hasUnsavedChanges = JSON.stringify(form) !== JSON.stringify(initialFormState);
 
   function confirmDiscardIfDirty() {
@@ -218,6 +240,7 @@ export function Counters() {
       counter_type: counter.counter_type || '',
       name: counter.name || '',
       token_prefix: counter.token_prefix || '',
+      basket_size_bands: counter.basket_size_bands || [],
       is_active: Boolean(counter.is_active),
     };
 
@@ -396,7 +419,8 @@ export function Counters() {
     const sectionName = section?.name || '';
     const storeName = section ? storeNameById.get(String(section.store_id)) || '' : '';
     const counterTypeLabel = getCounterTypeLabel(counter.counter_type);
-    const haystack = `${counter.name || ''} ${counter.token_prefix || ''} C${counter.id} ${counter.counter_type || ''} ${counterTypeLabel} ${sectionName} ${storeName}`.toLowerCase();
+    const basketBandLabels = (counter.basket_size_bands || []).map(getBasketSizeBandLabel).join(' ');
+    const haystack = `${counter.name || ''} ${counter.token_prefix || ''} C${counter.id} ${counter.counter_type || ''} ${counterTypeLabel} ${basketBandLabels} ${sectionName} ${storeName}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
@@ -495,6 +519,24 @@ export function Counters() {
                 fieldRefs.current.token_prefix = el;
               }}
             />
+
+            <fieldset className="rounded-lg border border-line px-3 py-3">
+              <legend className="px-1 text-sm font-medium text-charcoal">Basket allocation</legend>
+              <p className="mt-1 text-xs text-muted">Leave all unchecked to accept any basket size.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {BASKET_SIZE_BAND_OPTIONS.map((option) => (
+                  <label key={option.value} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-charcoal">
+                    <input
+                      type="checkbox"
+                      checked={(form.basket_size_bands || []).includes(option.value)}
+                      onChange={() => toggleBasketSizeBand(option.value)}
+                      className="size-4 accent-brand-red"
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
 
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
               <span className="text-sm font-medium text-charcoal">Counter active</span>
@@ -602,6 +644,15 @@ export function Counters() {
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-charcoal">
                         Prefix: {counter.token_prefix || `C${counter.id}`}
                       </span>
+                      {counter.basket_size_bands?.length ? (
+                        counter.basket_size_bands.map((band) => (
+                          <span key={band} className="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">
+                            {getBasketSizeBandLabel(band)}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">Any basket size</span>
+                      )}
                       <span className={`rounded-full px-2 py-1 text-xs ${counter.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
                         {counter.is_active ? 'Active' : 'Inactive'}
                       </span>

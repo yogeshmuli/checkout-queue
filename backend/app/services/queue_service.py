@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.models.counter import Counter, CounterBasketSizeBand
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store_config import StoreConfig
 from app.repositories.queue_repository import QueueRepository
@@ -29,7 +30,13 @@ class QueueService:
     BASE_SERVICE_MINUTES = 4
     PER_ITEM_SERVICE_MINUTES = 0.25
     MIN_SERVICE_MINUTES = 5
+    DEFAULT_ITEM_COUNT = 10
     CALCULATION_METHOD = "RULE_BASED"
+    BASKET_SIZE_ITEM_COUNTS = {
+        "small": 9,
+        "medium": 20,
+        "large": 30,
+    }
     TERMINAL_STATUSES = (
         QueueTokenStatus.COMPLETED,
         QueueTokenStatus.CANCELLED,
@@ -68,6 +75,13 @@ class QueueService:
         counters = self.repository.list_active_counters(payload.store_id, payload.section_id)
         if not counters:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No active counters available")
+        effective_item_count = self._resolve_effective_item_count(payload, store_config)
+        counters = self._filter_counters_for_basket_size(counters, effective_item_count)
+        if not counters:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No active counters available for this basket size",
+            )
 
         now = datetime.now(timezone.utc)
 
@@ -77,7 +91,7 @@ class QueueService:
 
         selected_counter = min(counters, key=lambda c: self._normalize_to_utc(c.next_available_time))
         calling_time = max(now, self._normalize_to_utc(selected_counter.next_available_time))
-        service_minutes, calculation_method = self._predict_service_time(payload, selected_counter.id, now, store_config)
+        service_minutes, calculation_method = self._predict_service_time(payload, selected_counter.id, now, store_config, effective_item_count)
         service_time = timedelta(minutes=service_minutes)
         wait_minutes = max(0, math.ceil((calling_time - now).total_seconds() / 60))
 
@@ -96,7 +110,7 @@ class QueueService:
             token_number=token_number,
             phone_number=payload.phone_number,
             status=QueueTokenStatus.WAITING,
-            item_count=payload.item_count,
+            item_count=effective_item_count,
             basket_size=payload.basket_size,
             cart_type=payload.cart_type,
             customer_type=payload.customer_type,
@@ -411,13 +425,14 @@ class QueueService:
         assigned_counter_id: int | None,
         requested_at: datetime,
         config: StoreConfig | None = None,
+        item_count: int | None = None,
     ) -> tuple[int, str]:
         prediction = PredictionService(self.repository).predict_service_time(
             payload.store_id,
             ServiceTimePredictionRequest(
                 section_id=payload.section_id,
                 assigned_counter_id=assigned_counter_id,
-                item_count=payload.item_count,
+                item_count=item_count,
                 basket_size=payload.basket_size,
                 cart_type=payload.cart_type,
                 customer_type=payload.customer_type,
@@ -426,7 +441,7 @@ class QueueService:
         )
         if prediction is not None:
             return prediction.service_time_minutes, prediction.calculation_method
-        return self._estimate_service_minutes(payload.item_count, config), self.CALCULATION_METHOD
+        return self._estimate_service_minutes(item_count, config), self.CALCULATION_METHOD
 
     def _calculate_counter_position(
         self,
@@ -519,6 +534,51 @@ class QueueService:
 
     def _get_store_config(self, store_id: int) -> StoreConfig | None:
         return self.repository.get_store_config(store_id)
+
+    def _resolve_effective_item_count(self, payload: QueueJoinRequest, config: StoreConfig | None) -> int | None:
+        if payload.item_count is not None:
+            return payload.item_count
+
+        basket_item_count = self._item_count_from_basket_size(payload.basket_size)
+        if basket_item_count is not None:
+            return basket_item_count
+
+        if payload.is_still_shopping:
+            if config is None:
+                return self.DEFAULT_ITEM_COUNT
+            default_item_count = getattr(config, "default_item_count", None)
+            return default_item_count if default_item_count is not None else self.DEFAULT_ITEM_COUNT
+
+        return None
+
+    def _item_count_from_basket_size(self, basket_size: str | None) -> int | None:
+        if basket_size is None:
+            return None
+        return self.BASKET_SIZE_ITEM_COUNTS.get(basket_size.strip().lower())
+
+    def _filter_counters_for_basket_size(self, counters: list[Counter], item_count: int | None) -> list[Counter]:
+        item_band = self._basket_size_band_for_item_count(item_count)
+        eligible_counters: list[Counter] = []
+        for counter in counters:
+            configured_bands = getattr(counter, "basket_size_bands", None) or []
+            if not configured_bands:
+                eligible_counters.append(counter)
+                continue
+            if item_band is not None and item_band in {self._basket_band_value(band) for band in configured_bands}:
+                eligible_counters.append(counter)
+        return eligible_counters
+
+    def _basket_size_band_for_item_count(self, item_count: int | None) -> str | None:
+        if item_count is None:
+            return None
+        if item_count < 10:
+            return CounterBasketSizeBand.SMALL.value
+        if item_count <= 20:
+            return CounterBasketSizeBand.MEDIUM.value
+        return CounterBasketSizeBand.LARGE.value
+
+    def _basket_band_value(self, band: CounterBasketSizeBand | str) -> str:
+        return band.value if isinstance(band, CounterBasketSizeBand) else str(band).strip().upper()
 
     def _is_store_open_for_queue(self, store_id: int) -> bool:
         days = self.repository.list_calendar_days(store_id)

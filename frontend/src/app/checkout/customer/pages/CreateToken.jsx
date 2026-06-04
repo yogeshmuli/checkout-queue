@@ -82,6 +82,7 @@ export function CreateToken() {
         store_id: Number(form.store_id),
         section_id: form.section_id ? Number(form.section_id) : null,
         item_count: form.item_count ? Number(form.item_count) : null,
+        basket_size: form.basket_size || null,
       });
       setLastToken(token);
       navigate(`/app/checkout/customer/status/${token.token_id}`);
@@ -129,8 +130,18 @@ export function CreateToken() {
             <DetailTile label="Section" value={storesLoading ? 'Loading...' : sectionLabel} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Items" value={form.item_count} onChange={(item_count) => setForm({ ...form, item_count })} />
-            <Select label="Basket" value={form.basket_size} onChange={(basket_size) => setForm({ ...form, basket_size })} options={['small', 'medium', 'large']} />
+            <Field label="Items (optional)" value={form.item_count} onChange={(item_count) => setForm({ ...form, item_count })} />
+            <Select
+              label="Basket (optional)"
+              value={form.basket_size}
+              onChange={(basket_size) => setForm({ ...form, basket_size })}
+              options={[
+                { label: 'Select basket size', value: '' },
+                { label: 'Small', value: 'small' },
+                { label: 'Medium', value: 'medium' },
+                { label: 'Large', value: 'large' },
+              ]}
+            />
           </div>
           <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
             <span className="text-sm font-medium text-charcoal">Still shopping</span>

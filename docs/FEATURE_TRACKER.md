@@ -304,13 +304,15 @@ Result:
 - Validates active checkout section when `section_id` is provided.
 - Rejects duplicate active token for the same phone number in the same store with HTTP `409`.
 - Creates a `WAITING` queue token.
+- Resolves an effective item count before allocation: explicit `item_count`, otherwise basket-derived values (`small=9`, `medium=20`, `large=30`), otherwise store `default_item_count` when the customer is still shopping.
+- Filters active counters by optional counter basket allocation bands before assignment: `SMALL` for fewer than 10 items, `MEDIUM` for 10-20 items, and `LARGE` for more than 20 items; unrestricted counters accept any item count.
 - Generates token numbers with store/section token prefix plus the selected counter prefix and a per-counter sequence, for example `BILL-C1-001`.
 - Calculates queue position from waiting tokens ahead.
 - Calculates estimated wait time from waiting tokens ahead, their item counts, active counters, and store-level service-time configuration.
 - Uses the store token prefix configuration when generating token numbers.
 - Blocks new token creation when the store calendar marks the store closed or today is an active holiday.
-- Stores the joining customer's item count so later customers get better estimates.
-- Falls back to one active counter if no counter configuration is available.
+- Stores the resolved item count so later customers get better estimates.
+- Rejects queue creation when no active counter is available for the requested basket size.
 
 ### 10A. Admin Can Configure Store Queue Rules
 
@@ -338,7 +340,8 @@ Example request:
   "token_id_prefix": "BILL",
   "base_service_minutes": 6,
   "per_item_service_minutes": 0.5,
-  "min_service_minutes": 8
+  "min_service_minutes": 8,
+  "default_item_count": 10
 }
 ```
 
@@ -348,6 +351,7 @@ Result:
 - Auto-creates a default config for stores that do not have one yet.
 - Applies the configured token prefix to new queue tokens.
 - Applies configured base, per-item, and minimum service minutes to queue wait-time calculation.
+- Applies the default item count when still-shopping customers provide neither item count nor basket size.
 - Exposes a frontend admin screen at `/app/checkout/admin/store-config?store_id={store_id}`.
 
 ### 11. Staff Can Process Queue Token Events
@@ -526,6 +530,7 @@ Result:
 - Enforces section linkage in UI and backend (`section_id` is required for counters).
 - Constrains counter type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS_EXCHANGE`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
 - Supports optional alphanumeric counter token prefixes, normalized to uppercase and unique within a section; blank prefixes fall back to `C{counter_id}`.
+- Supports optional multi-band basket allocation (`SMALL`, `MEDIUM`, `LARGE`) so counters can be restricted to selected item-count ranges; blank allocation means any basket size.
 - Supports store-filtered section selection in the admin form.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
 - Supports shareable section-filtered counter links with `/app/checkout/admin/counters?section_id={section_id}`.
@@ -763,6 +768,8 @@ Implemented migrations:
 - `20260522_0011_add_store_calendar_events.py`
 - `20260524_0016_add_customer_notifications.py`
 - `20260604_0018_add_counter_token_prefix.py`
+- `20260604_0019_add_counter_basket_size_bands.py`
+- `20260604_0020_add_store_config_default_item_count.py`
 
 ### Authentication
 

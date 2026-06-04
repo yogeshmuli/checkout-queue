@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreCalendarEventType
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
-from app.models.counter import Counter, CounterType
+from app.models.counter import Counter, CounterBasketSizeBand, CounterType
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.store_config import StoreConfig
@@ -113,7 +113,7 @@ class DemoToolsService:
             is_active=True,
         )
         self.repository.create(store)
-        self.repository.create(StoreConfig(store_id=store.id, token_id_prefix="DML", base_service_minutes=4, per_item_service_minutes=0.35, min_service_minutes=5))
+        self.repository.create(StoreConfig(store_id=store.id, token_id_prefix="DML", base_service_minutes=4, per_item_service_minutes=0.35, min_service_minutes=5, default_item_count=10))
         self.repository.create(TrialStoreConfig(store_id=store.id, token_id_prefix="TDML", base_service_minutes=8, per_unit_service_minutes=1.2, min_service_minutes=10))
 
         for weekday in range(7):
@@ -131,6 +131,11 @@ class DemoToolsService:
     def _create_checkout_setup(self, store_id: int, seeded_at: datetime) -> CheckoutSection:
         section = CheckoutSection(store_id=store_id, name="Demo Checkout Section", section_type=CheckoutSectionType.REGULAR, is_active=True)
         self.repository.create(section)
+        counter_bands = (
+            [CounterBasketSizeBand.SMALL.value],
+            [CounterBasketSizeBand.MEDIUM.value],
+            [CounterBasketSizeBand.LARGE.value],
+        )
         for index, counter_type in enumerate((CounterType.REGULAR, CounterType.EXPRESS, CounterType.PRIORITY), start=1):
             self.repository.create(
                 Counter(
@@ -138,6 +143,7 @@ class DemoToolsService:
                     counter_type=counter_type,
                     name=f"Demo Counter {index}",
                     token_prefix=f"C{index}",
+                    basket_size_bands=counter_bands[index - 1],
                     is_active=True,
                     next_available_time=seeded_at,
                 )

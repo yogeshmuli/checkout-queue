@@ -363,6 +363,8 @@ Implemented first:
 - Public API for customer enrollment.
 - Uses rule-based wait-time calculation.
 - Schedules tokens using counter `next_available_time` and returns computed wait time from `calling_time`.
+- Resolves item count from explicit item count, basket size, or store default for still-shopping customers before prediction and allocation.
+- Filters eligible Checkout counters by optional basket allocation bands before choosing the earliest available lane; unrestricted counters accept any item count.
 - Generates Checkout token numbers from store/section prefix, counter prefix, and a per-counter sequence such as `BILL-C1-001`.
 - Rejects duplicate active token for the same phone number and store.
 - Rejects queue join when no active counter setup is available.
@@ -446,7 +448,7 @@ The first ML implementation should be hybrid:
 | `user_store_access` | User-to-store role mapping for admins, managers, and cashiers |
 | `refresh_tokens` | Hashed refresh tokens for revocation and session lifecycle |
 | `stores` | Store profile, store number, contact details |
-| `store_configs` | Store-level token prefix and rule-based service-time settings |
+| `store_configs` | Store-level token prefix, default item count, and rule-based service-time settings |
 | `store_calendar_days` | Store weekly working days, open/close time, and timezone |
 | `store_calendar_events` | Store calendar events such as promotion, sale, holiday, or other special dates |
 | `store_holidays` | Holiday dates |
@@ -731,6 +733,7 @@ Customer create token
     -> queue_routes.py
       -> QueueService
         -> validates active store, section, calendar, duplicate token, active counters
+        -> filters counters by item-count basket band when configured
         -> PredictionService asks QueueRepository for latest READY metadata
         -> PredictionService reuses cached artifact when store/model/path/mtime match
         -> otherwise PredictionService loads artifact from ML_MODEL_DIR and caches it
@@ -740,7 +743,7 @@ Customer create token
         -> otherwise:
              service_time_minutes = store rule-based config
              calculation_method = RULE_BASED
-        -> QueueService schedules the token on the best available counter
+        -> QueueService schedules the token on the earliest available eligible counter
         -> QueueService calculates calling_time and estimated_wait_minutes
       -> returns queue token response
 ```

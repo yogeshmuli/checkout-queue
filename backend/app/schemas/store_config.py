@@ -8,6 +8,7 @@ class StoreConfigBase(BaseModel):
     base_service_minutes: int = Field(default=4, ge=0, le=240)
     per_item_service_minutes: float = Field(default=0.25, ge=0, le=60)
     min_service_minutes: int = Field(default=5, ge=1, le=240)
+    default_item_count: int = Field(default=10, ge=0, le=1000)
 
 
 class StoreConfigUpdateRequest(StoreConfigBase):

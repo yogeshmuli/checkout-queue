@@ -13,6 +13,7 @@ const emptyConfig = {
   base_service_minutes: '4',
   per_item_service_minutes: '0.25',
   min_service_minutes: '5',
+  default_item_count: '10',
 };
 
 export function StoreConfig() {
@@ -54,6 +55,7 @@ export function StoreConfig() {
       base_service_minutes: String(config.base_service_minutes ?? 4),
       per_item_service_minutes: String(config.per_item_service_minutes ?? 0.25),
       min_service_minutes: String(config.min_service_minutes ?? 5),
+      default_item_count: String(config.default_item_count ?? 10),
     };
   }
 
@@ -119,6 +121,7 @@ export function StoreConfig() {
     const base = Number(form.base_service_minutes);
     const perItem = Number(form.per_item_service_minutes);
     const min = Number(form.min_service_minutes);
+    const defaultItemCount = Number(form.default_item_count);
 
     if (!Number.isFinite(base) || base < 0 || base > 240) {
       errors.base_service_minutes = 'Base service minutes must be between 0 and 240.';
@@ -128,6 +131,9 @@ export function StoreConfig() {
     }
     if (!Number.isFinite(min) || min < 1 || min > 240) {
       errors.min_service_minutes = 'Minimum service minutes must be between 1 and 240.';
+    }
+    if (!Number.isFinite(defaultItemCount) || defaultItemCount < 0 || defaultItemCount > 1000) {
+      errors.default_item_count = 'Default item count must be between 0 and 1000.';
     }
 
     return errors;
@@ -155,6 +161,7 @@ export function StoreConfig() {
         base_service_minutes: Number(form.base_service_minutes),
         per_item_service_minutes: Number(form.per_item_service_minutes),
         min_service_minutes: Number(form.min_service_minutes),
+        default_item_count: Number(form.default_item_count),
       };
       setForm(toForm(await updateStoreConfig(storeId, payload)));
       setMessage('Store queue config saved');
@@ -227,6 +234,15 @@ export function StoreConfig() {
             error={formErrors.min_service_minutes}
             type="number"
             min="1"
+            step="1"
+          />
+          <Field
+            label="Default item count"
+            value={form.default_item_count}
+            onChange={(value) => setFormField('default_item_count', value)}
+            error={formErrors.default_item_count}
+            type="number"
+            min="0"
             step="1"
           />
 

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.store import Store
 from app.core.database import SessionLocal
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
-from app.models.counter import Counter, CounterType
+from app.models.counter import Counter, CounterBasketSizeBand, CounterType
 from app.models.user import User, UserRole
 from app.core.security import hash_password
 from datetime import datetime, timezone
@@ -39,6 +39,7 @@ def seed():
             section_id=section.id,
             counter_type=CounterType.REGULAR,
             name="Counter 1",
+            basket_size_bands=[CounterBasketSizeBand.SMALL.value, CounterBasketSizeBand.MEDIUM.value, CounterBasketSizeBand.LARGE.value],
             is_active=True,
             next_available_time=datetime.now(timezone.utc),
         )

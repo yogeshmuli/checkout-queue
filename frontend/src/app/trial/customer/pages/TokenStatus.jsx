@@ -240,7 +240,7 @@ export function TokenStatus() {
 
             {isCancelled ? (
               <Link
-                to="/app/trial/customer/create"
+                to="/app/trial/customer"
                 className="mt-3 block w-full rounded-lg bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white"
               >
                 Create new token

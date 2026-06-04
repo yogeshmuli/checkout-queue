@@ -81,7 +81,7 @@ export function TokenLookup() {
             {loading ? 'Checking status...' : 'Check token status'}
           </button>
 
-          <Link to="/app/checkout/customer/create" className="block rounded-lg bg-brand-blush px-3 py-2 text-center text-sm font-medium text-brand-red">
+          <Link to="/app/checkout/customer" className="block rounded-lg bg-brand-blush px-3 py-2 text-center text-sm font-medium text-brand-red">
             Create new token
           </Link>
         </form>

@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
-from app.models.counter import Counter, CounterType
+from app.models.counter import Counter, CounterBasketSizeBand, CounterType
 from app.schemas.counter import CounterCreateRequest, CounterUpdateRequest
 from app.services.counter_service import CounterService
 
@@ -82,6 +82,7 @@ def test_create_counter(counter_service: CounterService) -> None:
             counter_type=CounterType.REGULAR,
             name="Counter 1",
             token_prefix="c1",
+            basket_size_bands=[CounterBasketSizeBand.SMALL, CounterBasketSizeBand.MEDIUM],
         )
     )
 
@@ -89,6 +90,7 @@ def test_create_counter(counter_service: CounterService) -> None:
     assert counter.counter_type == CounterType.REGULAR
     assert counter.name == "Counter 1"
     assert counter.token_prefix == "C1"
+    assert counter.basket_size_bands == ["SMALL", "MEDIUM"]
     assert counter.is_active is True
     assert isinstance(counter.next_available_time, datetime)
     assert counter.next_available_time.tzinfo == timezone.utc
@@ -111,13 +113,64 @@ def test_update_counter_partially_updates_fields(counter_service: CounterService
 
     updated_counter = counter_service.update_counter(
         counter.id,
-        CounterUpdateRequest(section_id=2, counter_type=CounterType.EXPRESS, name="Counter 2", token_prefix="x2"),
+        CounterUpdateRequest(
+            section_id=2,
+            counter_type=CounterType.EXPRESS,
+            name="Counter 2",
+            token_prefix="x2",
+            basket_size_bands=[CounterBasketSizeBand.LARGE],
+        ),
     )
 
     assert updated_counter.section_id == 2
     assert updated_counter.counter_type == CounterType.EXPRESS
     assert updated_counter.name == "Counter 2"
     assert updated_counter.token_prefix == "X2"
+    assert updated_counter.basket_size_bands == ["LARGE"]
+
+
+def test_create_counter_allows_unrestricted_basket_size(counter_service: CounterService) -> None:
+    counter = counter_service.create_counter(
+        CounterCreateRequest(
+            section_id=1,
+            counter_type=CounterType.REGULAR,
+            name="Counter 1",
+            basket_size_bands=[],
+        )
+    )
+
+    assert counter.basket_size_bands is None
+
+
+def test_update_counter_can_clear_basket_size_bands(counter_service: CounterService) -> None:
+    counter = counter_service.create_counter(
+        CounterCreateRequest(
+            section_id=1,
+            counter_type=CounterType.REGULAR,
+            name="Counter 1",
+            basket_size_bands=[CounterBasketSizeBand.SMALL],
+        )
+    )
+
+    updated_counter = counter_service.update_counter(counter.id, CounterUpdateRequest(basket_size_bands=[]))
+
+    assert updated_counter.basket_size_bands is None
+
+
+def test_counter_rejects_invalid_basket_size_band(counter_service: CounterService) -> None:
+    payload = CounterCreateRequest.model_construct(
+        section_id=1,
+        counter_type=CounterType.REGULAR,
+        basket_size_bands=["TINY"],
+        name=None,
+        token_prefix=None,
+        is_active=True,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        counter_service.create_counter(payload)
+
+    assert exc_info.value.status_code == 400
 
 
 def test_counter_rejects_invalid_token_prefix(counter_service: CounterService) -> None:

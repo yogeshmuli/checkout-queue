@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy import Enum as SqlAlchemyEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -15,6 +16,12 @@ class CounterType(str, enum.Enum):
     SELF_CHECKOUT = "SELF_CHECKOUT"
     RETURNS_EXCHANGE = "RETURNS_EXCHANGE"
     PRIORITY = "PRIORITY"
+
+
+class CounterBasketSizeBand(str, enum.Enum):
+    SMALL = "SMALL"
+    MEDIUM = "MEDIUM"
+    LARGE = "LARGE"
 
 
 class Counter(TimestampMixin, Base):
@@ -32,6 +39,7 @@ class Counter(TimestampMixin, Base):
     )
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     token_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    basket_size_bands: Mapped[list[str] | None] = mapped_column(ARRAY(String(20)), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     # Timestamp when this counter will be free to serve the next customer

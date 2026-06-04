@@ -153,6 +153,7 @@ def make_store_config(token_id_prefix: str | None) -> StoreConfig:
         base_service_minutes=4,
         per_item_service_minutes=0.25,
         min_service_minutes=5,
+        default_item_count=10,
     )
 
 
@@ -338,6 +339,209 @@ def test_join_queue_rejects_when_no_active_counter(queue_service: QueueService) 
         queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=1))
 
     assert exc_info.value.status_code == 503
+
+
+def test_join_queue_filters_counters_by_small_basket_band(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now + timedelta(minutes=10)),
+        Counter(id=2, section_id=1, counter_type="regular", name="Medium", token_prefix="MED", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=9))
+
+    assert response.assigned_counter_id == 1
+
+
+def test_join_queue_explicit_item_count_wins_over_basket_size(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Large", token_prefix="LRG", basket_size_bands=["LARGE"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=5, basket_size="large")
+    )
+    token = queue_service.repository.tokens[0]
+
+    assert response.assigned_counter_id == 1
+    assert token.item_count == 5
+    assert token.basket_size == "large"
+
+
+def test_join_queue_derives_small_item_count_from_basket_size(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", basket_size="Small")
+    )
+
+    assert response.assigned_counter_id == 1
+    assert queue_service.repository.tokens[0].item_count == 9
+
+
+def test_join_queue_filters_counters_by_medium_boundaries(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Medium", token_prefix="MED", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+    ]
+
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=10))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543212", item_count=20))
+
+    assert first.assigned_counter_id == 2
+    assert second.assigned_counter_id == 2
+
+
+def test_join_queue_derives_medium_item_count_from_basket_size(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Medium", token_prefix="MED", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", basket_size="medium")
+    )
+
+    assert response.assigned_counter_id == 1
+    assert queue_service.repository.tokens[0].item_count == 20
+
+
+def test_join_queue_filters_counters_by_large_basket_band(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Medium", token_prefix="MED", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Large", token_prefix="LRG", basket_size_bands=["LARGE"], is_active=True, next_available_time=now + timedelta(minutes=10)),
+    ]
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=21))
+
+    assert response.assigned_counter_id == 2
+
+
+def test_join_queue_derives_large_item_count_from_basket_size(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Large", token_prefix="LRG", basket_size_bands=["LARGE"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", basket_size="large")
+    )
+
+    assert response.assigned_counter_id == 1
+    assert queue_service.repository.tokens[0].item_count == 30
+
+
+def test_join_queue_allows_multi_band_counter(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Flexible", token_prefix="FLEX", basket_size_bands=["SMALL", "MEDIUM"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Large", token_prefix="LRG", basket_size_bands=["LARGE"], is_active=True, next_available_time=now),
+    ]
+
+    small = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=2))
+    medium = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543212", item_count=15))
+
+    assert small.assigned_counter_id == 1
+    assert medium.assigned_counter_id == 1
+
+
+def test_join_queue_missing_item_count_uses_only_unrestricted_counters(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Any", token_prefix="ANY", basket_size_bands=None, is_active=True, next_available_time=now + timedelta(minutes=10)),
+    ]
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211"))
+
+    assert response.assigned_counter_id == 2
+
+
+def test_join_queue_rejects_when_no_counter_matches_basket_size(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+    ]
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=12))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "No active counters available for this basket size"
+
+
+def test_join_queue_still_shopping_uses_store_default_item_count(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.store_configs[1] = StoreConfig(
+        store_id=1,
+        token_id_prefix=None,
+        base_service_minutes=4,
+        per_item_service_minutes=1,
+        min_service_minutes=5,
+        default_item_count=18,
+    )
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Medium", token_prefix="MED", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", is_still_shopping=True)
+    )
+    token = queue_service.repository.tokens[0]
+
+    assert response.assigned_counter_id == 2
+    assert token.item_count == 18
+    assert token.service_time_minutes == 22
+
+
+def test_join_queue_missing_items_and_basket_not_still_shopping_stays_null(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Any", token_prefix="ANY", basket_size_bands=None, is_active=True, next_available_time=now),
+    ]
+
+    response = queue_service.join_queue(
+        QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", is_still_shopping=False)
+    )
+
+    assert response.assigned_counter_id == 2
+    assert queue_service.repository.tokens[0].item_count is None
+
+
+def test_join_queue_earliest_eligible_counter_still_wins(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Busy Medium", token_prefix="M1", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Early Medium", token_prefix="M2", basket_size_bands=["MEDIUM"], is_active=True, next_available_time=now),
+        Counter(id=3, section_id=1, counter_type="regular", name="Small", token_prefix="S1", basket_size_bands=["SMALL"], is_active=True, next_available_time=now - timedelta(minutes=10)),
+    ]
+    queue_service.repository.tokens.append(
+        QueueToken(
+            id=1,
+            store_id=1,
+            section_id=1,
+            assigned_counter_id=1,
+            token_number="BUSY",
+            phone_number="9876543200",
+            status=QueueTokenStatus.SERVING,
+            item_count=50,
+            service_time_minutes=30,
+            service_started_at=now,
+        )
+    )
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=12))
+
+    assert response.assigned_counter_id == 2
 
 
 def test_complete_event_rebuilds_waiting_schedule_from_now(queue_service: QueueService) -> None:
