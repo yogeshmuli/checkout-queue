@@ -556,7 +556,7 @@ GET    /api/v1/demotools/ml-training-data/status
 DELETE /api/v1/demotools/ml-training-data
 ```
 
-Demo Tools are registered only when `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. They create and clean an isolated ML training store identified by `store_number=DEMO-ML-STORE`; cleanup removes that store, demo ML metadata, and demo artifact directories only.
+Demo Tools are registered only when `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. They create and clean an isolated ML training store identified by `store_number=DEMO-ML-STORE`; cleanup removes that store, demo ML metadata, and demo artifact directories only. Each seed request uses one captured UTC timestamp for historical dates, lane availability, and ten pending tokens per app so Checkout and Trial staff consoles receive deterministic current-time live queues.
 
 ## 8. Frontend Application Structure
 

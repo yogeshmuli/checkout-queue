@@ -936,7 +936,7 @@ GET    /api/v1/demotools/ml-training-data/status
 DELETE /api/v1/demotools/ml-training-data
 ```
 
-Demo Tools are disabled unless `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. The ML training-data seed endpoint creates one isolated store with `store_number=DEMO-ML-STORE`, one checkout section with three counters, one trial zone with three studios, checkout/trial configs and calendars, promotion events, and enough completed/cancelled/no-show checkout and trial tokens to train both ML models. Cleanup deletes only that demo store, related demo data, demo ML metadata, and demo artifact folders.
+Demo Tools are disabled unless `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. The ML training-data seed endpoint creates one isolated store with `store_number=DEMO-ML-STORE`, one checkout section with three counters, one trial zone with three studios, checkout/trial configs and calendars, promotion events, and enough completed/cancelled/no-show checkout and trial tokens to train both ML models. Each seed request also captures one UTC timestamp and derives ten pending Checkout tokens plus ten pending Trial tokens from it, including lane calling times and current availability, so staff consoles have a realistic live queue. Cleanup deletes only that demo store, related demo data, demo ML metadata, and demo artifact folders.
 
 The shared `/app` context selector shows a Super Admin-only Demo Tools panel with status, create, recreate, and cleanup actions for the demo ML training dataset.
 

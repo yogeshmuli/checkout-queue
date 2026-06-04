@@ -145,10 +145,12 @@ export function ContextSelector() {
               </button>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <DemoMetric label="Store" value={demoStatus?.exists ? demoStatus.store_number : 'Not present'} />
               <DemoMetric label="Checkout completed" value={demoStatus?.counts?.checkout_completed_tokens ?? '-'} />
+              <DemoMetric label="Checkout waiting" value={demoStatus?.counts?.checkout_waiting_tokens ?? '-'} />
               <DemoMetric label="Trial completed" value={demoStatus?.counts?.trial_completed_tokens ?? '-'} />
+              <DemoMetric label="Trial waiting" value={demoStatus?.counts?.trial_waiting_tokens ?? '-'} />
               <DemoMetric label="ML metadata" value={demoStatus?.counts?.ml_metadata_rows ?? '-'} />
             </div>
 

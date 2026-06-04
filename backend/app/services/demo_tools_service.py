@@ -36,6 +36,8 @@ CHECKOUT_COMPLETED_SAMPLE_COUNT = 180
 TRIAL_COMPLETED_SAMPLE_COUNT = 180
 CHECKOUT_CANCELLED_SAMPLE_COUNT = 30
 TRIAL_CANCELLED_SAMPLE_COUNT = 30
+CHECKOUT_WAITING_SAMPLE_COUNT = 10
+TRIAL_WAITING_SAMPLE_COUNT = 10
 TIMEZONE_NAME = "Asia/Kolkata"
 
 
@@ -44,6 +46,7 @@ class DemoToolsService:
         self.repository = DemoToolsRepository(db)
 
     def seed_ml_training_data(self, replace: bool = False) -> DemoTrainingDataResponse:
+        seeded_at = datetime.now(timezone.utc)
         existing_store = self.repository.get_store_by_number(DEMO_STORE_NUMBER)
         if existing_store is not None:
             if not replace:
@@ -54,13 +57,15 @@ class DemoToolsService:
             self._cleanup_store(existing_store)
 
         try:
-            store = self._create_store()
-            section = self._create_checkout_setup(store.id)
+            store = self._create_store(seeded_at)
+            section = self._create_checkout_setup(store.id, seeded_at)
             counters = self.repository.checkout_counters_for_store(store.id)
-            zone = self._create_trial_setup(store.id)
+            zone = self._create_trial_setup(store.id, seeded_at)
             studios = self.repository.trial_studios_for_store(store.id)
-            self._create_checkout_history(store.id, section.id, counters)
-            self._create_trial_history(store.id, zone.id, studios)
+            self._create_checkout_history(store.id, section.id, counters, seeded_at)
+            self._create_checkout_waiting_tokens(store.id, section.id, counters, seeded_at)
+            self._create_trial_history(store.id, zone.id, studios, seeded_at)
+            self._create_trial_waiting_tokens(store.id, zone.id, studios, seeded_at)
             self.repository.commit()
             self.repository.refresh(store)
             return self._build_response(store, "Demo ML training data created.")
@@ -96,7 +101,7 @@ class DemoToolsService:
         self.repository.commit()
         return response.model_copy(update={"exists": False})
 
-    def _create_store(self) -> Store:
+    def _create_store(self, seeded_at: datetime) -> Store:
         store = Store(
             store_number=DEMO_STORE_NUMBER,
             name=DEMO_STORE_NAME,
@@ -115,7 +120,7 @@ class DemoToolsService:
             self.repository.create(StoreCalendarDay(store_id=store.id, weekday=weekday, is_open=True, open_time=time(8, 0), close_time=time(23, 0), timezone=TIMEZONE_NAME))
             self.repository.create(TrialCalendarDay(store_id=store.id, weekday=weekday, is_open=True, open_time=time(9, 0), close_time=time(22, 0), timezone=TIMEZONE_NAME))
 
-        today = datetime.now(timezone.utc).date()
+        today = seeded_at.date()
         for offset in (3, 10, 17, 24):
             event_date = today - timedelta(days=offset)
             self.repository.create(StoreCalendarEvent(store_id=store.id, event_date=event_date, name="Demo promotion", event_type=StoreCalendarEventType.PROMOTION, is_active=True))
@@ -123,7 +128,7 @@ class DemoToolsService:
 
         return store
 
-    def _create_checkout_setup(self, store_id: int) -> CheckoutSection:
+    def _create_checkout_setup(self, store_id: int, seeded_at: datetime) -> CheckoutSection:
         section = CheckoutSection(store_id=store_id, name="Demo Checkout Section", section_type=CheckoutSectionType.REGULAR, is_active=True)
         self.repository.create(section)
         for index, counter_type in enumerate((CounterType.REGULAR, CounterType.EXPRESS, CounterType.PRIORITY), start=1):
@@ -133,12 +138,12 @@ class DemoToolsService:
                     counter_type=counter_type,
                     name=f"Demo Counter {index}",
                     is_active=True,
-                    next_available_time=datetime.now(timezone.utc),
+                    next_available_time=seeded_at,
                 )
             )
         return section
 
-    def _create_trial_setup(self, store_id: int) -> TrialZone:
+    def _create_trial_setup(self, store_id: int, seeded_at: datetime) -> TrialZone:
         zone = TrialZone(
             store_id=store_id,
             name="Demo Trial Zone",
@@ -154,17 +159,17 @@ class DemoToolsService:
                     name=f"Demo Studio {index}",
                     studio_type=studio_type,
                     is_active=True,
-                    next_available_time=datetime.now(timezone.utc),
+                    next_available_time=seeded_at,
                 )
             )
         return zone
 
-    def _create_checkout_history(self, store_id: int, section_id: int, counters: list[Counter]) -> None:
+    def _create_checkout_history(self, store_id: int, section_id: int, counters: list[Counter], seeded_at: datetime) -> None:
         for index in range(CHECKOUT_COMPLETED_SAMPLE_COUNT):
             counter = counters[index % len(counters)]
             item_count = self._checkout_item_count(index)
-            created_at = self._historical_join_time(index)
-            service_minutes = self._checkout_service_minutes(index, item_count, counter.counter_type)
+            created_at = self._historical_join_time(index, seeded_at)
+            service_minutes = self._checkout_service_minutes(index, item_count, counter.counter_type, seeded_at)
             started_at = created_at + timedelta(minutes=3 + (index % 9))
             completed_at = started_at + timedelta(minutes=service_minutes)
             self.repository.create(
@@ -193,7 +198,7 @@ class DemoToolsService:
 
         for index in range(CHECKOUT_CANCELLED_SAMPLE_COUNT):
             counter = counters[index % len(counters)]
-            created_at = self._historical_join_time(index + CHECKOUT_COMPLETED_SAMPLE_COUNT)
+            created_at = self._historical_join_time(index + CHECKOUT_COMPLETED_SAMPLE_COUNT, seeded_at)
             cancelled_at = created_at + timedelta(minutes=2 + (index % 8))
             self.repository.create(
                 QueueToken(
@@ -216,12 +221,40 @@ class DemoToolsService:
                 )
             )
 
-    def _create_trial_history(self, store_id: int, zone_id: int, studios: list[TrialStudio]) -> None:
+    def _create_checkout_waiting_tokens(self, store_id: int, section_id: int, counters: list[Counter], seeded_at: datetime) -> None:
+        for index in range(CHECKOUT_WAITING_SAMPLE_COUNT):
+            counter = min(counters, key=lambda candidate: candidate.next_available_time)
+            item_count = self._checkout_item_count(index + CHECKOUT_COMPLETED_SAMPLE_COUNT + CHECKOUT_CANCELLED_SAMPLE_COUNT)
+            calling_time = max(seeded_at, counter.next_available_time)
+            service_minutes = self._checkout_service_minutes(index, item_count, counter.counter_type, seeded_at)
+            counter.next_available_time = calling_time + timedelta(minutes=service_minutes)
+            self.repository.create(
+                QueueToken(
+                    store_id=store_id,
+                    section_id=section_id,
+                    assigned_counter_id=counter.id,
+                    token_number=f"DML-W-{index + 1:04d}",
+                    phone_number=f"4{index + 100000000:09d}"[-10:],
+                    status=QueueTokenStatus.WAITING,
+                    item_count=item_count,
+                    basket_size=self._basket_size(item_count),
+                    cart_type="cart" if item_count >= 18 else "basket",
+                    customer_type=self._customer_type(index),
+                    is_still_shopping=False,
+                    calculation_method="DEMO_ACTIVE",
+                    service_time_minutes=service_minutes,
+                    calling_time=calling_time,
+                    created_at=seeded_at,
+                    updated_at=seeded_at,
+                )
+            )
+
+    def _create_trial_history(self, store_id: int, zone_id: int, studios: list[TrialStudio], seeded_at: datetime) -> None:
         for index in range(TRIAL_COMPLETED_SAMPLE_COUNT):
             studio = studios[index % len(studios)]
             item_count = 1 + (index % 8)
-            created_at = self._historical_join_time(index, base_hour=11)
-            service_minutes = self._trial_service_minutes(index, item_count, studio.studio_type)
+            created_at = self._historical_join_time(index, seeded_at, base_hour=11)
+            service_minutes = self._trial_service_minutes(index, item_count, studio.studio_type, seeded_at)
             started_at = created_at + timedelta(minutes=4 + (index % 11))
             completed_at = started_at + timedelta(minutes=service_minutes)
             self.repository.create(
@@ -247,7 +280,7 @@ class DemoToolsService:
 
         for index in range(TRIAL_CANCELLED_SAMPLE_COUNT):
             studio = studios[index % len(studios)]
-            created_at = self._historical_join_time(index + TRIAL_COMPLETED_SAMPLE_COUNT, base_hour=12)
+            created_at = self._historical_join_time(index + TRIAL_COMPLETED_SAMPLE_COUNT, seeded_at, base_hour=12)
             cancelled_at = created_at + timedelta(minutes=3 + (index % 6))
             self.repository.create(
                 TrialQueueToken(
@@ -265,6 +298,31 @@ class DemoToolsService:
                     cancellation_reason="Demo cancellation",
                     created_at=created_at,
                     updated_at=cancelled_at,
+                )
+            )
+
+    def _create_trial_waiting_tokens(self, store_id: int, zone_id: int, studios: list[TrialStudio], seeded_at: datetime) -> None:
+        for index in range(TRIAL_WAITING_SAMPLE_COUNT):
+            studio = min(studios, key=lambda candidate: candidate.next_available_time)
+            item_count = 1 + (index % 8)
+            calling_time = max(seeded_at, studio.next_available_time)
+            service_minutes = self._trial_service_minutes(index, item_count, studio.studio_type, seeded_at)
+            studio.next_available_time = calling_time + timedelta(minutes=service_minutes)
+            self.repository.create(
+                TrialQueueToken(
+                    store_id=store_id,
+                    trial_zone_id=zone_id,
+                    assigned_studio_id=studio.id,
+                    token_number=f"TDML-W-{index + 1:04d}",
+                    phone_number=f"3{index + 100000000:09d}"[-10:],
+                    status=TrialQueueTokenStatus.WAITING,
+                    item_count=item_count,
+                    customer_type=self._customer_type(index),
+                    calculation_method="DEMO_ACTIVE",
+                    service_time_minutes=service_minutes,
+                    calling_time=calling_time,
+                    created_at=seeded_at,
+                    updated_at=seeded_at,
                 )
             )
 
@@ -293,8 +351,10 @@ class DemoToolsService:
             counts=DemoToolCounts(
                 checkout_completed_tokens=self.repository.count_checkout_completed_tokens(store.id),
                 checkout_terminal_tokens=self.repository.count_checkout_terminal_tokens(store.id),
+                checkout_waiting_tokens=self.repository.count_checkout_waiting_tokens(store.id),
                 trial_completed_tokens=self.repository.count_trial_completed_tokens(store.id),
                 trial_terminal_tokens=self.repository.count_trial_terminal_tokens(store.id),
+                trial_waiting_tokens=self.repository.count_trial_waiting_tokens(store.id),
                 ml_metadata_rows=self.repository.count_ml_metadata(store.id),
             ),
             checkout_artifact_present=(Path(settings.ML_MODEL_DIR) / f"store_{store.id}").exists(),
@@ -306,11 +366,11 @@ class DemoToolsService:
             message=message,
         )
 
-    def _historical_join_time(self, index: int, base_hour: int = 10) -> datetime:
+    def _historical_join_time(self, index: int, seeded_at: datetime, base_hour: int = 10) -> datetime:
         day_offset = index % 30
         hour = base_hour + ((index * 5) % 12)
         minute = (index * 7) % 60
-        return (datetime.now(timezone.utc) - timedelta(days=day_offset)).replace(hour=hour % 24, minute=minute, second=0, microsecond=0)
+        return (seeded_at - timedelta(days=day_offset)).replace(hour=hour % 24, minute=minute, second=0, microsecond=0)
 
     def _checkout_item_count(self, index: int) -> int:
         return 1 + ((index * 7) % 42)
@@ -325,16 +385,16 @@ class DemoToolsService:
     def _customer_type(self, index: int) -> str:
         return ("regular", "loyalty", "priority", "new")[index % 4]
 
-    def _checkout_service_minutes(self, index: int, item_count: int, counter_type: CounterType) -> int:
+    def _checkout_service_minutes(self, index: int, item_count: int, counter_type: CounterType, seeded_at: datetime) -> int:
         multiplier = 0.22 if counter_type == CounterType.EXPRESS else 0.34 if counter_type == CounterType.PRIORITY else 0.28
         busy_penalty = (index % 6) * 0.6
-        weekend_penalty = 2 if self._historical_join_time(index).weekday() >= 5 else 0
+        weekend_penalty = 2 if self._historical_join_time(index, seeded_at).weekday() >= 5 else 0
         return max(3, min(60, math.ceil(4 + (item_count * multiplier) + busy_penalty + weekend_penalty)))
 
-    def _trial_service_minutes(self, index: int, item_count: int, studio_type: TrialStudioType) -> int:
+    def _trial_service_minutes(self, index: int, item_count: int, studio_type: TrialStudioType, seeded_at: datetime) -> int:
         multiplier = 1.0 if studio_type == TrialStudioType.EXPRESS else 1.6 if studio_type == TrialStudioType.PRIORITY else 1.3
         busy_penalty = (index % 5) * 1.1
-        weekend_penalty = 3 if self._historical_join_time(index).weekday() >= 5 else 0
+        weekend_penalty = 3 if self._historical_join_time(index, seeded_at).weekday() >= 5 else 0
         return max(6, min(90, math.ceil(8 + (item_count * multiplier) + busy_penalty + weekend_penalty)))
 
     def _remove_artifact_dir(self, path: Path) -> None:

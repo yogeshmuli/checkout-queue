@@ -58,6 +58,11 @@ class DemoToolsRepository:
             )
         ) or 0
 
+    def count_checkout_waiting_tokens(self, store_id: int) -> int:
+        return self.db.scalar(
+            select(func.count(QueueToken.id)).where(QueueToken.store_id == store_id, QueueToken.status == QueueTokenStatus.WAITING)
+        ) or 0
+
     def count_trial_completed_tokens(self, store_id: int) -> int:
         return self.db.scalar(
             select(func.count(TrialQueueToken.id)).where(TrialQueueToken.store_id == store_id, TrialQueueToken.status == TrialQueueTokenStatus.COMPLETED)
@@ -69,6 +74,11 @@ class DemoToolsRepository:
                 TrialQueueToken.store_id == store_id,
                 TrialQueueToken.status.in_((TrialQueueTokenStatus.COMPLETED, TrialQueueTokenStatus.CANCELLED, TrialQueueTokenStatus.NO_SHOW)),
             )
+        ) or 0
+
+    def count_trial_waiting_tokens(self, store_id: int) -> int:
+        return self.db.scalar(
+            select(func.count(TrialQueueToken.id)).where(TrialQueueToken.store_id == store_id, TrialQueueToken.status == TrialQueueTokenStatus.WAITING)
         ) or 0
 
     def count_ml_metadata(self, store_id: int) -> int:

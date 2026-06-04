@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -18,8 +19,10 @@ from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio
 from app.routes.api import api_router
 from app.services.demo_tools_service import (
     CHECKOUT_COMPLETED_SAMPLE_COUNT,
+    CHECKOUT_WAITING_SAMPLE_COUNT,
     DEMO_STORE_NUMBER,
     TRIAL_COMPLETED_SAMPLE_COUNT,
+    TRIAL_WAITING_SAMPLE_COUNT,
     DemoToolsService,
 )
 
@@ -83,13 +86,31 @@ class FakeDemoToolsRepository:
         return len([token for token in self.checkout_tokens if token.store_id == store_id and token.status == QueueTokenStatus.COMPLETED])
 
     def count_checkout_terminal_tokens(self, store_id: int) -> int:
-        return len([token for token in self.checkout_tokens if token.store_id == store_id])
+        return len(
+            [
+                token
+                for token in self.checkout_tokens
+                if token.store_id == store_id and token.status in (QueueTokenStatus.COMPLETED, QueueTokenStatus.CANCELLED, QueueTokenStatus.NO_SHOW)
+            ]
+        )
+
+    def count_checkout_waiting_tokens(self, store_id: int) -> int:
+        return len([token for token in self.checkout_tokens if token.store_id == store_id and token.status == QueueTokenStatus.WAITING])
 
     def count_trial_completed_tokens(self, store_id: int) -> int:
         return len([token for token in self.trial_tokens if token.store_id == store_id and token.status == TrialQueueTokenStatus.COMPLETED])
 
     def count_trial_terminal_tokens(self, store_id: int) -> int:
-        return len([token for token in self.trial_tokens if token.store_id == store_id])
+        return len(
+            [
+                token
+                for token in self.trial_tokens
+                if token.store_id == store_id and token.status in (TrialQueueTokenStatus.COMPLETED, TrialQueueTokenStatus.CANCELLED, TrialQueueTokenStatus.NO_SHOW)
+            ]
+        )
+
+    def count_trial_waiting_tokens(self, store_id: int) -> int:
+        return len([token for token in self.trial_tokens if token.store_id == store_id and token.status == TrialQueueTokenStatus.WAITING])
 
     def count_ml_metadata(self, store_id: int) -> int:
         return len([metadata for metadata in self.metadata if metadata.store_id == store_id])
@@ -158,6 +179,7 @@ def test_demo_tools_routes_reject_non_super_admin() -> None:
 
 def test_seed_creates_checkout_and_trial_training_data(demo_service: DemoToolsService) -> None:
     response = demo_service.seed_ml_training_data()
+    status_response = demo_service.get_ml_training_data_status()
 
     assert response.exists is True
     assert response.store_number == DEMO_STORE_NUMBER
@@ -168,8 +190,44 @@ def test_seed_creates_checkout_and_trial_training_data(demo_service: DemoToolsSe
     assert len(response.ids.trial_studio_ids) == 3
     assert response.counts.checkout_completed_tokens == CHECKOUT_COMPLETED_SAMPLE_COUNT
     assert response.counts.trial_completed_tokens == TRIAL_COMPLETED_SAMPLE_COUNT
+    assert response.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
+    assert response.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
     assert response.counts.checkout_terminal_tokens > response.counts.checkout_completed_tokens
     assert response.counts.trial_terminal_tokens > response.counts.trial_completed_tokens
+    assert status_response.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
+    assert status_response.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
+
+
+def test_seed_anchors_waiting_queues_to_one_current_timestamp(demo_service: DemoToolsService, monkeypatch: pytest.MonkeyPatch) -> None:
+    seeded_at = datetime(2026, 6, 2, 12, 30, tzinfo=timezone.utc)
+
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return seeded_at
+
+    monkeypatch.setattr("app.services.demo_tools_service.datetime", FixedDateTime)
+    demo_service.seed_ml_training_data()
+
+    checkout_waiting = [token for token in demo_service.repository.checkout_tokens if token.status == QueueTokenStatus.WAITING]
+    trial_waiting = [token for token in demo_service.repository.trial_tokens if token.status == TrialQueueTokenStatus.WAITING]
+
+    assert len(checkout_waiting) == CHECKOUT_WAITING_SAMPLE_COUNT
+    assert len(trial_waiting) == TRIAL_WAITING_SAMPLE_COUNT
+    assert {token.created_at for token in checkout_waiting + trial_waiting} == {seeded_at}
+    assert all(token.calling_time >= seeded_at for token in checkout_waiting + trial_waiting)
+    assert all(
+        counter.next_available_time >= token.calling_time + timedelta(minutes=token.service_time_minutes)
+        for counter in demo_service.repository.counters
+        for token in checkout_waiting
+        if token.assigned_counter_id == counter.id
+    )
+    assert all(
+        studio.next_available_time >= token.calling_time + timedelta(minutes=token.service_time_minutes)
+        for studio in demo_service.repository.studios
+        for token in trial_waiting
+        if token.assigned_studio_id == studio.id
+    )
 
 
 def test_seed_rejects_existing_demo_store_without_replace(demo_service: DemoToolsService) -> None:
@@ -188,6 +246,8 @@ def test_seed_replace_recreates_demo_data(demo_service: DemoToolsService) -> Non
     assert first.ids.store_id != second.ids.store_id
     assert second.counts.checkout_completed_tokens == CHECKOUT_COMPLETED_SAMPLE_COUNT
     assert second.counts.trial_completed_tokens == TRIAL_COMPLETED_SAMPLE_COUNT
+    assert second.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
+    assert second.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
 
 
 def test_cleanup_removes_store_metadata_and_artifacts(demo_service: DemoToolsService) -> None:
@@ -205,6 +265,8 @@ def test_cleanup_removes_store_metadata_and_artifacts(demo_service: DemoToolsSer
 
     assert response.exists is False
     assert response.counts.ml_metadata_rows == 1
+    assert response.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
+    assert response.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
     assert status_response.exists is False
     assert not checkout_artifact_dir.exists()
     assert not trial_artifact_dir.exists()

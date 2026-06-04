@@ -12,8 +12,10 @@ class DemoToolIds(BaseModel):
 class DemoToolCounts(BaseModel):
     checkout_completed_tokens: int = 0
     checkout_terminal_tokens: int = 0
+    checkout_waiting_tokens: int = 0
     trial_completed_tokens: int = 0
     trial_terminal_tokens: int = 0
+    trial_waiting_tokens: int = 0
     ml_metadata_rows: int = 0
 
 
