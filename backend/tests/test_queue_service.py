@@ -437,3 +437,95 @@ def test_complete_event_moves_waiting_later_when_served_slower(queue_service: Qu
     assert old_second_calling_time is not None
     assert second_token.calling_time is not None
     assert second_token.calling_time > old_second_calling_time
+
+
+def test_customer_cancel_allows_waiting_and_called_tokens(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543500", item_count=1))
+    called = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543501", item_count=1))
+    queue_service.handle_queue_event(QueueEventRequest(token_id=called.token_id, event=QueueEventType.CALLED))
+
+    waiting_response = queue_service.cancel_token_by_customer(1)
+    called_response = queue_service.cancel_token_by_customer(called.token_id)
+
+    assert waiting_response.status == QueueTokenStatus.CANCELLED
+    assert called_response.status == QueueTokenStatus.CANCELLED
+    assert queue_service.repository.tokens[0].cancellation_reason == "Cancelled by customer"
+    assert queue_service.repository.tokens[1].cancellation_reason == "Cancelled by customer"
+
+
+def test_customer_cancel_rejects_serving_and_terminal_tokens(queue_service: QueueService) -> None:
+    queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543600", item_count=1))
+    token = queue_service.repository.tokens[0]
+    token.status = QueueTokenStatus.SERVING
+
+    with pytest.raises(HTTPException) as serving_exc:
+        queue_service.cancel_token_by_customer(token.id)
+
+    token.status = QueueTokenStatus.COMPLETED
+
+    with pytest.raises(HTTPException) as terminal_exc:
+        queue_service.cancel_token_by_customer(token.id)
+
+    assert serving_exc.value.status_code == 409
+    assert terminal_exc.value.status_code == 409
+
+
+def test_customer_move_last_cancels_original_and_creates_replacement_in_same_counter(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543700", item_count=1))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543701", item_count=3))
+    second_token = queue_service.repository.get_token(second.token_id)
+    old_second_calling_time = second_token.calling_time
+
+    replacement = queue_service.move_token_last_by_customer(first.token_id)
+    original = queue_service.repository.get_token(first.token_id)
+    replacement_token = queue_service.repository.get_token(replacement.token_id)
+
+    assert original.status == QueueTokenStatus.CANCELLED
+    assert original.cancellation_reason == "Moved to end by customer"
+    assert replacement.status == QueueTokenStatus.WAITING
+    assert replacement.assigned_counter_id == original.assigned_counter_id
+    assert replacement.phone_number == original.phone_number
+    assert replacement.item_count == original.item_count
+    assert replacement.token_id != original.id
+    assert replacement_token.calling_time > second_token.calling_time
+    assert second_token.calling_time <= old_second_calling_time
+    assert queue_service.repository.counters[0].next_available_time > replacement_token.calling_time
+
+
+def test_customer_move_last_rejects_serving_terminal_missing_and_unassigned_tokens(queue_service: QueueService) -> None:
+    queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543800", item_count=1))
+    token = queue_service.repository.tokens[0]
+    token.status = QueueTokenStatus.SERVING
+
+    with pytest.raises(HTTPException) as serving_exc:
+        queue_service.move_token_last_by_customer(token.id)
+
+    token.status = QueueTokenStatus.CANCELLED
+
+    with pytest.raises(HTTPException) as terminal_exc:
+        queue_service.move_token_last_by_customer(token.id)
+
+    unassigned = QueueToken(
+        id=99,
+        store_id=1,
+        section_id=1,
+        assigned_counter_id=None,
+        token_number="UNASSIGNED",
+        phone_number="9876543899",
+        status=QueueTokenStatus.WAITING,
+        calling_time=datetime.now(timezone.utc),
+    )
+    queue_service.repository.tokens.append(unassigned)
+
+    with pytest.raises(HTTPException) as unassigned_exc:
+        queue_service.move_token_last_by_customer(unassigned.id)
+
+    with pytest.raises(HTTPException) as missing_exc:
+        queue_service.move_token_last_by_customer(404)
+
+    assert serving_exc.value.status_code == 409
+    assert terminal_exc.value.status_code == 409
+    assert unassigned_exc.value.status_code == 409
+    assert missing_exc.value.status_code == 404

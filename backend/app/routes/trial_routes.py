@@ -153,3 +153,13 @@ def complete_trial_token(token_id: int, db: Session = Depends(get_db), current_u
 @router.post("/trial/queue/tokens/{token_id}/cancel", response_model=TrialQueueEventResponse)
 def cancel_trial_token(token_id: int, payload: TrialTokenCancelRequest | None = None, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
     return TrialService(db).cancel_token(token_id, payload.cancellation_reason if payload else None, current_user=current_user)
+
+
+@router.post("/trial/queue/tokens/{token_id}/customer-cancel", response_model=TrialQueueEventResponse)
+def customer_cancel_trial_token(token_id: int, db: Session = Depends(get_db)) -> TrialQueueEventResponse:
+    return TrialService(db).cancel_token_by_customer(token_id)
+
+
+@router.post("/trial/queue/tokens/{token_id}/customer-move-last", response_model=TrialQueueTokenResponse)
+def customer_move_trial_token_last(token_id: int, db: Session = Depends(get_db)) -> TrialQueueTokenResponse:
+    return TrialService(db).move_token_last_by_customer(token_id)

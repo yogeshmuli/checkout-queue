@@ -103,3 +103,12 @@ export async function cancelCustomerToken(tokenId) {
     throw normalizeApiError(error);
   }
 }
+
+export async function moveCustomerTokenLast(tokenId) {
+  try {
+    const response = await httpClient.post(`/queue/tokens/${tokenId}/customer-move-last`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}

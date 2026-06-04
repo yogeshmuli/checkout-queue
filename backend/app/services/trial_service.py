@@ -354,6 +354,56 @@ class TrialService:
     def cancel_token(self, token_id: int, reason: str | None = None, current_user: User | None = None) -> TrialQueueEventResponse:
         return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.CANCELLED, reason, current_user=current_user))
 
+    def cancel_token_by_customer(self, token_id: int) -> TrialQueueEventResponse:
+        token = self.repository.get_token(token_id)
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
+        self._ensure_customer_action_allowed(token)
+        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.CANCELLED, "Cancelled by customer"))
+
+    def move_token_last_by_customer(self, token_id: int) -> TrialQueueTokenResponse:
+        token = self.repository.get_token(token_id)
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
+        self._ensure_customer_action_allowed(token)
+        if token.assigned_studio_id is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is not assigned to a studio")
+
+        studio = self.repository.get_studio(token.assigned_studio_id)
+        if studio is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Studio not found")
+
+        now = datetime.now(timezone.utc)
+        token.status = TrialQueueTokenStatus.CANCELLED
+        token.cancelled_at = now
+        token.cancellation_reason = "Moved to end by customer"
+
+        self._rebuild_studio_schedule(studio.id, now)
+
+        service_minutes = self._token_service_minutes(token)
+        calling_time = max(now, self._normalize_to_utc(studio.next_available_time))
+        config = self.repository.get_config(token.store_id)
+        replacement = TrialQueueToken(
+            store_id=token.store_id,
+            trial_zone_id=token.trial_zone_id,
+            assigned_studio_id=studio.id,
+            token_number=self._generate_token_number(token.store_id, token.trial_zone_id, config),
+            phone_number=token.phone_number,
+            status=TrialQueueTokenStatus.WAITING,
+            item_count=token.item_count,
+            customer_type=token.customer_type,
+            service_time_minutes=service_minutes,
+            calculation_method=token.calculation_method or self.CALCULATION_METHOD,
+            calling_time=calling_time,
+            created_at=now,
+            updated_at=now,
+        )
+        studio.next_available_time = calling_time + timedelta(minutes=service_minutes)
+        self.repository.create(replacement)
+        self.repository.commit()
+        self.repository.refresh(replacement)
+        return self._build_token_response(replacement)
+
     def process_queue_event(self, token_id: int, new_status: TrialQueueTokenStatus, cancellation_reason: str | None = None, current_user: User | None = None) -> TrialQueueToken:
         token = self.repository.get_token(token_id)
         if token is None:
@@ -383,6 +433,14 @@ class TrialService:
         if new_status == TrialQueueTokenStatus.CALLED and getattr(self.repository, "db", None) is not None:
             NotificationService(self.repository.db).notify_trial_called(token)
         return token
+
+    def _ensure_customer_action_allowed(self, token: TrialQueueToken) -> None:
+        if token.status in self.TERMINAL_STATUSES:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is already in terminal state")
+        if token.status == TrialQueueTokenStatus.SERVING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Serving trial token cannot be changed by customer")
+        if token.status not in (TrialQueueTokenStatus.WAITING, TrialQueueTokenStatus.CALLED):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token cannot be changed by customer")
 
     def _scope_queue_filters(self, store_id, trial_zone_id, studio_id, current_user: User):
         if studio_id is not None:

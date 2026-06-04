@@ -130,3 +130,11 @@ def customer_cancel_token(
     db: Session = Depends(get_db),
 ) -> QueueEventResponse:
     return QueueService(db).cancel_token_by_customer(token_id)
+
+
+@router.post("/tokens/{token_id}/customer-move-last", response_model=QueueTokenResponse)
+def customer_move_token_last(
+    token_id: int,
+    db: Session = Depends(get_db),
+) -> QueueTokenResponse:
+    return QueueService(db).move_token_last_by_customer(token_id)

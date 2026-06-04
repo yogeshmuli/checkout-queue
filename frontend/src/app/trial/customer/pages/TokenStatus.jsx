@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { getTrialTokenStatus } from '../../../../api/trial/queueApi.js';
+import { cancelTrialCustomerToken, getTrialTokenStatus, moveTrialCustomerTokenLast } from '../../../../api/trial/queueApi.js';
+import { ConfirmationModal } from '../../../common/ConfirmationModal.jsx';
 import { EmptyStateCard, StatCard } from '../../../common/FormAndStatePrimitives.jsx';
 import { useQueueStore } from '../../../../store/queueStore.js';
 import { formatTime, getWaitMinutes, TOKEN_STATUS_REFRESH_MS } from '../utils/customerUtils.js';
@@ -13,12 +14,81 @@ import { InvalidToken } from './InvalidToken.jsx';
 export function TokenStatus() {
   const { tokenId } = useParams();
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [movingLast, setMovingLast] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
   const [message, setMessage] = useState('');
   const { lastToken, setLastToken } = useQueueStore();
   const navigate = useNavigate();
   const liveWaitMinutes = useMemo(() => getWaitMinutes(lastToken?.calling_time), [lastToken]);
   const parsedTokenId = Number(tokenId);
+  const canChangeQueue = lastToken?.status === 'WAITING' || lastToken?.status === 'CALLED';
+  const isCancelled = lastToken?.status === 'CANCELLED';
+  const actionLoading = cancelling || movingLast;
+  const pendingActionConfig =
+    pendingAction === 'cancel'
+      ? {
+          title: 'Cancel trial token?',
+          message: 'Your trial token will be removed from the active queue. You can create a new token later if needed.',
+          confirmLabel: 'Cancel token',
+          variant: 'danger',
+        }
+      : {
+          title: 'Move last to queue?',
+          message: 'Your current trial token will be cancelled and a new token will be created at the end of the same queue.',
+          confirmLabel: 'Move last',
+          variant: 'primary',
+        };
+
+  async function handleCancelToken() {
+    if (!canChangeQueue || cancelling || movingLast) return;
+
+    setCancelling(true);
+    setMessage('');
+
+    try {
+      await cancelTrialCustomerToken(parsedTokenId);
+      const token = await getTrialTokenStatus({ token_id: parsedTokenId });
+      setLastToken(token);
+      setMessage('Trial token cancelled successfully.');
+    } catch (error) {
+      showApiErrorToast(error);
+      setMessage(getErrorMessage(error));
+    } finally {
+      setCancelling(false);
+      setPendingAction(null);
+    }
+  }
+
+  async function handleMoveLast() {
+    if (!canChangeQueue || movingLast || cancelling) return;
+
+    setMovingLast(true);
+    setMessage('');
+
+    try {
+      const token = await moveTrialCustomerTokenLast(parsedTokenId);
+      setLastToken(token);
+      navigate(`/app/trial/customer/status/${token.token_id}`, { replace: true });
+    } catch (error) {
+      showApiErrorToast(error);
+      setMessage(getErrorMessage(error));
+    } finally {
+      setMovingLast(false);
+      setPendingAction(null);
+    }
+  }
+
+  function handleConfirmAction() {
+    if (pendingAction === 'cancel') {
+      handleCancelToken();
+      return;
+    }
+    if (pendingAction === 'move-last') {
+      handleMoveLast();
+    }
+  }
 
   async function refreshTokenStatus() {
     if (statusLoading) return;
@@ -151,6 +221,32 @@ export function TokenStatus() {
 
             {message ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
 
+            <button
+              type="button"
+              onClick={() => setPendingAction('cancel')}
+              disabled={!canChangeQueue || cancelling || movingLast}
+              className="mt-4 w-full rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cancelling ? 'Cancelling token...' : 'Cancel token'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPendingAction('move-last')}
+              disabled={!canChangeQueue || movingLast || cancelling}
+              className="mt-3 w-full rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {movingLast ? 'Moving token...' : 'Move last to queue'}
+            </button>
+
+            {isCancelled ? (
+              <Link
+                to="/app/trial/customer/create"
+                className="mt-3 block w-full rounded-lg bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white"
+              >
+                Create new token
+              </Link>
+            ) : null}
+
             <Link
               to="/app/trial/customer/status/lookup"
               className="mt-3 block w-full rounded-lg bg-brand-blush px-4 py-3 text-center text-sm font-semibold text-brand-red"
@@ -168,6 +264,16 @@ export function TokenStatus() {
           />
         ) : null}
       </section>
+      <ConfirmationModal
+        isOpen={Boolean(pendingAction)}
+        title={pendingActionConfig.title}
+        message={pendingActionConfig.message}
+        confirmLabel={pendingActionConfig.confirmLabel}
+        variant={pendingActionConfig.variant}
+        loading={actionLoading}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setPendingAction(null)}
+      />
     </main>
   );
 }

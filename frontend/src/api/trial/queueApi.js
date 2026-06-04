@@ -53,3 +53,11 @@ export function cancelTrialToken(tokenId, cancellationReason) {
     })
   );
 }
+
+export function cancelTrialCustomerToken(tokenId) {
+  return trialRequest(() => httpClient.post(`/trial/queue/tokens/${tokenId}/customer-cancel`));
+}
+
+export function moveTrialCustomerTokenLast(tokenId) {
+  return trialRequest(() => httpClient.post(`/trial/queue/tokens/${tokenId}/customer-move-last`));
+}

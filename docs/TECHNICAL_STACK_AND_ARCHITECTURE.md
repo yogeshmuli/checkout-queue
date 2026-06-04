@@ -632,6 +632,8 @@ React Join Queue Page
       -> returns token number, position, wait time, and method
 ```
 
+Customer token status pages can cancel `WAITING`/`CALLED` tokens or move them to the end of the same lane. Move-last keeps the original token as `CANCELLED`, creates a replacement `WAITING` token, rebuilds the counter/studio schedule, and opens the replacement status page.
+
 ### Cashier Calls Next Customer
 
 ```text

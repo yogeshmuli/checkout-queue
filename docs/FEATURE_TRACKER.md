@@ -551,7 +551,8 @@ Result:
 - Uses QR-only store entry with browser-camera scanning or gallery image upload; the manual store/section selection form is hidden from customers, and a valid Checkout customer QR redirects to its complete encoded URL.
 - Supports installable PWA behavior with manifest/service-worker caching for home-screen install.
 - Calls `POST /api/v1/queue/join`.
-- Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with confirmation.
+- Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with a reusable in-app confirmation modal.
+- Allows customers with `WAITING` or `CALLED` tokens to move to the end of the same counter lane through `POST /api/v1/queue/tokens/{token_id}/customer-move-last`; the old token is cancelled and the replacement token opens automatically.
 - Allows token lookup by mobile number from customer screen and navigation between lookup and token status views.
 - Applies a shared top branding header across app routes (`/app/*`) for consistent QuT identity.
 - Displays token number, queue position, current status, calling time, estimated wait, and calculation method.
@@ -916,6 +917,7 @@ Trial Queue frontend parity:
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
 - Checkout and Trial customer headers link the brand logo back to the public landing page.
 - Checkout and Trial customer token status cards include a compact manual refresh icon that reloads the latest token status from the backend.
+- Checkout and Trial customer token status cards show custom-modal confirmed cancel and move-last actions for `WAITING` or `CALLED` tokens. Move-last cancels the old token, creates a replacement at the end of the same counter/studio lane, and opens the new status page.
 - Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
 - Staff workspace under `/app/trial/staff` loads a zone console for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The responsive console shows every studio in the selected zone as a horizontally scrollable tab-card row that expands across wider screens, preserves the last selected studio, and uses studio-specific queue/status APIs to start waiting tokens, complete/cancel active tokens, and mark studios active or inactive. Assigned trial staff automatically load their `assigned_zone_id`.

@@ -235,14 +235,54 @@ class QueueService:
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
 
-        if token.status in self.TERMINAL_STATUSES:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Token is already in terminal state")
-
-        if token.status == QueueTokenStatus.SERVING:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Serving token cannot be cancelled by customer")
+        self._ensure_customer_action_allowed(token)
 
         updated = self.process_queue_event(token_id, QueueTokenStatus.CANCELLED, "Cancelled by customer")
         return self._build_event_response(updated)
+
+    def move_token_last_by_customer(self, token_id: int) -> QueueTokenResponse:
+        token = self.repository.get_token(token_id)
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
+        self._ensure_customer_action_allowed(token)
+        if token.assigned_counter_id is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Token is not assigned to a counter")
+
+        counter = self.repository.get_counter(token.assigned_counter_id)
+        if counter is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counter not found")
+
+        now_utc = datetime.now(timezone.utc)
+        token.status = QueueTokenStatus.CANCELLED
+        token.cancelled_at = now_utc
+        token.cancellation_reason = "Moved to end by customer"
+
+        self._rebuild_counter_schedule(counter.id, now_utc)
+
+        service_minutes = self._token_service_minutes(token)
+        calling_time = max(now_utc, self._normalize_to_utc(counter.next_available_time))
+        config = self._get_store_config(token.store_id)
+        replacement = QueueToken(
+            store_id=token.store_id,
+            section_id=token.section_id,
+            assigned_counter_id=counter.id,
+            token_number=self._generate_token_number(token.store_id, token.section_id, counter, config),
+            phone_number=token.phone_number,
+            status=QueueTokenStatus.WAITING,
+            item_count=token.item_count,
+            basket_size=token.basket_size,
+            cart_type=token.cart_type,
+            customer_type=token.customer_type,
+            is_still_shopping=token.is_still_shopping,
+            calculation_method=token.calculation_method or self.CALCULATION_METHOD,
+            service_time_minutes=service_minutes,
+            calling_time=calling_time,
+        )
+        counter.next_available_time = calling_time + timedelta(minutes=service_minutes)
+        self.repository.create_token(replacement)
+        self.repository.commit()
+        self.repository.refresh(replacement)
+        return self._build_token_response(replacement)
 
     def handle_queue_event(self, payload: QueueEventRequest) -> QueueEventResponse:
         status_map = {
@@ -322,6 +362,14 @@ class QueueService:
             calling_time=token.calling_time,
             estimated_wait_minutes=self._estimate_wait_from_calling_time(token.calling_time),
         )
+
+    def _ensure_customer_action_allowed(self, token: QueueToken) -> None:
+        if token.status in self.TERMINAL_STATUSES:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Token is already in terminal state")
+        if token.status == QueueTokenStatus.SERVING:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Serving token cannot be changed by customer")
+        if token.status not in (QueueTokenStatus.WAITING, QueueTokenStatus.CALLED):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Token cannot be changed by customer")
 
     def _build_token_response(self, token: QueueToken) -> QueueTokenResponse:
         return QueueTokenResponse(
