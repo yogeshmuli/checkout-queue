@@ -363,6 +363,7 @@ Implemented first:
 - Public API for customer enrollment.
 - Uses rule-based wait-time calculation.
 - Schedules tokens using counter `next_available_time` and returns computed wait time from `calling_time`.
+- Generates Checkout token numbers from store/section prefix, counter prefix, and a per-counter sequence such as `BILL-C1-001`.
 - Rejects duplicate active token for the same phone number and store.
 - Rejects queue join when no active counter setup is available.
 

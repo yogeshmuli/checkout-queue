@@ -14,11 +14,13 @@ const emptyCounter = {
   section_id: '',
   counter_type: '',
   name: '',
+  token_prefix: '',
   is_active: true,
 };
 
 const FIELD_LIMITS = {
   name: 100,
+  token_prefix: 20,
 };
 
 const COUNTER_TYPE_OPTIONS = [
@@ -31,7 +33,7 @@ const COUNTER_TYPE_OPTIONS = [
 ];
 
 const COUNTERS_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'section_id', 'counter_type', 'name'];
+const FIELD_ORDER = ['store_id', 'section_id', 'counter_type', 'name', 'token_prefix'];
 
 function getCounterTypeLabel(counterType) {
   return COUNTER_TYPE_OPTIONS.find((option) => option.value === counterType)?.label || counterType;
@@ -137,6 +139,7 @@ export function Counters() {
       section_id: Number(values.section_id),
       counter_type: values.counter_type,
       name: values.name.trim() || null,
+      token_prefix: values.token_prefix.trim() || null,
       is_active: values.is_active,
     };
   }
@@ -158,6 +161,12 @@ export function Counters() {
 
     if (values.name.trim().length > FIELD_LIMITS.name) {
       errors.name = `Counter name must be at most ${FIELD_LIMITS.name} characters.`;
+    }
+
+    if (values.token_prefix.trim().length > FIELD_LIMITS.token_prefix) {
+      errors.token_prefix = `Counter prefix must be at most ${FIELD_LIMITS.token_prefix} characters.`;
+    } else if (values.token_prefix.trim() && !/^[a-z0-9]+$/i.test(values.token_prefix.trim())) {
+      errors.token_prefix = 'Counter prefix can contain only letters and numbers.';
     }
 
     return errors;
@@ -208,6 +217,7 @@ export function Counters() {
       section_id: String(counter.section_id),
       counter_type: counter.counter_type || '',
       name: counter.name || '',
+      token_prefix: counter.token_prefix || '',
       is_active: Boolean(counter.is_active),
     };
 
@@ -386,7 +396,7 @@ export function Counters() {
     const sectionName = section?.name || '';
     const storeName = section ? storeNameById.get(String(section.store_id)) || '' : '';
     const counterTypeLabel = getCounterTypeLabel(counter.counter_type);
-    const haystack = `${counter.name || ''} ${counter.counter_type || ''} ${counterTypeLabel} ${sectionName} ${storeName}`.toLowerCase();
+    const haystack = `${counter.name || ''} ${counter.token_prefix || ''} C${counter.id} ${counter.counter_type || ''} ${counterTypeLabel} ${sectionName} ${storeName}`.toLowerCase();
     return haystack.includes(normalizedQuery);
   });
 
@@ -471,6 +481,18 @@ export function Counters() {
               maxLength={FIELD_LIMITS.name}
               inputRef={(el) => {
                 fieldRefs.current.name = el;
+              }}
+            />
+
+            <Field
+              label="Counter prefix"
+              value={form.token_prefix}
+              onChange={(value) => setFormField('token_prefix', value)}
+              error={formErrors.token_prefix}
+              maxLength={FIELD_LIMITS.token_prefix}
+              placeholder={editingCounterId ? `Fallback: C${editingCounterId}` : 'Example: C1'}
+              inputRef={(el) => {
+                fieldRefs.current.token_prefix = el;
               }}
             />
 
@@ -577,6 +599,9 @@ export function Counters() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold">{counter.name || `Counter #${counter.id}`}</h3>
                       <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{getCounterTypeLabel(counter.counter_type)}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-charcoal">
+                        Prefix: {counter.token_prefix || `C${counter.id}`}
+                      </span>
                       <span className={`rounded-full px-2 py-1 text-xs ${counter.is_active ? 'bg-brand-blush text-success' : 'bg-rose-50 text-rose-700'}`}>
                         {counter.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -708,7 +733,7 @@ function ResourceLink({ to, label }) {
   );
 }
 
-function Field({ label, value, onChange, error, maxLength, inputRef }) {
+function Field({ label, value, onChange, error, maxLength, placeholder, inputRef }) {
   return (
     <label className="block">
       <span className="text-sm font-medium text-charcoal">{label}</span>
@@ -717,6 +742,7 @@ function Field({ label, value, onChange, error, maxLength, inputRef }) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         maxLength={maxLength}
+        placeholder={placeholder}
         className={`mt-1 w-full rounded-lg border px-3 py-2.5 outline-none focus:ring-2 ${
           error ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100' : 'border-line focus:border-brand-red focus:ring-brand-soft'
         }`}

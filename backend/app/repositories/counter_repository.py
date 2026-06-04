@@ -42,6 +42,13 @@ class CounterRepository:
         )
         return self.db.scalar(statement)
 
+    def get_counter_by_section_and_token_prefix(self, section_id: int, token_prefix: str) -> Counter | None:
+        statement = select(Counter).where(
+            Counter.section_id == section_id,
+            Counter.token_prefix == token_prefix,
+        )
+        return self.db.scalar(statement)
+
     def commit(self) -> None:
         self.db.commit()
 

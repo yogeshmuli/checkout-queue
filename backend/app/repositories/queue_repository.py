@@ -295,10 +295,8 @@ class QueueRepository:
         )
         return self.db.scalar(statement)
 
-    def count_tokens_for_numbering(self, store_id: int, section_id: int | None) -> int:
-        statement = select(func.count(QueueToken.id)).where(QueueToken.store_id == store_id)
-        if section_id is not None:
-            statement = statement.where(QueueToken.section_id == section_id)
+    def count_tokens_for_numbering(self, counter_id: int) -> int:
+        statement = select(func.count(QueueToken.id)).where(QueueToken.assigned_counter_id == counter_id)
         return self.db.scalar(statement) or 0
 
     def create_token(self, token: QueueToken) -> QueueToken:

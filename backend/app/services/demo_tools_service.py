@@ -137,6 +137,7 @@ class DemoToolsService:
                     section_id=section.id,
                     counter_type=counter_type,
                     name=f"Demo Counter {index}",
+                    token_prefix=f"C{index}",
                     is_active=True,
                     next_available_time=seeded_at,
                 )

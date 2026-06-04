@@ -31,6 +31,7 @@ class Counter(TimestampMixin, Base):
         nullable=False,
     )
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    token_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     # Timestamp when this counter will be free to serve the next customer

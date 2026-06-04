@@ -51,6 +51,12 @@ class FakeCounterRepository:
                 return counter
         return None
 
+    def get_counter_by_section_and_token_prefix(self, section_id: int, token_prefix: str) -> Counter | None:
+        for counter in self.counters.values():
+            if counter.section_id == section_id and counter.token_prefix == token_prefix:
+                return counter
+        return None
+
     def commit(self) -> None:
         return None
 
@@ -75,12 +81,14 @@ def test_create_counter(counter_service: CounterService) -> None:
             section_id=1,
             counter_type=CounterType.REGULAR,
             name="Counter 1",
+            token_prefix="c1",
         )
     )
 
     assert counter.id == 1
     assert counter.counter_type == CounterType.REGULAR
     assert counter.name == "Counter 1"
+    assert counter.token_prefix == "C1"
     assert counter.is_active is True
     assert isinstance(counter.next_available_time, datetime)
     assert counter.next_available_time.tzinfo == timezone.utc
@@ -103,12 +111,47 @@ def test_update_counter_partially_updates_fields(counter_service: CounterService
 
     updated_counter = counter_service.update_counter(
         counter.id,
-        CounterUpdateRequest(section_id=2, counter_type=CounterType.EXPRESS, name="Counter 2"),
+        CounterUpdateRequest(section_id=2, counter_type=CounterType.EXPRESS, name="Counter 2", token_prefix="x2"),
     )
 
     assert updated_counter.section_id == 2
     assert updated_counter.counter_type == CounterType.EXPRESS
     assert updated_counter.name == "Counter 2"
+    assert updated_counter.token_prefix == "X2"
+
+
+def test_counter_rejects_invalid_token_prefix(counter_service: CounterService) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        counter_service.create_counter(
+            CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, token_prefix="C-1")
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_counter_rejects_duplicate_token_prefix_per_section(counter_service: CounterService) -> None:
+    counter_service.create_counter(
+        CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, name="Counter 1", token_prefix="C1")
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        counter_service.create_counter(
+            CounterCreateRequest(section_id=1, counter_type=CounterType.EXPRESS, name="Counter 2", token_prefix="c1")
+        )
+
+    assert exc_info.value.status_code == 409
+
+
+def test_counter_allows_same_token_prefix_in_different_sections(counter_service: CounterService) -> None:
+    first = counter_service.create_counter(
+        CounterCreateRequest(section_id=1, counter_type=CounterType.REGULAR, name="Counter 1", token_prefix="C1")
+    )
+    second = counter_service.create_counter(
+        CounterCreateRequest(section_id=2, counter_type=CounterType.EXPRESS, name="Counter 2", token_prefix="c1")
+    )
+
+    assert first.token_prefix == "C1"
+    assert second.token_prefix == "C1"
 
 
 def test_delete_counter_soft_deletes(counter_service: CounterService) -> None:

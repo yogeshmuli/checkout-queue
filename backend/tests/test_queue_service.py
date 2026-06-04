@@ -41,8 +41,8 @@ class FakeQueueRepository:
         self.holidays: dict[tuple[int, object], StoreHoliday] = {}
         now = datetime.now(timezone.utc)
         self.counters = [
-            Counter(id=1, section_id=1, counter_type="regular", name="C1", is_active=True, next_available_time=now),
-            Counter(id=2, section_id=1, counter_type="regular", name="C2", is_active=True, next_available_time=now),
+            Counter(id=1, section_id=1, counter_type="regular", name="C1", token_prefix="C1", is_active=True, next_available_time=now),
+            Counter(id=2, section_id=1, counter_type="regular", name="C2", token_prefix="C2", is_active=True, next_available_time=now),
         ]
 
     def get_store(self, store_id: int) -> Store | None:
@@ -122,8 +122,8 @@ class FakeQueueRepository:
             reverse=True,
         )[0]
 
-    def count_tokens_for_numbering(self, store_id: int, section_id: int | None) -> int:
-        return len([token for token in self.tokens if token.store_id == store_id and token.section_id == section_id])
+    def count_tokens_for_numbering(self, counter_id: int) -> int:
+        return len([token for token in self.tokens if token.assigned_counter_id == counter_id])
 
     def list_active_counters(self, store_id: int, section_id: int | None) -> list[Counter]:
         section = self.sections.get(section_id) if section_id is not None else None
@@ -144,6 +144,16 @@ class FakeQueueRepository:
 
     def refresh(self, instance: object) -> None:
         return None
+
+
+def make_store_config(token_id_prefix: str | None) -> StoreConfig:
+    return StoreConfig(
+        store_id=1,
+        token_id_prefix=token_id_prefix,
+        base_service_minutes=4,
+        per_item_service_minutes=0.25,
+        min_service_minutes=5,
+    )
 
 
 @pytest.fixture
@@ -172,7 +182,7 @@ def test_join_queue_creates_waiting_token(queue_service: QueueService) -> None:
     )
 
     assert response.token_id == 1
-    assert response.token_number == "S1-001"
+    assert response.token_number == "S1-C1-001"
     assert response.position == 1
     assert response.estimated_wait_minutes == 0
     assert response.calculation_method == "RULE_BASED"
@@ -203,8 +213,38 @@ def test_join_queue_uses_store_config_for_prefix_and_service_time(queue_service:
     )
 
     token = queue_service.repository.tokens[0]
-    assert response.token_number == "BILL-001"
+    assert response.token_number == "BILL-C1-001"
     assert token.service_time_minutes == 8
+
+
+def test_join_queue_falls_back_to_counter_id_prefix(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    queue_service.repository.counters[0].token_prefix = None
+    queue_service.repository.store_configs[1] = make_store_config("BILL")
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210"))
+
+    assert response.token_number == "BILL-C1-001"
+
+
+def test_join_queue_falls_back_to_legacy_store_prefix(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210"))
+
+    assert response.token_number == "S1-C1-001"
+
+
+def test_join_queue_sequence_is_independent_per_counter(queue_service: QueueService) -> None:
+    queue_service.repository.store_configs[1] = make_store_config("BILL")
+
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=1))
+    third = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543212", item_count=1))
+
+    assert first.token_number == "BILL-C1-001"
+    assert second.token_number == "BILL-C2-001"
+    assert third.token_number == "BILL-C1-002"
 
 
 def test_join_queue_rejects_when_store_calendar_is_closed_today(queue_service: QueueService) -> None:

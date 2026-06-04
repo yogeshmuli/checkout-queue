@@ -87,7 +87,7 @@ class QueueService:
         # Reserve the selected counter slot for this token.
         selected_counter.next_available_time = calling_time + service_time
 
-        token_number = self._generate_token_number(payload.store_id, payload.section_id, store_config)
+        token_number = self._generate_token_number(payload.store_id, payload.section_id, selected_counter, store_config)
 
         token = QueueToken(
             store_id=payload.store_id,
@@ -416,13 +416,15 @@ class QueueService:
         self,
         store_id: int,
         section_id: int | None,
+        counter,
         config: StoreConfig | None = None,
     ) -> str:
-        existing_token_count = self.repository.count_tokens_for_numbering(store_id, section_id)
+        existing_token_count = self.repository.count_tokens_for_numbering(counter.id)
         prefix = config.token_id_prefix if config is not None and config.token_id_prefix else None
         if prefix is None:
             prefix = f"S{section_id}" if section_id is not None else f"ST{store_id}"
-        return f"{prefix}-{existing_token_count + 1:03d}"
+        counter_prefix = counter.token_prefix if counter.token_prefix else f"C{counter.id}"
+        return f"{prefix}-{counter_prefix}-{existing_token_count + 1:03d}"
 
     def _rebuild_counter_schedule(self, counter_id: int, reference_time: datetime | None = None) -> None:
         """Deterministically recompute waiting schedule for one counter lane.

@@ -9,6 +9,7 @@ class CounterBase(BaseModel):
     section_id: int
     counter_type: CounterType
     name: str | None = Field(default=None, max_length=100)
+    token_prefix: str | None = Field(default=None, max_length=20)
     is_active: bool = True
 
 
@@ -20,6 +21,7 @@ class CounterUpdateRequest(BaseModel):
     section_id: int | None = None
     counter_type: CounterType | None = None
     name: str | None = Field(default=None, max_length=100)
+    token_prefix: str | None = Field(default=None, max_length=20)
     is_active: bool | None = None
 
 
@@ -28,6 +30,7 @@ class CounterResponse(BaseModel):
     section_id: int
     counter_type: CounterType
     name: str | None
+    token_prefix: str | None
     is_active: bool
     next_available_time: datetime
     created_at: datetime

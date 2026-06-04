@@ -288,7 +288,7 @@ Example response:
 ```json
 {
   "token_id": 1,
-  "token_number": "S1-001",
+  "token_number": "S1-C1-001",
   "store_id": 1,
   "section_id": 1,
   "status": "WAITING",
@@ -304,6 +304,7 @@ Result:
 - Validates active checkout section when `section_id` is provided.
 - Rejects duplicate active token for the same phone number in the same store with HTTP `409`.
 - Creates a `WAITING` queue token.
+- Generates token numbers with store/section token prefix plus the selected counter prefix and a per-counter sequence, for example `BILL-C1-001`.
 - Calculates queue position from waiting tokens ahead.
 - Calculates estimated wait time from waiting tokens ahead, their item counts, active counters, and store-level service-time configuration.
 - Uses the store token prefix configuration when generating token numbers.
@@ -524,6 +525,7 @@ Result:
 - Soft-deletes counters through `DELETE /api/v1/counters/{counter_id}`.
 - Enforces section linkage in UI and backend (`section_id` is required for counters).
 - Constrains counter type to `REGULAR`, `EXPRESS`, `SELF_CHECKOUT`, `RETURNS_EXCHANGE`, or `PRIORITY` and presents those choices as a dropdown in the admin UI.
+- Supports optional alphanumeric counter token prefixes, normalized to uppercase and unique within a section; blank prefixes fall back to `C{counter_id}`.
 - Supports store-filtered section selection in the admin form.
 - Includes frontend field validation, search/filter, pagination, unsaved-change confirmation, and active/inactive status controls.
 - Supports shareable section-filtered counter links with `/app/checkout/admin/counters?section_id={section_id}`.
@@ -759,6 +761,7 @@ Implemented migrations:
 - `20260522_0010_add_ml_model_metadata.py`
 - `20260522_0011_add_store_calendar_events.py`
 - `20260524_0016_add_customer_notifications.py`
+- `20260604_0018_add_counter_token_prefix.py`
 
 ### Authentication
 
