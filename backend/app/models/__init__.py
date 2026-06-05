@@ -13,17 +13,16 @@ from app.models.notification import (
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.store_config import StoreConfig
-from app.models.trial import (
+from app.models.trial_calendar import (
     TrialCalendarDay,
     TrialCalendarEvent,
     TrialCalendarEventType,
     TrialHoliday,
-    TrialQueueToken,
-    TrialQueueTokenStatus,
-    TrialStoreConfig,
-    TrialStudio,
-    TrialZone,
 )
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_store_config import TrialStoreConfig
+from app.models.trial_studio import TrialStudio
+from app.models.trial_zone import TrialZone
 from app.models.user import RefreshToken, User, UserRole, UserStoreAccess
 
 __all__ = [

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import joblib
 
 from app.models.ml_model_metadata import MLModelMetadata
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
 from app.schemas.ml import ServiceTimePredictionResponse, TrialServiceTimePredictionRequest
 
 

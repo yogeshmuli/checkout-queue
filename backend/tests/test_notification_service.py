@@ -11,7 +11,8 @@ from app.models.notification import (
 )
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio, TrialStudioType
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_studio import TrialStudio, TrialStudioType
 from app.services.notification_service import NotificationService
 from app.services.sms_client import MockSmsClient
 

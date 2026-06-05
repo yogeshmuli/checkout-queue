@@ -16,7 +16,7 @@ from app.models.notification import (
     StoreNotificationConfig,
 )
 from app.models.queue_token import QueueToken
-from app.models.trial import TrialQueueToken
+from app.models.trial_queue_token import TrialQueueToken
 from app.repositories.notification_repository import NotificationRepository
 from app.schemas.notification import StoreNotificationConfigUpdateRequest
 from app.services.sms_client import MockSmsClient

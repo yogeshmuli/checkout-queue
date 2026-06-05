@@ -15,7 +15,11 @@ from app.routes import (
     staff_routes,
     store_config_routes,
     store_routes,
-    trial_routes,
+    trial_calendar_routes,
+    trial_queue_routes,
+    trial_store_config_routes,
+    trial_studio_routes,
+    trial_zone_routes,
 )
 
 api_router = APIRouter()
@@ -37,7 +41,11 @@ if settings.ENABLE_CHECKOUT_QUEUE or settings.ENABLE_TRIAL_QUEUE:
     api_router.include_router(ml_routes.router)
 
 if settings.ENABLE_TRIAL_QUEUE:
-    api_router.include_router(trial_routes.router)
+    api_router.include_router(trial_zone_routes.router)
+    api_router.include_router(trial_studio_routes.router)
+    api_router.include_router(trial_store_config_routes.router)
+    api_router.include_router(trial_calendar_routes.router)
+    api_router.include_router(trial_queue_routes.router)
 
 if settings.ENABLE_DEMO_TOOLS:
     api_router.include_router(demo_tools_routes.router)

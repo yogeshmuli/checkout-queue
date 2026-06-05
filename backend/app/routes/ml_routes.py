@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.core.security import require_roles
 from app.models.user import User, UserRole
 from app.repositories.queue_repository import QueueRepository
-from app.repositories.trial_repository import TrialRepository
+from app.repositories.trial_queue_repository import TrialQueueRepository
 from app.schemas.ml import MLModelMetadataResponse, ServiceTimePredictionRequest, ServiceTimePredictionResponse, TrialServiceTimePredictionRequest
 from app.services.ml_training_service import MLTrainingService
 from app.services.prediction_service import PredictionService
@@ -77,7 +77,7 @@ def predict_trial_store_service_time(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*ml_admin_roles)),
 ) -> ServiceTimePredictionResponse:
-    prediction = TrialPredictionService(TrialRepository(db)).predict_service_time(store_id, payload)
+    prediction = TrialPredictionService(TrialQueueRepository(db)).predict_service_time(store_id, payload)
     if prediction is None:
         return ServiceTimePredictionResponse(service_time_minutes=0, calculation_method="ML_UNAVAILABLE")
     return prediction

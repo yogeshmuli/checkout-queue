@@ -5,7 +5,8 @@ from app.models.counter import Counter
 from app.models.notification import NotificationLog, NotificationModuleType, NotificationType, StoreNotificationConfig
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_studio import TrialStudio
 
 
 ACTIVE_CHECKOUT_STATUSES = (QueueTokenStatus.WAITING, QueueTokenStatus.CALLED, QueueTokenStatus.SERVING)

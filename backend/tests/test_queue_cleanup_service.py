@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 from app.models.counter import Counter, CounterType
 from app.models.queue_token import QueueToken, QueueTokenStatus
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio, TrialStudioType
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_studio import TrialStudio, TrialStudioType
 from app.services.queue_cleanup_service import NIGHTLY_CLEANUP_REASON, QueueCleanupService
 
 

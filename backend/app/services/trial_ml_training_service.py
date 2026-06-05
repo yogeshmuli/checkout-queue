@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.ml_model_metadata import MLModelMetadata
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus
-from app.repositories.trial_repository import TrialRepository
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.repositories.trial_queue_repository import TrialQueueRepository
 from app.schemas.ml import MLModelMetadataResponse
 
 
@@ -26,7 +26,7 @@ class TrialMLTrainingService:
     MODEL_TYPE = "random_forest_trial_service_time_v1"
 
     def __init__(self, db: Session) -> None:
-        self.repository = TrialRepository(db)
+        self.repository = TrialQueueRepository(db)
 
     def train_store_model(self, store_id: int) -> MLModelMetadataResponse:
         store = self.repository.get_store(store_id)

@@ -78,6 +78,11 @@ checkout-que/
 │   │   │   ├── counter.py
 │   │   │   ├── staff.py
 │   │   │   ├── queue_token.py
+│   │   │   ├── trial_zone.py
+│   │   │   ├── trial_studio.py
+│   │   │   ├── trial_store_config.py
+│   │   │   ├── trial_calendar.py
+│   │   │   ├── trial_queue_token.py
 │   │   │   ├── alert_config.py
 │   │   │   ├── support_ticket.py
 │   │   │   └── ml_model_metadata.py
@@ -89,6 +94,11 @@ checkout-que/
 │   │   │   ├── counter.py
 │   │   │   ├── staff.py
 │   │   │   ├── queue.py
+│   │   │   ├── trial_zone.py
+│   │   │   ├── trial_studio.py
+│   │   │   ├── trial_store_config.py
+│   │   │   ├── trial_calendar.py
+│   │   │   ├── trial_queue.py
 │   │   │   ├── alert.py
 │   │   │   ├── analytics.py
 │   │   │   ├── auth.py
@@ -102,6 +112,11 @@ checkout-que/
 │   │   │   ├── section_routes.py
 │   │   │   ├── staff_routes.py
 │   │   │   ├── queue_routes.py
+│   │   │   ├── trial_zone_routes.py
+│   │   │   ├── trial_studio_routes.py
+│   │   │   ├── trial_store_config_routes.py
+│   │   │   ├── trial_calendar_routes.py
+│   │   │   ├── trial_queue_routes.py
 │   │   │   ├── cashier_routes.py
 │   │   │   ├── alert_routes.py
 │   │   │   ├── analytics_routes.py
@@ -116,6 +131,11 @@ checkout-que/
 │   │   │   ├── section_service.py
 │   │   │   ├── staff_service.py
 │   │   │   ├── queue_service.py
+│   │   │   ├── trial_zone_service.py
+│   │   │   ├── trial_studio_service.py
+│   │   │   ├── trial_store_config_service.py
+│   │   │   ├── trial_calendar_service.py
+│   │   │   ├── trial_queue_service.py
 │   │   │   ├── cashier_service.py
 │   │   │   ├── alert_service.py
 │   │   │   ├── analytics_service.py
@@ -132,6 +152,11 @@ checkout-que/
 │   │   │   ├── counter_repository.py
 │   │   │   ├── staff_repository.py
 │   │   │   ├── queue_repository.py
+│   │   │   ├── trial_zone_repository.py
+│   │   │   ├── trial_studio_repository.py
+│   │   │   ├── trial_store_config_repository.py
+│   │   │   ├── trial_calendar_repository.py
+│   │   │   ├── trial_queue_repository.py
 │   │   │   ├── alert_repository.py
 │   │   │   ├── analytics_repository.py
 │   │   │   ├── ml_repository.py
@@ -615,6 +640,7 @@ Current frontend implementation:
 - `trial/admin/AdminApp` provides the trial admin portal shell, sidebar, header, and nested admin routes, matching the checkout admin module pattern.
 - Trial assistants persist `users.assigned_zone_id` rather than a studio assignment. Trial tokens remain assigned to individual studios for scheduling, while the Trial staff workspace aggregates studio queues through `/api/v1/trial/queue/zones/{zone_id}/studios`.
 - Trial staff API authorization scopes `TRIAL_ZONE_ASSISTANT` users to their assigned zone and managers to zones inside their assigned store.
+- Trial backend files are split by domain, matching Checkout-style boundaries for zones, studios, config, calendar, and queue; compatibility re-export modules preserve older `app.models.trial` and `app.schemas.trial` imports.
 - Trial admin ML connects to `/api/v1/ml/trial/stores/{store_id}/train|metadata` and displays the latest trial service-time model.
 
 ## 9. Request Flow Examples

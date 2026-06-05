@@ -4,7 +4,8 @@ from fastapi import HTTPException
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter
 from app.models.store import Store
-from app.models.trial import TrialStudio, TrialZone
+from app.models.trial_studio import TrialStudio
+from app.models.trial_zone import TrialZone
 from app.models.user import User, UserRole, UserStoreAccess
 from app.schemas.staff import StaffCreateRequest, StaffUpdateRequest
 from app.services.staff_service import StaffService

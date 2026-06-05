@@ -15,7 +15,9 @@ from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.user import User, UserRole
 from app.routes.demo_tools_routes import router as demo_tools_router
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio, TrialZone
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_studio import TrialStudio
+from app.models.trial_zone import TrialZone
 from app.routes.api import api_router
 from app.services.demo_tools_service import (
     CHECKOUT_COMPLETED_SAMPLE_COUNT,

@@ -3,9 +3,12 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import HTTPException
 
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStoreConfig, TrialStudio, TrialStudioType, TrialZone
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_store_config import TrialStoreConfig
+from app.models.trial_studio import TrialStudio, TrialStudioType
+from app.models.trial_zone import TrialZone
 from app.models.user import User, UserRole
-from app.schemas.trial import TrialQueueEventRequest, TrialQueueEventType
+from app.schemas.trial_queue import TrialQueueEventRequest, TrialQueueEventType
 from app.services.trial_service import TrialService
 
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
 from app.models.store import Store
-from app.models.trial import TrialZone
+from app.models.trial_zone import TrialZone
 from app.models.user import User, UserStoreAccess
 
 

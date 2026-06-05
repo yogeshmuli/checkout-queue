@@ -6,7 +6,9 @@ from app.models.counter import Counter
 from app.models.ml_model_metadata import MLModelMetadata
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
-from app.models.trial import TrialQueueToken, TrialQueueTokenStatus, TrialStudio, TrialZone
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_studio import TrialStudio
+from app.models.trial_zone import TrialZone
 
 
 class DemoToolsRepository:

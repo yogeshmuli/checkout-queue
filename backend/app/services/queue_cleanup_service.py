@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.queue_token import QueueTokenStatus
-from app.models.trial import TrialQueueTokenStatus
+from app.models.trial_queue_token import TrialQueueTokenStatus
 from app.repositories.queue_cleanup_repository import QueueCleanupRepository
 
 

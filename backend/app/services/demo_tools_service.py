@@ -13,15 +13,11 @@ from app.models.counter import Counter, CounterBasketSizeBand, CounterType
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.store_config import StoreConfig
-from app.models.trial import (
-    TrialCalendarDay,
-    TrialCalendarEvent,
-    TrialCalendarEventType,
-    TrialQueueToken,
-    TrialQueueTokenStatus,
-    TrialStoreConfig,
-    TrialStudio,
-    TrialStudioType,
+from app.models.trial_calendar import TrialCalendarDay, TrialCalendarEvent, TrialCalendarEventType
+from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
+from app.models.trial_store_config import TrialStoreConfig
+from app.models.trial_studio import TrialStudio, TrialStudioType
+from app.models.trial_zone import (
     TrialZone,
     TrialZoneGender,
     TrialZoneType,
