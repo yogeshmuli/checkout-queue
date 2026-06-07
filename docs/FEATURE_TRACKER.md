@@ -307,6 +307,7 @@ Result:
 - Resolves an effective item count before allocation: explicit `item_count`, otherwise basket-derived values (`small=9`, `medium=20`, `large=30`), otherwise store `default_item_count` when the customer is still shopping.
 - Filters active counters by optional counter basket allocation bands before assignment: `SMALL` for fewer than 10 items, `MEDIUM` for 10-20 items, and `LARGE` for more than 20 items; unrestricted counters accept any item count.
 - Generates token numbers with store/section token prefix plus the selected counter prefix and a per-counter sequence, for example `BILL-C1-001`.
+- Supports a store-level shared queue mode where customers join one section queue, tokens remain unassigned until staff pulls them, token numbers use `{TokenPrefix}-Q-001`, and wait estimates simulate assignment to the earliest eligible active counter.
 - Calculates queue position from waiting tokens ahead.
 - Calculates estimated wait time from waiting tokens ahead, their item counts, active counters, and store-level service-time configuration.
 - Uses the store token prefix configuration when generating token numbers.
@@ -341,7 +342,8 @@ Example request:
   "base_service_minutes": 6,
   "per_item_service_minutes": 0.5,
   "min_service_minutes": 8,
-  "default_item_count": 10
+  "default_item_count": 10,
+  "shared_queue_enabled": false
 }
 ```
 
@@ -352,6 +354,7 @@ Result:
 - Applies the configured token prefix to new queue tokens.
 - Applies configured base, per-item, and minimum service minutes to queue wait-time calculation.
 - Applies the default item count when still-shopping customers provide neither item count nor basket size.
+- Toggles shared section queue mode for stores that want counters to pull from one section queue instead of assigning counters at token creation.
 - Exposes a frontend admin screen at `/app/checkout/admin/store-config?store_id={store_id}`.
 
 ### 11. Staff Can Process Queue Token Events
@@ -770,6 +773,7 @@ Implemented migrations:
 - `20260604_0018_add_counter_token_prefix.py`
 - `20260604_0019_add_counter_basket_size_bands.py`
 - `20260604_0020_add_store_config_default_item_count.py`
+- `20260604_0021_add_shared_queue_flag.py`
 
 ### Authentication
 

@@ -1,4 +1,4 @@
-import { CheckCircle2, CirclePause, CirclePlay, LogOut, RefreshCcw, XCircle } from 'lucide-react';
+import { CheckCircle2, LogOut, RefreshCcw, XCircle } from 'lucide-react';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { formatTime } from '../utils/staffUtils.js';
@@ -16,7 +16,7 @@ export function Counter({
   message,
   currentToken,
   completeToken,
-  cancelToken,
+  requestCancelToken,
   waitingTokens,
   startNextToken,
   loadCounterQueue,
@@ -40,7 +40,7 @@ export function Counter({
         </header>
 
         <div className="mt-5 rounded-lg bg-white p-4 text-ink glass-panel">
-          <label className="text-sm font-medium text-charcoal">Assigned counter</label>
+          {/* <label className="text-sm font-medium text-charcoal">Assigned counter</label>
           {counterName ? (
             <div className="mt-1 rounded-lg border border-line bg-slate-50 px-3 py-2 text-sm font-semibold text-ink">{counterName}</div>
           ) : (
@@ -50,18 +50,29 @@ export function Counter({
               className="mt-1 w-full rounded-lg border border-line px-3 py-2 outline-none focus:border-brand-red"
               aria-label="Counter ID"
             />
-          )}
-          <button
-            type="button"
-            onClick={() => runAction(() => updateCounterStatus(activeCounterId, { is_active: !counterActive }))}
-            disabled={!accessToken || loading}
-            className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold disabled:opacity-60 ${
-              counterActive ? 'bg-success text-white' : 'bg-brand-soft text-charcoal'
-            }`}
-          >
-            {counterActive ? <CirclePlay size={18} /> : <CirclePause size={18} />}
-            {counterActive ? 'Counter active' : 'Counter inactive'}
-          </button>
+          )} */}
+          <div className="mt-3 rounded-lg border border-line bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-charcoal">Counter status</p>
+                <p className={`mt-1 text-xs font-semibold ${counterActive ? 'text-success' : 'text-muted'}`}>
+                  {counterActive ? 'Active and accepting tokens' : 'Inactive'}
+                </p>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  checked={counterActive}
+                  onChange={() => runAction(() => updateCounterStatus(activeCounterId, { is_active: !counterActive }))}
+                  disabled={!accessToken || loading || !activeCounterId}
+                  className="peer sr-only"
+                  aria-label="Toggle counter active status"
+                />
+                <span className="h-7 w-12 rounded-full bg-slate-300 transition-colors peer-checked:bg-success peer-disabled:opacity-60" />
+                <span className="absolute left-1 top-1 size-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+              </label>
+            </div>
+          </div>
         </div>
 
         {message ? <p className="mt-4 rounded-lg bg-rose-100 px-3 py-2 text-sm text-rose-800">{message}</p> : null}
@@ -86,7 +97,7 @@ export function Counter({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runAction(() => cancelToken(currentToken.token_id))}
+                  onClick={() => requestCancelToken(currentToken)}
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white"
                 >
                   <XCircle size={18} />
@@ -125,7 +136,7 @@ export function Counter({
                   </p>
                   <p className="text-xs text-muted">Call {formatTime(token.calling_time)}</p>
                 </div>
-                <button type="button" onClick={() => runAction(() => cancelToken(token.token_id))} className="rounded-lg border border-rose-200 p-2 text-rose-700" title="Cancel token">
+                <button type="button" onClick={() => requestCancelToken(token)} className="rounded-lg border border-rose-200 p-2 text-rose-700" title="Cancel token">
                   <XCircle size={18} />
                 </button>
               </div>

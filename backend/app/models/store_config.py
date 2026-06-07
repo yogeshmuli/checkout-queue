@@ -1,4 +1,4 @@
-from sqlalchemy import Float, ForeignKey, String
+from sqlalchemy import Boolean, Float, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -20,5 +20,6 @@ class StoreConfig(TimestampMixin, Base):
     per_item_service_minutes: Mapped[float] = mapped_column(Float, default=0.25, nullable=False)
     min_service_minutes: Mapped[int] = mapped_column(default=5, nullable=False)
     default_item_count: Mapped[int] = mapped_column(default=10, nullable=False)
+    shared_queue_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     store = relationship("Store", back_populates="config")

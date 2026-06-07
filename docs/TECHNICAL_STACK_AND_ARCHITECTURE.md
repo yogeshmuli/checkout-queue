@@ -635,6 +635,7 @@ Current frontend implementation:
 - Admin store, section, counter, staff, queue, store config, calendar, and ML pages connect to their implemented APIs.
 - `checkout/staff/StaffApp` provides a mobile-first counter operations console integrated with auth and queue transition APIs.
 - `checkout/customer/CustomerApp` connects to `POST /api/v1/queue/join`, displays token details after enrollment, and polls token status.
+- Checkout store config can switch a store between counter-assigned token creation and shared section queue mode. In shared mode, waiting tokens stay unassigned until a counter pulls them, while schedule rebuilds simulate the earliest eligible counter for each token.
 - `ContextSelector` lets logged-in users choose Checkout Queue or Trial Queue when multiple product modules are enabled.
 - `TrialApp` owns separate trial admin, staff, and customer route trees under `/app/trial/*`.
 - `trial/admin/AdminApp` provides the trial admin portal shell, sidebar, header, and nested admin routes, matching the checkout admin module pattern.
@@ -769,7 +770,7 @@ Customer create token
         -> otherwise:
              service_time_minutes = store rule-based config
              calculation_method = RULE_BASED
-        -> QueueService schedules the token on the earliest available eligible counter
+        -> QueueService schedules the token on the earliest available eligible counter, or simulates a shared section queue when the store enables shared mode
         -> QueueService calculates calling_time and estimated_wait_minutes
       -> returns queue token response
 ```
@@ -791,7 +792,7 @@ Important behavior:
 - V2 model features include item count, section busy count, active section counters, recent cancellation rate, recent average service time, hour, day of week, weekend flag, promotion/sale flag, basket size, cart type, customer type, section, and assigned counter.
 - Promotion/sale flags come from active store calendar events.
 - The prediction target is checkout service minutes, not wait minutes.
-- Queue wait remains deterministic and counter-based.
+- Queue wait remains deterministic. Default Checkout mode is counter-based; shared queue mode keeps one section queue and simulates earliest eligible counter availability until staff pulls a token.
 - If ML is missing, under-trained, stale, broken, or the artifact cannot be read, queue creation continues with rule-based estimation.
 - Model artifacts live under `ML_MODEL_DIR`; metadata lives in PostgreSQL.
 - Loaded model artifacts are cached in process memory by store id, model version, artifact path, and file mtime. A newly trained model gets a new version/path, and an overwritten artifact gets a new mtime, so stale cache entries are naturally bypassed.

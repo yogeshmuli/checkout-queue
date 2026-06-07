@@ -54,6 +54,15 @@ export async function updateCounterStatus(counterId, payload) {
   }
 }
 
+export async function startNextTokenForCounter(counterId) {
+  try {
+    const response = await httpClient.post(`/queue/counters/${counterId}/start-next`);
+    return response.data;
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+}
+
 export async function callToken(tokenId) {
   try {
     const response = await httpClient.post('/queue/events', {

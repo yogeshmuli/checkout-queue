@@ -347,7 +347,7 @@ function TokenRow({ token, storeName, section, counter, loading, onCall, onStart
           <p>Phone: {token.phone_number}</p>
           <p>Store: {storeName || `#${token.store_id}`}</p>
           <p>Section: {section?.name || 'None'}</p>
-          <p>Counter: {counter?.name || (token.assigned_counter_id ? `#${token.assigned_counter_id}` : 'None')}</p>
+          <p>Counter: {counter?.name || (token.assigned_counter_id ? `#${token.assigned_counter_id}` : 'Shared queue')}</p>
           <p>Calling: {formatTime(token.calling_time)}</p>
           <p>Items: {token.item_count ?? 'Not set'}</p>
         </div>

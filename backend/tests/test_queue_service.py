@@ -94,6 +94,20 @@ class FakeQueueRepository:
         max_dt = datetime.max.replace(tzinfo=timezone.utc)
         return sorted(waiting, key=lambda token: ((token.calling_time or max_dt), token.id or 0))
 
+    def list_shared_waiting_tokens(self, store_id: int, section_id: int) -> list[QueueToken]:
+        waiting = [
+            token
+            for token in self.tokens
+            if (
+                token.store_id == store_id
+                and token.section_id == section_id
+                and token.assigned_counter_id is None
+                and token.status == QueueTokenStatus.WAITING
+            )
+        ]
+        max_dt = datetime.max.replace(tzinfo=timezone.utc)
+        return sorted(waiting, key=lambda token: ((token.created_at or max_dt), token.id or 0))
+
     def get_current_serving_customer_for_counter(self, counter_id: int) -> QueueToken | None:
         serving = [
             token
@@ -125,6 +139,25 @@ class FakeQueueRepository:
     def count_tokens_for_numbering(self, counter_id: int) -> int:
         return len([token for token in self.tokens if token.assigned_counter_id == counter_id])
 
+    def count_shared_tokens_for_numbering(self, store_id: int, section_id: int) -> int:
+        return len([
+            token
+            for token in self.tokens
+            if token.store_id == store_id and token.section_id == section_id and "-Q-" in (token.token_number or "")
+        ])
+
+    def list_tokens_for_counter(self, counter_id: int) -> list[QueueToken]:
+        tokens = [
+            token
+            for token in self.tokens
+            if (
+                token.assigned_counter_id == counter_id
+                and token.status in (QueueTokenStatus.WAITING, QueueTokenStatus.CALLED, QueueTokenStatus.SERVING)
+            )
+        ]
+        max_dt = datetime.max.replace(tzinfo=timezone.utc)
+        return sorted(tokens, key=lambda token: ((token.calling_time or max_dt), token.id or 0))
+
     def list_active_counters(self, store_id: int, section_id: int | None) -> list[Counter]:
         section = self.sections.get(section_id) if section_id is not None else None
         if section_id is not None and (section is None or section.store_id != store_id or not section.is_active):
@@ -146,7 +179,7 @@ class FakeQueueRepository:
         return None
 
 
-def make_store_config(token_id_prefix: str | None) -> StoreConfig:
+def make_store_config(token_id_prefix: str | None, shared_queue_enabled: bool = False) -> StoreConfig:
     return StoreConfig(
         store_id=1,
         token_id_prefix=token_id_prefix,
@@ -154,6 +187,7 @@ def make_store_config(token_id_prefix: str | None) -> StoreConfig:
         per_item_service_minutes=0.25,
         min_service_minutes=5,
         default_item_count=10,
+        shared_queue_enabled=shared_queue_enabled,
     )
 
 
@@ -246,6 +280,74 @@ def test_join_queue_sequence_is_independent_per_counter(queue_service: QueueServ
     assert first.token_number == "BILL-C1-001"
     assert second.token_number == "BILL-C2-001"
     assert third.token_number == "BILL-C1-002"
+
+
+def test_shared_queue_requires_section(queue_service: QueueService) -> None:
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.join_queue(QueueJoinRequest(store_id=1, phone_number="9876543210", item_count=1))
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Section is required for shared queue stores"
+
+
+def test_shared_queue_join_creates_unassigned_section_token(queue_service: QueueService) -> None:
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+
+    response = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+    token = queue_service.repository.tokens[0]
+
+    assert response.token_number == "BILL-Q-001"
+    assert response.assigned_counter_id is None
+    assert token.assigned_counter_id is None
+    assert response.position == 1
+    assert token.calling_time is not None
+
+
+def test_shared_queue_schedules_by_earliest_eligible_counter(queue_service: QueueService) -> None:
+    now = datetime.now(timezone.utc)
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+    queue_service.repository.counters = [
+        Counter(id=1, section_id=1, counter_type="regular", name="Small", token_prefix="SML", basket_size_bands=["SMALL"], is_active=True, next_available_time=now),
+        Counter(id=2, section_id=1, counter_type="regular", name="Large", token_prefix="LRG", basket_size_bands=["LARGE"], is_active=True, next_available_time=now),
+    ]
+
+    small = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=5))
+    large = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=25))
+
+    assert small.assigned_counter_id is None
+    assert large.assigned_counter_id is None
+    assert queue_service.repository.tokens[0].calling_time is not None
+    assert queue_service.repository.tokens[1].calling_time is not None
+    assert queue_service.repository.counters[0].next_available_time > queue_service.repository.tokens[0].calling_time
+    assert queue_service.repository.counters[1].next_available_time > queue_service.repository.tokens[1].calling_time
+
+
+def test_shared_queue_position_is_section_wide(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=1))
+
+    assert first.position == 1
+    assert second.position == 2
+    assert queue_service.get_token_status(token_id=second.token_id).position == 2
+
+
+def test_shared_queue_staff_pull_assigns_counter(queue_service: QueueService) -> None:
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+    created = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+
+    response = queue_service.start_next_token_for_counter(2)
+    token = queue_service.repository.get_token(created.token_id)
+    next_created = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=1))
+
+    assert response.status == QueueTokenStatus.SERVING
+    assert response.assigned_counter_id == 2
+    assert token.assigned_counter_id == 2
+    assert next_created.token_number == "BILL-Q-002"
 
 
 def test_join_queue_rejects_when_store_calendar_is_closed_today(queue_service: QueueService) -> None:
@@ -696,6 +798,25 @@ def test_customer_move_last_cancels_original_and_creates_replacement_in_same_cou
     assert replacement_token.calling_time > second_token.calling_time
     assert second_token.calling_time <= old_second_calling_time
     assert queue_service.repository.counters[0].next_available_time > replacement_token.calling_time
+
+
+def test_shared_queue_customer_move_last_keeps_replacement_unassigned(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543700", item_count=1))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543701", item_count=1))
+    second_token = queue_service.repository.get_token(second.token_id)
+
+    replacement = queue_service.move_token_last_by_customer(first.token_id)
+    original = queue_service.repository.get_token(first.token_id)
+    replacement_token = queue_service.repository.get_token(replacement.token_id)
+
+    assert original.status == QueueTokenStatus.CANCELLED
+    assert original.cancellation_reason == "Moved to end by customer"
+    assert replacement.status == QueueTokenStatus.WAITING
+    assert replacement.assigned_counter_id is None
+    assert replacement.token_number == "BILL-Q-003"
+    assert replacement_token.calling_time > second_token.calling_time
 
 
 def test_customer_move_last_rejects_serving_terminal_missing_and_unassigned_tokens(queue_service: QueueService) -> None:

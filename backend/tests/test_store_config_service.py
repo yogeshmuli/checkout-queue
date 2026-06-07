@@ -24,6 +24,8 @@ class FakeStoreConfigRepository:
         config.id = len(self.configs) + 1
         if getattr(config, "default_item_count", None) is None:
             config.default_item_count = 10
+        if getattr(config, "shared_queue_enabled", None) is None:
+            config.shared_queue_enabled = False
         self.configs[config.store_id] = config
         return config
 
@@ -49,6 +51,7 @@ def test_get_store_config_creates_default_item_count(store_config_service: Store
     config = store_config_service.get_store_config(1)
 
     assert config.default_item_count == 10
+    assert config.shared_queue_enabled is False
 
 
 def test_update_store_config_saves_default_item_count(store_config_service: StoreConfigService) -> None:
@@ -60,11 +63,13 @@ def test_update_store_config_saves_default_item_count(store_config_service: Stor
             per_item_service_minutes=0.5,
             min_service_minutes=8,
             default_item_count=18,
+            shared_queue_enabled=True,
         ),
     )
 
     assert config.token_id_prefix == "BILL"
     assert config.default_item_count == 18
+    assert config.shared_queue_enabled is True
 
 
 def test_store_config_rejects_invalid_default_item_count() -> None:

@@ -154,6 +154,20 @@ class QueueRepository:
         )
         return list(self.db.scalars(statement).all())
 
+    def list_shared_waiting_tokens(self, store_id: int, section_id: int) -> list[QueueToken]:
+        statement = (
+            select(QueueToken)
+            .where(
+                QueueToken.store_id == store_id,
+                QueueToken.section_id == section_id,
+                QueueToken.assigned_counter_id.is_(None),
+                QueueToken.status == QueueTokenStatus.WAITING,
+            )
+            .order_by(QueueToken.created_at.asc().nulls_last(), QueueToken.id.asc())
+        )
+        res= list(self.db.scalars(statement).all())
+        return res
+
     def list_active_tokens_for_counter(self, counter_id: int) -> list[QueueToken]:
         statement = (
             select(QueueToken)
@@ -297,6 +311,14 @@ class QueueRepository:
 
     def count_tokens_for_numbering(self, counter_id: int) -> int:
         statement = select(func.count(QueueToken.id)).where(QueueToken.assigned_counter_id == counter_id)
+        return self.db.scalar(statement) or 0
+
+    def count_shared_tokens_for_numbering(self, store_id: int, section_id: int) -> int:
+        statement = select(func.count(QueueToken.id)).where(
+            QueueToken.store_id == store_id,
+            QueueToken.section_id == section_id,
+            QueueToken.token_number.like("%-Q-%"),
+        )
         return self.db.scalar(statement) or 0
 
     def create_token(self, token: QueueToken) -> QueueToken:

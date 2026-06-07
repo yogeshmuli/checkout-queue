@@ -14,6 +14,7 @@ const emptyConfig = {
   per_item_service_minutes: '0.25',
   min_service_minutes: '5',
   default_item_count: '10',
+  shared_queue_enabled: false,
 };
 
 export function StoreConfig() {
@@ -56,6 +57,7 @@ export function StoreConfig() {
       per_item_service_minutes: String(config.per_item_service_minutes ?? 0.25),
       min_service_minutes: String(config.min_service_minutes ?? 5),
       default_item_count: String(config.default_item_count ?? 10),
+      shared_queue_enabled: Boolean(config.shared_queue_enabled),
     };
   }
 
@@ -162,6 +164,7 @@ export function StoreConfig() {
         per_item_service_minutes: Number(form.per_item_service_minutes),
         min_service_minutes: Number(form.min_service_minutes),
         default_item_count: Number(form.default_item_count),
+        shared_queue_enabled: Boolean(form.shared_queue_enabled),
       };
       setForm(toForm(await updateStoreConfig(storeId, payload)));
       setMessage('Store queue config saved');
@@ -245,6 +248,20 @@ export function StoreConfig() {
             min="0"
             step="1"
           />
+          <label className="flex rounded-lg border border-line bg-brand-blush/40 p-4 lg:col-span-2">
+            <input
+              type="checkbox"
+              checked={form.shared_queue_enabled}
+              onChange={(event) => setFormField('shared_queue_enabled', event.target.checked)}
+              className="mt-1 size-5 accent-brand-red"
+            />
+            <span className="ml-3">
+              <span className="block text-sm font-semibold text-charcoal">Use shared section queue</span>
+              <span className="mt-1 block text-sm text-muted">
+                Customers join one section queue and counters pull the next eligible token when they are ready.
+              </span>
+            </span>
+          </label>
 
           {message ? <p className="rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal lg:col-span-2">{message}</p> : null}
 

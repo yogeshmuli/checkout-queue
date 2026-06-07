@@ -95,6 +95,15 @@ def update_counter_status(
     return QueueService(db).update_counter_status(counter_id, payload)
 
 
+@router.post("/counters/{counter_id}/start-next", response_model=QueueEventResponse)
+def start_next_token_for_counter(
+    counter_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(*queue_event_roles)),
+) -> QueueEventResponse:
+    return QueueService(db).start_next_token_for_counter(counter_id)
+
+
 @router.post("/tokens/{token_id}/start", response_model=QueueEventResponse)
 def start_token(
     token_id: int,

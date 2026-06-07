@@ -5,11 +5,12 @@ import {
   cancelToken,
   completeToken,
   getCounterQueue,
-  startToken,
+  startNextTokenForCounter,
   updateCounterStatus,
 } from '../../../api/checkout/queueApi.js';
 import { useAuthStore } from '../../../store/authStore.js';
 import { useQueueStore } from '../../../store/queueStore.js';
+import { ConfirmationModal } from '../../common/ConfirmationModal.jsx';
 import { Counter } from './pages/Counter.jsx';
 
 const COUNTER_QUEUE_REFRESH_MS = 30000;
@@ -20,6 +21,7 @@ export function StaffApp() {
   const [counterQueue, setCounterQueue] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [tokenToCancel, setTokenToCancel] = useState(null);
   const assignedCounterId = user?.assigned_counter_id ? String(user.assigned_counter_id) : '';
 
   const tokens = useMemo(() => counterQueue?.tokens || [], [counterQueue]);
@@ -29,7 +31,6 @@ export function StaffApp() {
   const counterName = counterQueue?.counter_name || '';
 
   const loadCounterQueue = useCallback(async () => {
-    debugger
     if (!accessToken || !activeCounterId) return;
     setLoading(true);
     setMessage('');
@@ -70,12 +71,28 @@ export function StaffApp() {
   }
 
   function startNextToken() {
-    const next = waitingTokens[0];
-    if (!next) return;
-    runAction(() => startToken(next.token_id));
+    if (!activeCounterId) return;
+    runAction(() => startNextTokenForCounter(activeCounterId));
+  }
+
+  function requestCancelToken(token) {
+    setTokenToCancel(token);
+  }
+
+  function closeCancelModal() {
+    if (loading) return;
+    setTokenToCancel(null);
+  }
+
+  async function confirmCancelToken() {
+    if (!tokenToCancel) return;
+    const tokenId = tokenToCancel.token_id;
+    setTokenToCancel(null);
+    await runAction(() => cancelToken(tokenId));
   }
 
   return (
+    <>
     <Counter
       activeCounterId={activeCounterId}
       counterName={counterName}
@@ -89,10 +106,22 @@ export function StaffApp() {
       message={message}
       currentToken={currentToken}
       completeToken={completeToken}
-      cancelToken={cancelToken}
+      requestCancelToken={requestCancelToken}
       waitingTokens={waitingTokens}
       startNextToken={startNextToken}
       loadCounterQueue={loadCounterQueue}
     />
+    <ConfirmationModal
+      isOpen={Boolean(tokenToCancel)}
+      title="Cancel token?"
+      message={`This will cancel token ${tokenToCancel?.token_number || ''}. The customer will no longer keep this queue position.`}
+      confirmLabel="Cancel token"
+      cancelLabel="Keep token"
+      variant="danger"
+      loading={loading}
+      onConfirm={confirmCancelToken}
+      onCancel={closeCancelModal}
+    />
+    </>
   );
 }
