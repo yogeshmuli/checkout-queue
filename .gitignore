@@ -35,6 +35,6 @@ backend/.env.example
 # OS files
 .DS_Store
 
-# Ignore everything in public except .gitkeep (if you want to keep the folder)
-frontend/public/*
-!frontend/public/.gitkeep
+# Keep frontend public assets available for Netlify/Vite builds
+!frontend/public/
+!frontend/public/**
