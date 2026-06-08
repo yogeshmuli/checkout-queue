@@ -12,6 +12,7 @@ const defaultConfig = {
   is_enabled: false,
   notify_on_called: true,
   notify_on_next_soon: true,
+  next_soon_token_ahead_count: '2',
   called_message_template: 'Your token {token_number} has been called. Please proceed to {service_point_name}.',
   next_soon_message_template: 'Your token {token_number} will be called soon. Please stay nearby.',
 };
@@ -67,6 +68,7 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
         is_enabled: Boolean(config.is_enabled),
         notify_on_called: Boolean(config.notify_on_called),
         notify_on_next_soon: Boolean(config.notify_on_next_soon),
+        next_soon_token_ahead_count: String(config.next_soon_token_ahead_count ?? 2),
         called_message_template: config.called_message_template || defaultConfig.called_message_template,
         next_soon_message_template: config.next_soon_message_template || defaultConfig.next_soon_message_template,
       });
@@ -111,11 +113,15 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
     setLoading(true);
     setMessage('');
     try {
-      const saved = await updateNotificationConfig(storeId, form);
+      const saved = await updateNotificationConfig(storeId, {
+        ...form,
+        next_soon_token_ahead_count: Number(form.next_soon_token_ahead_count),
+      });
       setForm({
         is_enabled: Boolean(saved.is_enabled),
         notify_on_called: Boolean(saved.notify_on_called),
         notify_on_next_soon: Boolean(saved.notify_on_next_soon),
+        next_soon_token_ahead_count: String(saved.next_soon_token_ahead_count ?? 2),
         called_message_template: saved.called_message_template,
         next_soon_message_template: saved.next_soon_message_template,
       });
@@ -176,11 +182,30 @@ export function NotificationSettings({ moduleLabel = 'Queue' }) {
               <span className="text-sm font-medium text-charcoal">Notify when called</span>
               <input type="checkbox" checked={form.notify_on_called} onChange={(event) => setField('notify_on_called', event.target.checked)} className="size-5 accent-brand-red" />
             </label>
-            <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
-              <span className="text-sm font-medium text-charcoal">Notify next soon</span>
-              <input type="checkbox" checked={form.notify_on_next_soon} onChange={(event) => setField('notify_on_next_soon', event.target.checked)} className="size-5 accent-brand-red" />
-            </label>
+            <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+              <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
+                <span className="text-sm font-medium text-charcoal">Notify next soon</span>
+                <input type="checkbox" checked={form.notify_on_next_soon} onChange={(event) => setField('notify_on_next_soon', event.target.checked)} className="size-5 accent-brand-red" />
+              </label>
+              <label className={`rounded-lg border px-3 py-2.5 ${form.notify_on_next_soon ? 'border-line' : 'border-line bg-slate-50 opacity-70'}`}>
+                <span className="block text-xs font-medium text-muted">Positions away</span>
+                <input
+                  type="number"
+                  min="2"
+                  max="20"
+                  step="1"
+                  value={form.next_soon_token_ahead_count}
+                  onChange={(event) => setField('next_soon_token_ahead_count', event.target.value)}
+                  disabled={!form.notify_on_next_soon}
+                  className="mt-1 w-full rounded-lg border border-line px-2 py-1.5 text-sm outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft disabled:bg-slate-100"
+                  aria-label="Notify when token is this many positions away"
+                />
+              </label>
+            </div>
           </div>
+          <p className="text-xs text-muted">
+            {form.notify_on_next_soon ? 'Next-soon threshold: 2 = next soon, 3 = two tokens before being called.' : 'Enable next-soon notifications to edit the positions-away value.'}
+          </p>
           <TemplateField label="Called message" value={form.called_message_template} onChange={(value) => setField('called_message_template', value)} />
           <TemplateField label="Next-soon message" value={form.next_soon_message_template} onChange={(value) => setField('next_soon_message_template', value)} />
           <p className="text-xs text-muted">Variables: {'{token_number}'}, {'{store_name}'}, {'{service_point_name}'}, {'{module_name}'}</p>

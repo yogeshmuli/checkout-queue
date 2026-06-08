@@ -6,7 +6,6 @@ import { formatTime } from '../utils/staffUtils.js';
 export function Counter({
   activeCounterId,
   counterName,
-  setActiveCounterId,
   clearSession,
   counterActive,
   loading,

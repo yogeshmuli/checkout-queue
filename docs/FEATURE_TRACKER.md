@@ -720,7 +720,8 @@ python3 -m scripts.sync_database
 
 - Per-store notification config controls whether customer SMS notifications are enabled for called and next-soon events.
 - Checkout and Trial token `CALLED` transitions create a `TOKEN_CALLED` notification log and send through the mock SMS client when enabled.
-- APScheduler scans every minute for lane position `2` Checkout/Trial tokens and creates one `NEXT_SOON` notification per token.
+- APScheduler scans every minute for the configured next-soon lane position, defaulting to `2`, and creates one `NEXT_SOON` notification per Checkout/Trial token.
+- Admins can configure `next_soon_token_ahead_count` per store from the shared Notifications page, for example `2` for next soon or `3` for two tokens before being called.
 - Notification logs prevent duplicates with `(module_type, token_id, notification_type)` and record `SENT`, `FAILED`, or `SKIPPED` status.
 - Checkout and Trial admin workspaces include a Notifications page for config and recent log review.
 
@@ -774,6 +775,7 @@ Implemented migrations:
 - `20260604_0019_add_counter_basket_size_bands.py`
 - `20260604_0020_add_store_config_default_item_count.py`
 - `20260604_0021_add_shared_queue_flag.py`
+- `20260604_0022_add_next_soon_token_ahead_count.py`
 
 ### Authentication
 

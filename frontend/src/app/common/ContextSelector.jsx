@@ -44,6 +44,7 @@ export function ContextSelector() {
   }, [loadDemoStatus]);
 
   if (!user) return <Navigate to="/app/login" replace />;
+  debugger
 
   if (modules.length === 1 && !canManageDemoTools) {
     return <Navigate to={getModuleHomePath(modules[0].id, scope)} replace />;

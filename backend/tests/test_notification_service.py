@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
 
+import pytest
+from pydantic import ValidationError
+
 from app.models.counter import Counter, CounterType
 from app.models.notification import (
     DEFAULT_CALLED_TEMPLATE,
@@ -13,6 +16,7 @@ from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
 from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
 from app.models.trial_studio import TrialStudio, TrialStudioType
+from app.schemas.notification import StoreNotificationConfigUpdateRequest
 from app.services.notification_service import NotificationService
 from app.services.sms_client import MockSmsClient
 
@@ -28,6 +32,7 @@ class FakeNotificationRepository:
                 is_enabled=True,
                 notify_on_called=True,
                 notify_on_next_soon=True,
+                next_soon_token_ahead_count=2,
                 called_message_template=DEFAULT_CALLED_TEMPLATE,
                 next_soon_message_template=DEFAULT_NEXT_SOON_TEMPLATE,
                 created_at=now,
@@ -127,6 +132,35 @@ def test_next_soon_scanner_sends_only_second_lane_tokens_and_no_duplicates(monke
         (NotificationModuleType.CHECKOUT, 2, NotificationType.NEXT_SOON),
         (NotificationModuleType.TRIAL, 2, NotificationType.NEXT_SOON),
     ]
+
+
+def test_next_soon_scanner_uses_configured_lane_position(monkeypatch) -> None:
+    service, repository = make_service(monkeypatch)
+    repository.configs[1].next_soon_token_ahead_count = 3
+    repository.trial_tokens.append(
+        TrialQueueToken(
+            id=3,
+            store_id=1,
+            assigned_studio_id=1,
+            token_number="T-003",
+            phone_number="9000000006",
+            status=TrialQueueTokenStatus.WAITING,
+            calling_time=datetime.now(timezone.utc),
+        )
+    )
+
+    sent_count = service.send_next_soon_notifications()
+
+    assert sent_count == 2
+    assert [(log.module_type, log.token_id, log.notification_type) for log in repository.logs] == [
+        (NotificationModuleType.CHECKOUT, 3, NotificationType.NEXT_SOON),
+        (NotificationModuleType.TRIAL, 3, NotificationType.NEXT_SOON),
+    ]
+
+
+def test_notification_config_rejects_invalid_next_soon_position() -> None:
+    with pytest.raises(ValidationError):
+        StoreNotificationConfigUpdateRequest(next_soon_token_ahead_count=1)
 
 
 def test_disabled_config_skips_notification(monkeypatch) -> None:

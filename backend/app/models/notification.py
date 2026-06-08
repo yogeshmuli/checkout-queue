@@ -41,6 +41,7 @@ class StoreNotificationConfig(TimestampMixin, Base):
     is_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
     notify_on_called: Mapped[bool] = mapped_column(default=True, nullable=False)
     notify_on_next_soon: Mapped[bool] = mapped_column(default=True, nullable=False)
+    next_soon_token_ahead_count: Mapped[int] = mapped_column(default=2, nullable=False)
     called_message_template: Mapped[str] = mapped_column(Text, default=DEFAULT_CALLED_TEMPLATE, nullable=False)
     next_soon_message_template: Mapped[str] = mapped_column(Text, default=DEFAULT_NEXT_SOON_TEMPLATE, nullable=False)
 

@@ -16,6 +16,7 @@ class StoreNotificationConfigUpdateRequest(BaseModel):
     is_enabled: bool = False
     notify_on_called: bool = True
     notify_on_next_soon: bool = True
+    next_soon_token_ahead_count: int = Field(default=2, ge=2, le=20)
     called_message_template: str = Field(default=DEFAULT_CALLED_TEMPLATE, min_length=1, max_length=500)
     next_soon_message_template: str = Field(default=DEFAULT_NEXT_SOON_TEMPLATE, min_length=1, max_length=500)
 

@@ -826,7 +826,7 @@ Recommended background jobs:
 | Demo seed job | Manual script | Create demo store, sections, counters, history, and active queue |
 | Demo Tools ML seed API | Manual protected API | Create and clean isolated checkout/trial ML training data |
 | Nightly queue cleanup | Daily at 00:05 local deployment time | Cancel active Checkout and Trial tokens and reset counter/studio availability after store close |
-| Next-soon notification scan | Every 1 minute | Send one mock SMS when Checkout/Trial tokens reach lane position 2 |
+| Next-soon notification scan | Every 1 minute | Send one mock SMS when Checkout/Trial tokens reach each store's configured next-soon lane position |
 
 Nightly queue cleanup can run in-process through APScheduler when `ENABLE_IN_APP_SCHEDULER=true`. The default settings run it daily at `00:05` in `SCHEDULER_TIMEZONE`:
 
@@ -852,7 +852,7 @@ The job calls `QueueCleanupService.run_nightly_cleanup()`, marks all `WAITING`, 
 
 For production, move scheduled work to Celery, RQ, APScheduler, or a separate worker container.
 
-Customer notifications use `NotificationService` with a mock SMS client in v1. Checkout and Trial `CALLED` status transitions send `TOKEN_CALLED` when the store notification config is enabled. APScheduler also runs a one-minute `NEXT_SOON` scan that finds position-2 tokens in each counter/studio lane and writes one notification log per token/type.
+Customer notifications use `NotificationService` with a mock SMS client in v1. Checkout and Trial `CALLED` status transitions send `TOKEN_CALLED` when the store notification config is enabled. APScheduler also runs a one-minute `NEXT_SOON` scan that finds tokens at each store's configured lane position, defaulting to position 2, in each counter/studio lane and writes one notification log per token/type.
 
 ## 12. Security and Validation
 

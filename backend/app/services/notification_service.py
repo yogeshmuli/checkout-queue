@@ -179,14 +179,28 @@ class NotificationService:
         for token in self.repository.list_active_checkout_tokens():
             if token.assigned_counter_id is not None:
                 grouped[token.assigned_counter_id].append(token)
-        return [tokens[1] for tokens in grouped.values() if len(tokens) >= 2]
+        return self._tokens_at_configured_next_soon_position(grouped)
 
     def _trial_next_soon_tokens(self) -> list[TrialQueueToken]:
         grouped: dict[int, list[TrialQueueToken]] = defaultdict(list)
         for token in self.repository.list_active_trial_tokens():
             if token.assigned_studio_id is not None:
                 grouped[token.assigned_studio_id].append(token)
-        return [tokens[1] for tokens in grouped.values() if len(tokens) >= 2]
+        return self._tokens_at_configured_next_soon_position(grouped)
+
+    def _tokens_at_configured_next_soon_position(
+        self,
+        grouped_tokens: dict[int, list[QueueToken | TrialQueueToken]],
+    ) -> list[QueueToken | TrialQueueToken]:
+        selected_tokens: list[QueueToken | TrialQueueToken] = []
+        for tokens in grouped_tokens.values():
+            if not tokens:
+                continue
+            config = self.repository.get_config(tokens[0].store_id)
+            position = max(2, getattr(config, "next_soon_token_ahead_count", 2) if config is not None else 2)
+            if len(tokens) >= position:
+                selected_tokens.append(tokens[position - 1])
+        return selected_tokens
 
     def _checkout_service_point_name(self, token: QueueToken) -> str:
         if token.assigned_counter_id is None:

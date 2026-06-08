@@ -96,7 +96,6 @@ export function StaffApp() {
     <Counter
       activeCounterId={activeCounterId}
       counterName={counterName}
-      setActiveCounterId={setActiveCounterId}
       clearSession={clearSession}
       counterActive={counterActive}
       loading={loading}

@@ -33,7 +33,11 @@ class StoreConfigService:
         token_prefix = update_data.get("token_id_prefix")
         if token_prefix is not None:
             update_data["token_id_prefix"] = token_prefix.strip().upper() or None
-
+        if update_data["shared_queue_enabled"] != config.shared_queue_enabled and len(self.repository.get_store_by_id(store_id).queue_tokens) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change shared_queue_enabled once set if there are existing queue tokens for the store",
+            )
         for field, value in update_data.items():
             setattr(config, field, value)
 
