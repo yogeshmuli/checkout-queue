@@ -3,7 +3,7 @@ import { motion as Motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuthStore } from '../../store/authStore.js';
-import { enabledModules } from './moduleConfig.js';
+import { enabledModules, getModuleHomePath } from './moduleConfig.js';
 import { motionPresets } from './motionPresets.js';
 
 const badges = [
@@ -95,6 +95,14 @@ export function Landing() {
                   </div>
                   <h2 className="text-lg font-bold text-slate-900">{module.label}</h2>
                   <p className="mt-1 text-sm leading-6 text-gray-600">{module.description}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate(getModuleHomePath(module.id, 'customer'))}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-3 py-2 text-sm font-semibold text-brand-red transition-colors hover:border-brand-red hover:bg-white"
+                  >
+                    Open customer flow
+                    <ArrowRight size={16} />
+                  </button>
                 </div>
               );
             })}

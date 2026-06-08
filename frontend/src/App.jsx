@@ -1,17 +1,24 @@
-import { useEffect, useState } from 'react';
-import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
+import { useEffect, useState } from "react";
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+  useLocation,
+} from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 
-import { fetchCurrentUser } from './api/authApi.js';
-import { CheckoutApp } from './app/checkout/CheckoutApp.jsx';
-import { ContextSelector } from './app/common/ContextSelector.jsx';
-import { Landing } from './app/common/Landing.jsx';
-import { Login } from './app/common/Login.jsx';
-import { BrandHeader } from './app/common/BrandHeader.jsx';
-import { Footer } from './app/common/Footer.jsx';
-import { PwaRefreshButton } from './app/common/PwaRefreshButton.jsx';
-import { TrialApp } from './app/trial/TrialApp.jsx';
-import { useAuthStore } from './store/authStore.js';
+import { fetchCurrentUser } from "./api/authApi.js";
+import { CheckoutApp } from "./app/checkout/CheckoutApp.jsx";
+import { ContextSelector } from "./app/common/ContextSelector.jsx";
+import { Landing } from "./app/common/Landing.jsx";
+import { Login } from "./app/common/Login.jsx";
+import { BrandHeader } from "./app/common/BrandHeader.jsx";
+import { Footer } from "./app/common/Footer.jsx";
+import { PwaRefreshButton } from "./app/common/PwaRefreshButton.jsx";
+import { TrialApp } from "./app/trial/TrialApp.jsx";
+import { useAuthStore } from "./store/authStore.js";
+import DemoToolsFAB from "./app/common/DemoToolsFAB.jsx";
 
 function RequireAuth({ children }) {
   const { accessToken } = useAuthStore();
@@ -21,13 +28,15 @@ function RequireAuth({ children }) {
 
 export default function App() {
   const { accessToken, user, setUser, clearSession } = useAuthStore();
-  const [bootstrapping, setBootstrapping] = useState(Boolean(accessToken && !user));
-
+  const [bootstrapping, setBootstrapping] = useState(
+    Boolean(accessToken && !user),
+  );
+  const canManageDemoTools = user?.default_role === "SUPER_ADMIN";
   useEffect(() => {
-    const loader = document.getElementById('app-boot-loader');
+    const loader = document.getElementById("app-boot-loader");
     if (!loader) return undefined;
 
-    loader.classList.add('is-hidden');
+    loader.classList.add("is-hidden");
     const removeLoader = window.setTimeout(() => {
       loader.remove();
     }, 260);
@@ -69,19 +78,25 @@ export default function App() {
 
   return (
     <Router>
-      <AppRoutes />
+      <AppRoutes canManageDemoTools={canManageDemoTools} />
     </Router>
   );
 }
 
-function AppRoutes() {
+function AppRoutes({ canManageDemoTools } ) {
   const location = useLocation();
-  const showHeader = location.pathname === '/';
+  const showHeader = location.pathname === "/";
 
   return (
     <>
       {showHeader ? <BrandHeader /> : null}
-      <ToastContainer position="top-right" autoClose={3500} newestOnTop pauseOnFocusLoss={false} theme="colored" />
+      <ToastContainer
+        position="top-right"
+        autoClose={3500}
+        newestOnTop
+        pauseOnFocusLoss={false}
+        theme="colored"
+      />
       <PwaRefreshButton />
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -99,6 +114,7 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {showHeader ? <Footer /> : null}
+      {canManageDemoTools && <DemoToolsFAB />}
     </>
   );
 }
