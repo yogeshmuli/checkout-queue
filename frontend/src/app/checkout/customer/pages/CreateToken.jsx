@@ -96,7 +96,7 @@ export function CreateToken() {
 
   return (
     <main className="min-h-screen px-4 py-5  animate-fadeIn">
-      <section className="mx-auto max-w-md animate-slideUp">
+      <section className="mx-auto max-w-md">
         <header className="customer-sticky-header glass-panel rounded-xl border border-white/30 bg-brand-red p-4 text-white shadow-soft">
           <div className="flex items-start gap-3">
             <button

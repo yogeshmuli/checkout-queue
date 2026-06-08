@@ -66,9 +66,15 @@ body {
   }
 
   .customer-sticky-header {
+    position: -webkit-sticky;
     position: sticky;
-    top: max(0.75rem, env(safe-area-inset-top));
+    top: 0.75rem;
+    top: max(0.75rem, env(safe-area-inset-top, 0px));
     z-index: 30;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 }
 

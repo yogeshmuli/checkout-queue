@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 export function InvalidToken() {
   return (
     <main className="min-h-screen animate-fadeIn px-4 py-5">
-      <section className="mx-auto max-w-md animate-slideUp rounded-lg bg-white p-5 text-ink shadow-soft">
+      <section className="mx-auto max-w-md rounded-lg bg-white p-5 text-ink shadow-soft">
         <div className="flex items-center gap-2 text-rose-700">
           <AlertTriangle size={20} />
           <h1 className="text-lg font-semibold">Invalid token</h1>

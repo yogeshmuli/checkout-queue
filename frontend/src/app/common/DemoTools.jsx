@@ -1,6 +1,5 @@
 import { Database, RefreshCw, Trash2, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
 
 import {
   cleanDemoMlTrainingData,
@@ -30,7 +29,7 @@ const DemoTools = () => {
   const [demoLoading, setDemoLoading] = useState(false);
   const { user } = useAuthStore();
   const canManageDemoTools = user?.default_role === "SUPER_ADMIN";
-  debugger;
+
   const loadDemoStatus = useCallback(async () => {
     if (!canManageDemoTools) return;
     setDemoLoading(true);
@@ -72,7 +71,7 @@ const DemoTools = () => {
   }
 
   return (
-      <section className="mt-5 rounded-lg border border-line bg-white p-5 shadow-soft">
+      <section className="rounded-lg border border-line bg-white p-4 shadow-soft sm:p-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <div className="flex items-center gap-2">

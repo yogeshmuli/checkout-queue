@@ -1,7 +1,8 @@
-import { ArrowRight, Boxes, Database, RefreshCw, ShoppingBag, Trash2, Wand2 } from 'lucide-react';
+import { ArrowRight, Boxes, ShoppingBag } from 'lucide-react';
 
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore.js';
+import { showApiErrorToast } from '../../api/httpClient.js';
 
 
 import brandLogo from '../../assets/images/equilateral_logo.png';
@@ -27,7 +28,6 @@ const canManageDemoTools = user?.default_role === 'SUPER_ADMIN';
   
 
   if (!user) return <Navigate to="/app/login" replace />;
-  debugger
 
   if (modules.length === 1) {
     return <Navigate to={getModuleHomePath(modules[0].id, scope)} replace />;
@@ -87,5 +87,4 @@ const canManageDemoTools = user?.default_role === 'SUPER_ADMIN';
     </main>
   );
 }
-
 
