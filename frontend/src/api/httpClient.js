@@ -7,7 +7,7 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || '/api/v1';
 
 export const httpClient = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 15000,
+
 });
 
 let isRedirectingToLogin = false;
