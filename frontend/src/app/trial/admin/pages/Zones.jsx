@@ -6,6 +6,8 @@ import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.j
 import { listStores } from '../../../../api/trial/storeApi.js';
 import { createTrialZone, deleteTrialZone, listTrialZones, updateTrialZone } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { QrDownloadButton } from '../../../common/QrDownloadButton.jsx';
+import { buildPublicAppUrl } from '../../../common/qrDownloadUtils.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
 const emptyZone = {
@@ -492,6 +494,13 @@ export function Zones() {
                       <ResourceLink to={`/app/trial/admin/zones?store_id=${zone.store_id}`} label="Store zones" />
                       <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${zone.id}`} label="Studios" />
                       <ResourceLink to={`/app/trial/admin/queue?trial_zone_id=${zone.id}`} label="Trial queue" />
+                      <QrDownloadButton
+                        filename={`trial-store-${zone.store_id}-zone-${zone.id}-qr.png`}
+                        value={buildPublicAppUrl('/app/trial/customer/create', {
+                          store_id: zone.store_id,
+                          trial_zone_id: zone.id,
+                        })}
+                      />
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">

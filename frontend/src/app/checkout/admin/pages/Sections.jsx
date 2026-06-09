@@ -6,6 +6,8 @@ import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.j
 import { createSection, deleteSection, listSections, updateSection } from '../../../../api/checkout/sectionApi.js';
 import { listStores } from '../../../../api/checkout/storeApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { QrDownloadButton } from '../../../common/QrDownloadButton.jsx';
+import { buildPublicAppUrl } from '../../../common/qrDownloadUtils.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
 const emptySection = {
@@ -491,6 +493,13 @@ export function Sections() {
                     <ResourceLink to={`/app/checkout/admin/counters?section_id=${section.id}`} label="Counters" />
                     <ResourceLink to={`/app/checkout/admin/staff?section_id=${section.id}`} label="Staff" />
                     <ResourceLink to={`/app/checkout/admin/queue?section_id=${section.id}`} label="Queue" />
+                    <QrDownloadButton
+                      filename={`checkout-store-${section.store_id}-section-${section.id}-qr.png`}
+                      value={buildPublicAppUrl('/app/checkout/customer/create', {
+                        store_id: section.store_id,
+                        section_id: section.id,
+                      })}
+                    />
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">

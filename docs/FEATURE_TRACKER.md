@@ -1000,6 +1000,8 @@ Checkout admin groups store setup screens under one `Configuration` sidebar item
 
 Trial admin follows the same navigation structure: Stores, Config, Zones, Studios, Staff, and Calendar are grouped under one `Configuration` sidebar item and display shared horizontal tabs. Existing Trial admin URLs remain shareable deep links, and compatible tab switches preserve the selected `store_id` filter while dropping page-specific filters.
 
+Checkout section and Trial zone admin rows include a compact `Download QR` action that generates a PNG QR code for the public customer create-token URL. Checkout QR links encode `store_id` and `section_id`; Trial QR links encode `store_id` and `trial_zone_id`. The frontend public app origin is configured with `VITE_PUBLIC_APP_URL`.
+
 ### Trial Backend Domain File Split
 
 Trial backend code is organized into Checkout-style domain files for zones, studios, store config, calendar, and queue. Public API paths, database table names, request/response shapes, and frontend clients remain unchanged. Compatibility re-export modules keep older imports such as `app.models.trial` and `app.schemas.trial` working while new code can import from the domain modules directly.
