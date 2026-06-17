@@ -29,9 +29,14 @@ httpClient.interceptors.response.use(
     if (statusCode === 401 && accessToken) {
       clearSession();
 
-      if (!isRedirectingToLogin && window.location.pathname !== '/app/login') {
+      if (!isRedirectingToLogin && !window.location.pathname.endsWith('/login')) {
         isRedirectingToLogin = true;
-        window.location.replace('/app/login');
+        const loginPath = window.location.pathname.startsWith('/app/trial')
+          ? '/app/trial/login'
+          : window.location.pathname.startsWith('/app/checkout')
+            ? '/app/checkout/login'
+            : '/app/login';
+        window.location.replace(loginPath);
       }
     }
 
@@ -97,4 +102,3 @@ export function showApiErrorToast(error) {
   const message = getErrorMessage(error);
   toast.error(message, { toastId: `api-error-${message}` });
 }
-

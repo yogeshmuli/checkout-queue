@@ -1,16 +1,16 @@
-import { ArrowRight, Boxes, CheckCircle2, ScanLine, ShoppingBag, Star, Zap } from 'lucide-react';
-import { motion as Motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import {
+  ArrowRight,
+  Boxes,
+  CheckCircle2,
+  ShoppingBag,
+  Zap,
+} from "lucide-react";
+import { motion as Motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
-import { useAuthStore } from '../../store/authStore.js';
-import { enabledModules, getModuleHomePath } from './moduleConfig.js';
-import { motionPresets } from './motionPresets.js';
-
-const badges = [
-  { text: 'Zero Queue Waiting', Icon: CheckCircle2 },
-  { text: 'Fast Checkout Flow', Icon: Zap },
-  { text: 'Reliable Operations', Icon: Star },
-];
+import queueHeroSplit from "../../assets/images/queue-hero-split.png";
+import { enabledModules, getModuleLoginPath } from "./moduleConfig.js";
+import { motionPresets } from "./motionPresets.js";
 
 const moduleIcons = {
   checkout: ShoppingBag,
@@ -19,25 +19,24 @@ const moduleIcons = {
 
 export function Landing() {
   const navigate = useNavigate();
-  const { accessToken, user } = useAuthStore();
-
-  const showWorkspace = Boolean(accessToken && user);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-white font-sans selection:bg-red-100 selection:text-red-900">
-
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-96px)] w-full max-w-7xl flex-col items-center justify-center gap-12 px-6 pb-10 pt-6 lg:flex-row lg:gap-20">
-        <Motion.section {...motionPresets.fadeInLeft} className="w-full max-w-2xl">
-          <Motion.button
+        <Motion.section
+          {...motionPresets.fadeInLeft}
+          className="w-full max-w-2xl"
+        >
+          {/* <Motion.button
             {...motionPresets.fadeInDown}
             {...motionPresets.subtleButton}
             type="button"
-            onClick={() => navigate('/app')}
+            onClick={() => navigate("/app")}
             className="mb-5 inline-flex items-center gap-2 rounded-xl border border-brand-red/30 bg-white/90 px-4 py-2 text-sm font-semibold text-brand-red shadow-soft hover:bg-white"
           >
             <ScanLine size={16} />
-            {showWorkspace ? 'Open Workspace' : 'Login'}
-          </Motion.button>
+            {showWorkspace ? "Open Workspace" : "Login"}
+          </Motion.button> */}
 
           <Motion.h1
             {...motionPresets.fadeInUp}
@@ -45,25 +44,25 @@ export function Landing() {
             className="mb-6 text-[clamp(3.2rem,6vw,5rem)] font-black leading-[1.1] tracking-tight text-slate-900"
           >
             Welcome to <br />
-            <span className="relative inline-block text-brand-red">
-              QuT
-            
-            </span>
+            <span className="relative inline-block text-brand-red">QuT</span>
           </Motion.h1>
 
-          <Motion.div
+          {/* <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
             className="mb-10 flex flex-wrap gap-3"
           >
             {badges.map((badge) => (
-              <span key={badge.text} className="flex cursor-default items-center gap-2 rounded-full border border-gray-100 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:border-red-200 hover:text-red-600">
+              <span
+                key={badge.text}
+                className="flex cursor-default items-center gap-2 rounded-full border border-gray-100 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-colors hover:border-red-200 hover:text-red-600"
+              >
                 <badge.Icon size={16} className="text-red-500" />
                 {badge.text}
               </span>
             ))}
-          </Motion.div>
+          </Motion.div> */}
 
           <Motion.div
             {...motionPresets.fadeInUp}
@@ -71,69 +70,111 @@ export function Landing() {
             className="mb-12 space-y-6 text-lg font-medium leading-relaxed text-gray-600"
           >
             <p>
-              <strong className="text-slate-900">One workspace now supports two queue modules</strong> for different store operations.
+              <strong className="text-slate-900">
+                QuT revolutionizes the shopping experience{" "}
+              </strong>{" "}
+              by ending queues at both trial rooms and checkout counters — one
+              scan, zero waiting.
             </p>
             <p>
-              Checkout Queue manages billing counters, customer tokens, and live store traffic.
+              Our AI / ML powered intelligent solution revolutionizes queue
+              management, reduces manual overhead, and delivers a seamless
+              experience for both{" "}
+              <strong className="text-slate-900">
+                Customer and Store management.
+              </strong>
             </p>
             <p>
-              Trial Queue manages trial zones, studios, and fitting-room style customer movement.
+              Experience faster workflows, real-time tracking, and automatic
+              queue balancing — all built for the most happening place in Retail
+              i.e. the Store Floor .
             </p>
+            <p>
+              <strong className="text-slate-900 italic text-[32px]">
+                Customer is in the store for shopping not waiting ...
+QuT makes customers presence in store matter !
+                </strong>
+            </p>
+
+
+
           </Motion.div>
 
           <Motion.div
             {...motionPresets.fadeInUp}
             transition={{ ...motionPresets.fadeInUp.transition, delay: 0.75 }}
-            className="mb-10 grid gap-3 sm:grid-cols-2"
+            className="mb-10 flex flex-wrap gap-3"
           >
             {enabledModules.map((module) => {
               const Icon = moduleIcons[module.id] || ShoppingBag;
               return (
-                <div key={module.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-blush text-brand-red">
+                <button
+                  key={module.id}
+                  type="button"
+                  onClick={() => navigate(getModuleLoginPath(module.id))}
+                  className="inline-flex items-center justify-center gap-3 rounded-2xl bg-brand-red px-6 py-4 text-base font-bold text-white shadow-xl shadow-red-500/25 transition-colors hover:bg-red-600"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15 text-white">
                     <Icon size={22} />
-                  </div>
-                  <h2 className="text-lg font-bold text-slate-900">{module.label}</h2>
-                  <p className="mt-1 text-sm leading-6 text-gray-600">{module.description}</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate(getModuleHomePath(module.id, 'customer'))}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-brand-red/30 bg-brand-blush px-3 py-2 text-sm font-semibold text-brand-red transition-colors hover:border-brand-red hover:bg-white"
-                  >
-                    Open customer flow
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
+                  </span>
+                  <span>{module.label}</span>
+                  <ArrowRight size={18} />
+                </button>
               );
             })}
           </Motion.div>
 
-          <Motion.button
-            {...motionPresets.buttonSpring}
-            type="button"
-            onClick={() => navigate('/app')}
-            className="group relative overflow-hidden rounded-2xl bg-brand-red px-8 py-4 text-lg font-bold text-white shadow-xl shadow-red-500/30"
-          >
-            <span className="relative z-10 flex items-center gap-2">
-              Open Workspace
-              <ArrowRight size={20} className="transition-transform duration-300 group-hover:translate-x-1" />
-            </span>
-            <div className="absolute inset-0 origin-left scale-x-0 bg-red-600 transition-transform duration-300 group-hover:scale-x-100" />
-          </Motion.button>
         </Motion.section>
 
-        <Motion.section {...motionPresets.heroVisualIn} className="relative hidden flex-1 lg:block">
+        <Motion.section
+          {...motionPresets.heroVisualIn}
+          className="relative hidden flex-1 lg:block"
+        >
           <div className="relative mx-auto h-[500px] w-[500px]">
-            <div className="absolute inset-0 z-20 overflow-hidden rounded-full border-[12px] border-white bg-brand-red shadow-2xl">
-              <div className="flex h-full items-center justify-center">
-                <div className="rounded-3xl bg-white/90 px-10 py-8 text-center text-ink shadow-brand">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">Realtime Queue</p>
-                  <p className="mt-2 text-3xl font-black text-brand-red">Optimized</p>
-                </div>
+            <div className="absolute inset-0 z-20 overflow-hidden rounded-full border-[12px] border-white bg-white shadow-2xl">
+              <img
+                src={queueHeroSplit}
+                alt="Customers waiting in trial room and checkout queues"
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-white/10">
+                <svg
+                  viewBox="0 0 100 100"
+                  role="img"
+                  aria-label="No waiting allowed"
+                  className="h-40 w-40 animate-pulse drop-shadow-2xl"
+                >
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="38"
+                    fill="none"
+                    stroke="#dc2626"
+                    strokeWidth="12"
+                  />
+                  <line
+                    x1="25"
+                    y1="75"
+                    x2="75"
+                    y2="25"
+                    stroke="#dc2626"
+                    strokeWidth="12"
+                    strokeLinecap="round"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="44"
+                    fill="none"
+                    stroke="#111827"
+                    strokeWidth="2"
+                    opacity="0.8"
+                  />
+                </svg>
               </div>
             </div>
 
-            <Motion.div {...motionPresets.floatUpDown} className="absolute -right-10 -top-10 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
+            {/* <Motion.div {...motionPresets.floatUpDown} className="absolute -right-10 -top-10 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600">
                   <CheckCircle2 size={22} />
@@ -143,9 +184,9 @@ export function Landing() {
                   <div className="text-sm font-black text-slate-800">Live</div>
                 </div>
               </div>
-            </Motion.div>
+            </Motion.div> */}
 
-            <Motion.div {...motionPresets.floatDownUp} className="absolute -bottom-5 -left-5 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
+            {/* <Motion.div {...motionPresets.floatDownUp} className="absolute -bottom-5 -left-5 z-30 rounded-3xl border border-gray-100 bg-white p-4 shadow-xl">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600">
                   <Zap size={22} />
@@ -155,7 +196,7 @@ export function Landing() {
                   <div className="text-sm font-black text-slate-800">Instant</div>
                 </div>
               </div>
-            </Motion.div>
+            </Motion.div> */}
 
             <div className="absolute inset-0 z-0 scale-110 rounded-full bg-red-500 opacity-20 blur-[100px]" />
           </div>

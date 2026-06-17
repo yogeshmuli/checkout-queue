@@ -9,14 +9,14 @@ import { StaffApp } from './staff/StaffApp.jsx';
 
 function RequireAdmin({ children }) {
   const { user } = useAuthStore();
-  if (!user) return <Navigate to="/app/login" replace />;
+  if (!user) return <Navigate to="/app/checkout/login" replace />;
   if (getUserScope(user) !== 'admin') return <Navigate to="/app/checkout/staff" replace />;
   return children;
 }
 
 function RequireCheckoutStaff({ children }) {
   const { user } = useAuthStore();
-  if (!user) return <Navigate to="/app/login" replace />;
+  if (!user) return <Navigate to="/app/checkout/login" replace />;
   if (getAssignedModuleId(user) === 'trial') return <Navigate to="/app/trial/staff" replace />;
   return children;
 }

@@ -109,6 +109,8 @@ function AppRoutes({ canManageDemoTools } ) {
           }
         />
         <Route path="/app/login" element={<Login />} />
+        <Route path="/app/checkout/login" element={<Login moduleId="checkout" />} />
+        <Route path="/app/trial/login" element={<Login moduleId="trial" />} />
         <Route path="/app/checkout/*" element={<CheckoutApp />} />
         <Route path="/app/trial/*" element={<TrialApp />} />
         <Route path="*" element={<Navigate to="/" replace />} />

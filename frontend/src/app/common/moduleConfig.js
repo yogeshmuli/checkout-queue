@@ -9,8 +9,8 @@ export const moduleFlags = {
 };
 
 export const enabledModules = [
-  moduleFlags.checkout ? { id: 'checkout', label: 'Checkout Queue', description: 'Billing counters, customer tokens, and checkout operations.' } : null,
-  moduleFlags.trial ? { id: 'trial', label: 'Trial Queue', description: 'Trial zones, studios, and fitting-room style token flow.' } : null,
+  moduleFlags.checkout ? { id: 'checkout', label: 'Queueless Transaction', description: 'Billing counters, customer tokens, and checkout operations.' } : null,
+  moduleFlags.trial ? { id: 'trial', label: 'Quick Trial', description: 'Trial zones, studios, and fitting-room style token flow.' } : null,
 ].filter(Boolean);
 
 export function getEnabledModulesForUser(user) {
@@ -39,6 +39,12 @@ export function getAssignedModuleId(user) {
 
 export function getDefaultModule() {
   return enabledModules[0]?.id || 'checkout';
+}
+
+export function getModuleLoginPath(moduleId) {
+  if (moduleId === 'trial') return '/app/trial/login';
+  if (moduleId === 'checkout') return '/app/checkout/login';
+  return '/app/login';
 }
 
 export function getModuleHomePath(moduleId, role = 'admin') {

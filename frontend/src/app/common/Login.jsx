@@ -1,21 +1,40 @@
-import { LogIn, ScanLine } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../assets/images/equilateral_logo.png';
 import { loginUser } from '../../api/authApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../api/httpClient.js';
 import { useAuthStore } from '../../store/authStore.js';
+import { getModuleHomePath } from './moduleConfig.js';
+import { getUserScope } from './roleUtils.js';
 
-export function Login() {
+const LOGIN_CONTEXT = {
+  checkout: {
+    eyebrow: 'Queueless Transaction',
+    logoAlt: 'Queueless Transaction logo',
+  },
+  trial: {
+    eyebrow: 'Quick Trial',
+    logoAlt: 'Quick Trial logo',
+  },
+  default: {
+    eyebrow: 'QuT Workspace',
+    logoAlt: 'QuT logo',
+  },
+};
+
+export function Login({ moduleId = null }) {
   const navigate = useNavigate();
   const { accessToken, user, setSession } = useAuthStore();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const context = LOGIN_CONTEXT[moduleId] || LOGIN_CONTEXT.default;
+  const redirectPath = user && moduleId ? getModuleHomePath(moduleId, getUserScope(user)) : '/app';
 
   if (accessToken && user) {
-    return <Navigate to="/app" replace />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   async function submitLogin(event) {
@@ -25,7 +44,8 @@ export function Login() {
     try {
       const session = await loginUser(form);
       setSession(session);
-      navigate('/app', { replace: true });
+      const scope = getUserScope(session.user);
+      navigate(moduleId ? getModuleHomePath(moduleId, scope) : '/app', { replace: true });
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -39,9 +59,9 @@ export function Login() {
       <section className="mx-auto flex min-h-screen max-w-md flex-col justify-center animate-slideUp">
         <header className="rounded-lg bg-brand-red px-4 py-3 text-white shadow-brand">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Checkout Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
+            <img src={brandLogo} alt={context.logoAlt} className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
             <div>
-              <p className="text-xs text-red-100">Checkout Queue</p>
+              <p className="text-xs text-red-100">{context.eyebrow}</p>
               <h1 className="text-2xl font-semibold text-white">Sign in</h1>
             </div>
           </div>

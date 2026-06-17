@@ -42,7 +42,7 @@ export function AdminApp() {
 
   function logout() {
     clearSession();
-    navigate('/app/login', { replace: true });
+    navigate('/app/trial/login', { replace: true });
   }
 
   return (

@@ -439,7 +439,8 @@ Routes:
 
 Result:
 
-- Landing page presents Checkout Queue and Trial Queue as available product modules.
+- Landing page presents enabled customer modules as direct primary actions named `Queueless Transaction` and `Quick Trial`.
+- Landing module actions route to module-specific login pages: `/app/checkout/login` and `/app/trial/login`.
 - Landing page "Open Workspace" sends users to `/app` so the context selector chooses the target module.
 - Landing page displays a shared Equilateral footer with placeholder Terms, Privacy, Contact, and FAQ links.
 - `/app/checkout/customer` remains public and does not require authentication.

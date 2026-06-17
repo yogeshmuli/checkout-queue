@@ -1,7 +1,7 @@
 import brandLogo from '../../assets/images/equilateral_logo.png';
 
 export function BrandHeader() {
-  const words = ['Queueless Trial', 'Quick Trial', 'Quality Trial'];
+  const taglineParts = ['Queueless Transaction', 'Quick Trial', 'Queue Transformation'];
 
   return (
     <header className=" bg-[transparent]">
@@ -24,48 +24,15 @@ export function BrandHeader() {
               </h1>
             </a>
 
-            <div className="mt-0.5 hidden items-center gap-1 opacity-80 transition-opacity duration-300 hover:opacity-100 sm:flex sm:gap-2">
-              {words.map((word, i) => {
-                const wordParts = word.split(' ');
-
-                return (
-                  <span key={word} className="contents">
-                    {i > 0 ? <span className="text-[0.6rem] text-brand-red">|</span> : null}
-                    <p className="whitespace-nowrap text-[clamp(0.5rem,1.2vw,0.7rem)] font-bold uppercase tracking-[0.15em] text-gray-800">
-                      {wordParts.map((part, partIndex) => {
-                        const isTrial = part.toUpperCase() === 'TRIAL';
-                        const isFirstWord = partIndex === 0;
-
-                        let q = '';
-                        let u = '';
-                        let middlePart = '';
-                        let t = '';
-                        let endPart = '';
-
-                        if (isTrial) {
-                          t = part.substring(0, 1);
-                          endPart = part.substring(1);
-                        } else if (isFirstWord) {
-                          q = part.substring(0, 1);
-                          u = part.substring(1, 2);
-                          middlePart = part.substring(2);
-                        }
-
-                        return (
-                          <span key={`${word}-${partIndex}`}>
-                            {partIndex > 0 ? <span> </span> : null}
-                            <span className="text-brand-red">{q}</span>
-                            <span className="text-brand-red">{u}</span>
-                            {middlePart}
-                            <span className="text-brand-red">{t}</span>
-                            {endPart}
-                          </span>
-                        );
-                      })}
-                    </p>
-                  </span>
-                );
-              })}
+            <div className="mt-0.5 hidden items-center gap-2 opacity-80 transition-opacity duration-300 hover:opacity-100 sm:flex">
+              {taglineParts.map((part, index) => (
+                <span key={part} className="contents">
+                  {index > 0 ? <span className="text-[0.6rem] text-brand-red">·</span> : null}
+                  <p className="whitespace-nowrap text-[clamp(0.5rem,1.2vw,0.7rem)] font-bold text-gray-800">
+                    {part}
+                  </p>
+                </span>
+              ))}
             </div>
           </div>
 

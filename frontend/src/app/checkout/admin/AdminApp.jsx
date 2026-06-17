@@ -68,7 +68,7 @@ export function AdminApp() {
 
   function logout() {
     clearSession();
-    navigate("/app/login", { replace: true });
+    navigate("/app/checkout/login", { replace: true });
   }
 
   return (
