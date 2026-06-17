@@ -1,4 +1,4 @@
-import { Database, RefreshCw, Trash2, Wand2 } from "lucide-react";
+import { Database, Loader2, RefreshCw, Trash2, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -27,12 +27,14 @@ const DemoTools = () => {
   const [demoStatus, setDemoStatus] = useState(null);
   const [demoMessage, setDemoMessage] = useState("");
   const [demoLoading, setDemoLoading] = useState(false);
+  const [demoAction, setDemoAction] = useState("");
   const { user } = useAuthStore();
   const canManageDemoTools = user?.default_role === "SUPER_ADMIN";
 
   const loadDemoStatus = useCallback(async () => {
     if (!canManageDemoTools) return;
     setDemoLoading(true);
+    setDemoAction("refresh");
     setDemoMessage("");
     try {
       setDemoStatus(await getDemoMlTrainingDataStatus());
@@ -41,14 +43,16 @@ const DemoTools = () => {
       setDemoMessage(getErrorMessage(error));
     } finally {
       setDemoLoading(false);
+      setDemoAction("");
     }
   }, [canManageDemoTools]);
   useEffect(() => {
     loadDemoStatus();
   }, [loadDemoStatus]);
 
-  async function runDemoAction(action, successMessage) {
+  async function runDemoAction(actionName, action, successMessage) {
     setDemoLoading(true);
+    setDemoAction(actionName);
     setDemoMessage("");
     try {
       const result = await action();
@@ -59,6 +63,7 @@ const DemoTools = () => {
       setDemoMessage(getErrorMessage(error));
     } finally {
       setDemoLoading(false);
+      setDemoAction("");
     }
   }
 
@@ -94,8 +99,8 @@ const DemoTools = () => {
         disabled={demoLoading}
         className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium text-charcoal disabled:opacity-60"
       >
-        <RefreshCw size={16} />
-        Refresh
+        {demoAction === "refresh" ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+        {demoAction === "refresh" ? "Refreshing..." : "Refresh"}
       </button>
     </div>
 
@@ -140,36 +145,46 @@ const DemoTools = () => {
     ) : null}
 
     <div className="mt-4 flex flex-wrap gap-2">
-      <button
-        type="button"
+      <DemoActionButton
+        actionName="create"
+        activeAction={demoAction}
+        disabled={demoLoading}
+        icon={Wand2}
+        label="Create demo data"
+        loadingLabel="Creating..."
+        className="bg-brand-red font-semibold text-white"
         onClick={() =>
           runDemoAction(
+            "create",
             () => seedDemoMlTrainingData({ replace: false }),
             "Demo ML training data created.",
           )
         }
+      />
+      <DemoActionButton
+        actionName="recreate"
+        activeAction={demoAction}
         disabled={demoLoading}
-        className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-      >
-        <Wand2 size={16} />
-        Create demo data
-      </button>
-      <button
-        type="button"
+        icon={RefreshCw}
+        label="Recreate"
+        loadingLabel="Recreating..."
+        className="border border-line font-medium text-charcoal"
         onClick={() =>
           runDemoAction(
+            "recreate",
             () => seedDemoMlTrainingData({ replace: true }),
             "Demo ML training data recreated.",
           )
         }
+      />
+      <DemoActionButton
+        actionName="clean"
+        activeAction={demoAction}
         disabled={demoLoading}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-charcoal disabled:opacity-60"
-      >
-        <RefreshCw size={16} />
-        Recreate
-      </button>
-      <button
-        type="button"
+        icon={Trash2}
+        label="Clean demo data"
+        loadingLabel="Cleaning..."
+        className="border border-rose-200 font-medium text-rose-700"
         onClick={() => {
           if (
             window.confirm(
@@ -177,22 +192,44 @@ const DemoTools = () => {
             )
           ) {
             runDemoAction(
+              "clean",
               cleanDemoMlTrainingData,
               "Demo ML training data removed.",
             );
           }
         }}
-        disabled={demoLoading}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-700 disabled:opacity-60"
-      >
-        <Trash2 size={16} />
-        Clean demo data
-      </button>
+      />
     </div>
   </section>
   )
 
 
 };
+
+function DemoActionButton({
+  actionName,
+  activeAction,
+  className,
+  disabled,
+  icon,
+  label,
+  loadingLabel,
+  onClick,
+}) {
+  const isLoading = activeAction === actionName;
+  const IconComponent = icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex min-w-36 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm disabled:opacity-60 ${className}`}
+    >
+      {isLoading ? <Loader2 size={16} className="animate-spin" /> : <IconComponent size={16} />}
+      {isLoading ? loadingLabel : label}
+    </button>
+  );
+}
 
 export default DemoTools;
