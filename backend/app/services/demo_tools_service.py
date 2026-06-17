@@ -26,8 +26,8 @@ from app.repositories.demo_tools_repository import DemoToolsRepository
 from app.schemas.demo_tools import DemoToolCounts, DemoToolIds, DemoTrainingDataResponse
 
 
-DEMO_STORE_NUMBER = "DEMO-ML-STORE"
-DEMO_STORE_NAME = "Demo ML Training Store"
+DEMO_STORE_NUMBER = "D-STORE"
+DEMO_STORE_NAME = "D Store"
 CHECKOUT_COMPLETED_SAMPLE_COUNT = 180
 TRIAL_COMPLETED_SAMPLE_COUNT = 180
 CHECKOUT_CANCELLED_SAMPLE_COUNT = 30
@@ -101,10 +101,10 @@ class DemoToolsService:
         store = Store(
             store_number=DEMO_STORE_NUMBER,
             name=DEMO_STORE_NAME,
-            address="Demo address for ML training data",
-            manager_name="Demo Manager",
+            address="address for ML training data",
+            manager_name="D Manager",
             manager_phone="9000000001",
-            spoc_name="Demo SPOC",
+            spoc_name="D SPOC",
             spoc_phone="9000000002",
             is_active=True,
         )
@@ -125,7 +125,7 @@ class DemoToolsService:
         return store
 
     def _create_checkout_setup(self, store_id: int, seeded_at: datetime) -> CheckoutSection:
-        section = CheckoutSection(store_id=store_id, name="Demo Checkout Section", section_type=CheckoutSectionType.REGULAR, is_active=True)
+        section = CheckoutSection(store_id=store_id, name="DCS", section_type=CheckoutSectionType.REGULAR, is_active=True)
         self.repository.create(section)
         counter_bands = (
             [CounterBasketSizeBand.SMALL.value],
@@ -137,7 +137,7 @@ class DemoToolsService:
                 Counter(
                     section_id=section.id,
                     counter_type=counter_type,
-                    name=f"Demo Counter {index}",
+                    name=f"DC {index}",
                     token_prefix=f"C{index}",
                     basket_size_bands=counter_bands[index - 1],
                     is_active=True,

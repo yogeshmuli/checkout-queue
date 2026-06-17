@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ML_MIN_TRAINING_SAMPLES: int = 50
     ENABLE_CHECKOUT_QUEUE: bool = True
     ENABLE_TRIAL_QUEUE: bool = True
-    ENABLE_DEMO_TOOLS: bool = False
+    ENABLE_DEMO_TOOLS: bool = True
     ENABLE_IN_APP_SCHEDULER: bool = True
     NIGHTLY_QUEUE_CLEANUP_HOUR: int = 0
     NIGHTLY_QUEUE_CLEANUP_MINUTE: int = 5
