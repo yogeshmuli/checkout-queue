@@ -562,6 +562,7 @@ Result:
 - Includes active stores even when no section is configured yet (section remains optional for that case).
 - Uses QR-only store entry with browser-camera scanning or gallery image upload; the manual store/section selection form is hidden from customers, and a valid Checkout customer QR redirects to its complete encoded URL.
 - Redirects customers back to QR scan when an encoded Checkout store or section is no longer available, with a warning message.
+- Requires non-shopping checkout customers to provide either item count or basket size before creating a token.
 - Supports installable PWA behavior with manifest/service-worker caching for home-screen install.
 - Calls `POST /api/v1/queue/join`.
 - Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with a reusable in-app confirmation modal.

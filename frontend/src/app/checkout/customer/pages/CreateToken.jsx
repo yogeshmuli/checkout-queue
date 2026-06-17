@@ -98,6 +98,13 @@ export function CreateToken() {
     event.preventDefault();
     setLoading(true);
     setMessage('');
+
+    if (!form.is_still_shopping && !form.item_count && !form.basket_size) {
+      setLoading(false);
+      setMessage('Enter item count or select basket size when you are not still shopping.');
+      return;
+    }
+
     try {
       const token = await joinQueue({
         ...form,
@@ -114,6 +121,27 @@ export function CreateToken() {
     } finally {
       setLoading(false);
     }
+  }
+  function onChangeBasketSize(basket_size) {
+    // if( form.item_count){
+    //   setForm({...form, basket_size });
+    //   return;
+    // }
+    let item_count;
+    switch (basket_size) {
+      case 'small':
+        item_count = 9;
+        break;
+      case 'medium':
+        item_count = 20;
+        break;
+      case 'large':
+        item_count = 30;
+        break;
+      default:
+        item_count = form.item_count;
+    }
+    setForm({ ...form, basket_size, item_count });
   }
 
   return (
@@ -156,12 +184,12 @@ export function CreateToken() {
             <Select
               label="Basket (optional)"
               value={form.basket_size}
-              onChange={(basket_size) => setForm({ ...form, basket_size })}
+              onChange={onChangeBasketSize}
               options={[
                 { label: 'Select basket size', value: '' },
-                { label: 'Small', value: 'small' },
-                { label: 'Medium', value: 'medium' },
-                { label: 'Large', value: 'large' },
+                { label: 'Small (< 9 items)', value: 'small' },
+                { label: 'Medium (9-20 items)', value: 'medium' },
+                { label: 'Large (> 20 items)', value: 'large' },
               ]}
             />
           </div>

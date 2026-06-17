@@ -5,7 +5,7 @@ export const defaultForm = {
   item_count: '',
   basket_size: '',
   cart_type: 'basket',
-  is_still_shopping: true,
+  is_still_shopping: false,
   customer_type: 'regular',
 };
 
