@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import {
+  callNextTokenForCounter,
   cancelToken,
   completeToken,
   getCounterQueue,
-  startNextTokenForCounter,
+  startToken,
   updateCounterStatus,
 } from '../../../api/checkout/queueApi.js';
 import { useAuthStore } from '../../../store/authStore.js';
@@ -70,9 +71,9 @@ export function StaffApp() {
     }
   }
 
-  function startNextToken() {
+  function callNextToken() {
     if (!activeCounterId) return;
-    runAction(() => startNextTokenForCounter(activeCounterId));
+    runAction(() => callNextTokenForCounter(activeCounterId));
   }
 
   function requestCancelToken(token) {
@@ -104,10 +105,11 @@ export function StaffApp() {
       accessToken={accessToken}
       message={message}
       currentToken={currentToken}
+      startToken={startToken}
       completeToken={completeToken}
       requestCancelToken={requestCancelToken}
       waitingTokens={waitingTokens}
-      startNextToken={startNextToken}
+      callNextToken={callNextToken}
       loadCounterQueue={loadCounterQueue}
     />
     <ConfirmationModal

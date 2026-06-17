@@ -1,4 +1,4 @@
-import { CheckCircle2, LogOut, RefreshCcw, XCircle } from 'lucide-react';
+import { CheckCircle2, LogOut, Megaphone, Play, XCircle } from 'lucide-react';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { formatTime } from '../utils/staffUtils.js';
@@ -14,13 +14,16 @@ export function Counter({
   accessToken,
   message,
   currentToken,
+  startToken,
   completeToken,
   requestCancelToken,
   waitingTokens,
-  startNextToken,
+  callNextToken,
   loadCounterQueue,
 }) {
   const counterLabel = counterName || (activeCounterId ? `Counter #${activeCounterId}` : 'Counter');
+  const currentTokenCalled = currentToken?.status === 'CALLED';
+  const currentTokenServing = currentToken?.status === 'SERVING';
 
   return (
     <main className="min-h-screen text-white animate-fadeIn">
@@ -86,18 +89,33 @@ export function Counter({
               </p>
               <p className="mt-1 text-sm text-charcoal">Status: {currentToken.status}</p>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => runAction(() => completeToken(currentToken.token_id))}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white"
-                >
-                  <CheckCircle2 size={18} />
-                  Complete
-                </button>
+                {currentTokenCalled ? (
+                  <button
+                    type="button"
+                    onClick={() => runAction(() => startToken(currentToken.token_id))}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <Play size={18} />
+                    Start service
+                  </button>
+                ) : null}
+                {currentTokenServing ? (
+                  <button
+                    type="button"
+                    onClick={() => runAction(() => completeToken(currentToken.token_id))}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <CheckCircle2 size={18} />
+                    Complete
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => requestCancelToken(currentToken)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white"
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   <XCircle size={18} />
                   Cancel
@@ -107,12 +125,12 @@ export function Counter({
           ) : (
             <button
               type="button"
-              disabled={!accessToken || waitingTokens.length === 0 || loading}
-              onClick={startNextToken}
+              disabled={!accessToken || !activeCounterId || !counterActive || waitingTokens.length === 0 || loading}
+              onClick={callNextToken}
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >
-              <RefreshCcw size={18} />
-              Start next token
+              <Megaphone size={18} />
+              Call next customer
             </button>
           )}
         </section>

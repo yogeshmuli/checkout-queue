@@ -350,6 +350,55 @@ def test_shared_queue_staff_pull_assigns_counter(queue_service: QueueService) ->
     assert next_created.token_number == "BILL-Q-002"
 
 
+def test_call_next_token_for_counter_marks_earliest_waiting_token_called(queue_service: QueueService) -> None:
+    queue_service.repository.counters = [queue_service.repository.counters[0]]
+    first = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+    second = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543211", item_count=1))
+
+    response = queue_service.call_next_token_for_counter(1)
+    first_token = queue_service.repository.get_token(first.token_id)
+    second_token = queue_service.repository.get_token(second.token_id)
+
+    assert response.token_id == first.token_id
+    assert response.status == QueueTokenStatus.CALLED
+    assert response.assigned_counter_id == 1
+    assert response.called_at is not None
+    assert first_token.status == QueueTokenStatus.CALLED
+    assert second_token.status == QueueTokenStatus.WAITING
+
+
+def test_call_next_token_for_counter_rejects_inactive_counter(queue_service: QueueService) -> None:
+    queue_service.repository.counters[0].is_active = False
+
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.call_next_token_for_counter(1)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Counter is inactive"
+
+
+def test_call_next_token_for_counter_returns_404_when_no_waiting_token(queue_service: QueueService) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        queue_service.call_next_token_for_counter(1)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "No waiting tokens available for this counter"
+
+
+def test_shared_queue_call_next_assigns_counter_and_calls_token(queue_service: QueueService) -> None:
+    queue_service.repository.store_configs[1] = make_store_config("BILL", shared_queue_enabled=True)
+    created = queue_service.join_queue(QueueJoinRequest(store_id=1, section_id=1, phone_number="9876543210", item_count=1))
+
+    response = queue_service.call_next_token_for_counter(2)
+    token = queue_service.repository.get_token(created.token_id)
+
+    assert response.status == QueueTokenStatus.CALLED
+    assert response.assigned_counter_id == 2
+    assert response.called_at is not None
+    assert token.status == QueueTokenStatus.CALLED
+    assert token.assigned_counter_id == 2
+
+
 def test_join_queue_rejects_when_store_calendar_is_closed_today(queue_service: QueueService) -> None:
     now = datetime.now(timezone.utc)
     queue_service.repository.calendar_days[1] = [

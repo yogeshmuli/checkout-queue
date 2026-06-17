@@ -382,6 +382,7 @@ Implemented first:
 - `GET /api/v1/queue/status`
 - `GET /api/v1/queue/counters/{counter_id}/tokens`
 - `PATCH /api/v1/queue/counters/{counter_id}/status`
+- `POST /api/v1/queue/counters/{counter_id}/call-next`
 - `POST /api/v1/queue/tokens/{token_id}/start`
 - `POST /api/v1/queue/tokens/{token_id}/complete`
 - `POST /api/v1/queue/tokens/{token_id}/cancel`

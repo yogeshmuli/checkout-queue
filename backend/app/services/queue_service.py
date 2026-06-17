@@ -304,7 +304,17 @@ class QueueService:
         token = self.process_queue_event(token_id, QueueTokenStatus.SERVING)
         return self._build_event_response(token)
 
+    def call_next_token_for_counter(self, counter_id: int) -> QueueEventResponse:
+        counter, token = self._get_next_waiting_token_for_counter(counter_id)
+        updated = self.process_queue_event(token.id, QueueTokenStatus.CALLED, target_counter_id=counter.id)
+        return self._build_event_response(updated)
+
     def start_next_token_for_counter(self, counter_id: int) -> QueueEventResponse:
+        counter, token = self._get_next_waiting_token_for_counter(counter_id)
+        updated = self.process_queue_event(token.id, QueueTokenStatus.SERVING, target_counter_id=counter.id)
+        return self._build_event_response(updated)
+
+    def _get_next_waiting_token_for_counter(self, counter_id: int) -> tuple[Counter, QueueToken]:
         counter = self.repository.get_counter(counter_id)
         if counter is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counter not found")
@@ -328,9 +338,7 @@ class QueueService:
         if not waiting_tokens:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No waiting tokens available for this counter")
 
-        token = waiting_tokens[0]
-        updated = self.process_queue_event(token.id, QueueTokenStatus.SERVING, target_counter_id=counter.id)
-        return self._build_event_response(updated)
+        return counter, waiting_tokens[0]
 
     def complete_token(self, token_id: int) -> QueueEventResponse:
         token = self.process_queue_event(token_id, QueueTokenStatus.COMPLETED)

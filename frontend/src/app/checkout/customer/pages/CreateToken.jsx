@@ -26,6 +26,7 @@ export function CreateToken() {
   const [stores, setStores] = useState([]);
   const [storesLoading, setStoresLoading] = useState(false);
   const location = useLocation();
+  debugger
 
   // Prefill store_id and section_id from query params if present.
   useEffect(() => {
@@ -64,6 +65,7 @@ export function CreateToken() {
     () => selectedStore?.sections?.find((section) => String(section.id) === String(form.section_id)),
     [form.section_id, selectedStore]
   );
+
   const storeLabel = selectedStore?.name || (form.store_id ? `Store #${form.store_id}` : 'Store not selected');
   const sectionLabel = selectedSection
     ? `${selectedSection.name} (${getSectionTypeLabel(selectedSection.section_type)})`

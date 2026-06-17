@@ -9,10 +9,11 @@ function getQrDestination(rawValue) {
   if (!rawValue) return null;
 
   try {
-    const url = new URL(rawValue);
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : undefined;
+    const url = new URL(rawValue.trim(), baseUrl);
     const isHttpUrl = url.protocol === 'http:' || url.protocol === 'https:';
     const isCheckoutCustomerUrl = url.pathname.startsWith('/app/checkout/customer/');
-    return isHttpUrl && isCheckoutCustomerUrl ? url.href : null;
+    return isHttpUrl && isCheckoutCustomerUrl ? url : null;
   } catch {
     return null;
   }
@@ -40,7 +41,11 @@ export function StoreSectionSelect() {
       return;
     }
     stopScanning();
-    window.location.assign(destination);
+    if (destination.origin === window.location.origin) {
+      navigate(`${destination.pathname}${destination.search}${destination.hash}`);
+      return;
+    }
+    window.location.assign(destination.href);
   }
 
   async function uploadQrImage(event) {

@@ -365,6 +365,7 @@ Endpoint:
 
 ```text
 POST /api/v1/queue/events
+POST /api/v1/queue/counters/{counter_id}/call-next
 POST /api/v1/queue/tokens/{token_id}/start
 POST /api/v1/queue/tokens/{token_id}/complete
 POST /api/v1/queue/tokens/{token_id}/cancel
@@ -382,6 +383,7 @@ CASHIER
 Result:
 
 - Updates queue token status for `CALLED`, `SERVING`, `COMPLETED`, and `CANCELLED` events.
+- Lets counter staff call the next eligible waiting token for their active counter with one counter-scoped action.
 - Sets event timestamps (`called_at`, `completed_at`, `cancelled_at`) and cancellation reason when applicable.
 - Returns updated token event state for frontend synchronization.
 
@@ -410,12 +412,14 @@ Endpoints:
 ```text
 GET   /api/v1/queue/counters/{counter_id}/tokens
 PATCH /api/v1/queue/counters/{counter_id}/status
+POST  /api/v1/queue/counters/{counter_id}/call-next
 ```
 
 Result:
 
 - Returns active counter queue tokens.
 - Lets staff mark a counter active or inactive.
+- Lets staff call only the next callable waiting token from the counter console.
 - Staff frontend uses these APIs after login.
 
 ### 14. User Can Open Role-Based Frontend Views
@@ -568,7 +572,7 @@ Result:
 
 ### 17. Staff Can Process Counter Queue From Frontend
 
-As staff, I can login, view my counter queue, start the next token, complete a serving token, cancel tokens, and toggle counter active state.
+As staff, I can login, view my counter queue, call the next customer, start service after the customer arrives, complete a serving token, cancel tokens, and toggle counter active state.
 
 Route:
 
@@ -580,7 +584,8 @@ Result:
 
 - Logs in through `POST /api/v1/auth/login`.
 - Loads counter queue through `GET /api/v1/queue/counters/{counter_id}/tokens`.
-- Starts, completes, and cancels tokens through queue transition APIs.
+- Calls the next eligible waiting token through `POST /api/v1/queue/counters/{counter_id}/call-next`.
+- Starts called tokens, completes serving tokens, and cancels tokens through queue transition APIs.
 - Updates counter status through `PATCH /api/v1/queue/counters/{counter_id}/status`.
 
 ### 18. Admin Can View And Manage Live Queue
