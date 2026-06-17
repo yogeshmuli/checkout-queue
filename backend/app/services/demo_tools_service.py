@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import hash_password
 from app.models.calendar import StoreCalendarDay, StoreCalendarEvent, StoreCalendarEventType
 from app.models.checkout_section import CheckoutSection, CheckoutSectionType
 from app.models.counter import Counter, CounterBasketSizeBand, CounterType
@@ -22,6 +23,7 @@ from app.models.trial_zone import (
     TrialZoneGender,
     TrialZoneType,
 )
+from app.models.user import User, UserRole, UserStoreAccess
 from app.repositories.demo_tools_repository import DemoToolsRepository
 from app.schemas.demo_tools import DemoToolCounts, DemoToolIds, DemoTrainingDataResponse
 
@@ -35,6 +37,7 @@ TRIAL_CANCELLED_SAMPLE_COUNT = 30
 CHECKOUT_WAITING_SAMPLE_COUNT = 10
 TRIAL_WAITING_SAMPLE_COUNT = 10
 TIMEZONE_NAME = "Asia/Kolkata"
+DEMO_STAFF_PASSWORD = "demo123"
 
 
 class DemoToolsService:
@@ -58,6 +61,7 @@ class DemoToolsService:
             counters = self.repository.checkout_counters_for_store(store.id)
             zone = self._create_trial_setup(store.id, seeded_at)
             studios = self.repository.trial_studios_for_store(store.id)
+            self._create_demo_staff(store.id, section.id, counters, [zone])
             self._create_checkout_history(store.id, section.id, counters, seeded_at)
             self._create_checkout_waiting_tokens(store.id, section.id, counters, seeded_at)
             self._create_trial_history(store.id, zone.id, studios, seeded_at)
@@ -166,6 +170,38 @@ class DemoToolsService:
                 )
             )
         return zone
+
+    def _create_demo_staff(self, store_id: int, section_id: int, counters: list[Counter], zones: list[TrialZone]) -> None:
+        for index, counter in enumerate(counters, start=1):
+            user = self.repository.create(
+                User(
+                    email=f"demo.checkout.counter{index}@example.com",
+                    full_name=f"Demo Checkout Counter {index}",
+                    password_hash=hash_password(DEMO_STAFF_PASSWORD),
+                    default_role=UserRole.CASHIER,
+                    store_id=store_id,
+                    section_id=section_id,
+                    assigned_counter_id=counter.id,
+                    is_active=True,
+                )
+            )
+            self.repository.create(UserStoreAccess(user_id=user.id, store_id=store_id, role=UserRole.CASHIER, is_active=True))
+
+        for index, zone in enumerate(zones, start=1):
+            user = self.repository.create(
+                User(
+                    email=f"demo.trial.zone{index}@example.com",
+                    full_name=f"Demo Trial Zone {index}",
+                    password_hash=hash_password(DEMO_STAFF_PASSWORD),
+                    default_role=UserRole.TRIAL_ZONE_ASSISTANT,
+                    store_id=store_id,
+                    assigned_zone_id=zone.id,
+                    is_active=True,
+                )
+            )
+            self.repository.create(
+                UserStoreAccess(user_id=user.id, store_id=store_id, role=UserRole.TRIAL_ZONE_ASSISTANT, is_active=True)
+            )
 
     def _create_checkout_history(self, store_id: int, section_id: int, counters: list[Counter], seeded_at: datetime) -> None:
         for index in range(CHECKOUT_COMPLETED_SAMPLE_COUNT):
@@ -332,6 +368,7 @@ class DemoToolsService:
     def _cleanup_store(self, store: Store) -> None:
         store_id = store.id
         self.repository.delete_ml_metadata(store_id)
+        self.repository.delete_demo_staff(store_id)
         self.repository.delete_store(store)
         self._remove_artifact_dir(Path(settings.ML_MODEL_DIR) / f"store_{store_id}")
         self._remove_artifact_dir(Path(settings.ML_MODEL_DIR) / f"trial_store_{store_id}")

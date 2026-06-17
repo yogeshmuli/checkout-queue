@@ -6,14 +6,14 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, verify_password
 from app.core.config import settings
 from app.models.checkout_section import CheckoutSection
 from app.models.counter import Counter
 from app.models.ml_model_metadata import MLModelMetadata
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store import Store
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStoreAccess
 from app.routes.demo_tools_routes import router as demo_tools_router
 from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
 from app.models.trial_studio import TrialStudio
@@ -39,6 +39,8 @@ class FakeDemoToolsRepository:
         self.checkout_tokens: list[QueueToken] = []
         self.trial_tokens: list[TrialQueueToken] = []
         self.metadata: list[MLModelMetadata] = []
+        self.users: list[User] = []
+        self.store_access: list[UserStoreAccess] = []
         self.next_id = 1
         self.committed = False
 
@@ -68,6 +70,10 @@ class FakeDemoToolsRepository:
             self.trial_tokens.append(instance)
         elif isinstance(instance, MLModelMetadata):
             self.metadata.append(instance)
+        elif isinstance(instance, User):
+            self.users.append(instance)
+        elif isinstance(instance, UserStoreAccess):
+            self.store_access.append(instance)
         return instance
 
     def checkout_section_for_store(self, store_id: int) -> CheckoutSection | None:
@@ -119,6 +125,15 @@ class FakeDemoToolsRepository:
 
     def delete_ml_metadata(self, store_id: int) -> None:
         self.metadata = [metadata for metadata in self.metadata if metadata.store_id != store_id]
+
+    def delete_demo_staff(self, store_id: int) -> None:
+        demo_staff_ids = {
+            user.id
+            for user in self.users
+            if user.store_id == store_id and user.email.startswith("demo.") and user.email.endswith("@example.com")
+        }
+        self.store_access = [access for access in self.store_access if access.user_id not in demo_staff_ids]
+        self.users = [user for user in self.users if user.id not in demo_staff_ids]
 
     def delete_store(self, store: Store) -> None:
         self.stores.pop(store.id, None)
@@ -200,6 +215,30 @@ def test_seed_creates_checkout_and_trial_training_data(demo_service: DemoToolsSe
     assert status_response.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
 
 
+def test_seed_creates_demo_staff_for_counters_and_trial_zones(demo_service: DemoToolsService) -> None:
+    response = demo_service.seed_ml_training_data()
+    store_id = response.ids.store_id
+    section_id = response.ids.checkout_section_id
+    assert store_id is not None
+    assert section_id is not None
+
+    checkout_staff = [user for user in demo_service.repository.users if user.default_role == UserRole.CASHIER]
+    trial_staff = [user for user in demo_service.repository.users if user.default_role == UserRole.TRIAL_ZONE_ASSISTANT]
+
+    assert len(checkout_staff) == len(response.ids.checkout_counter_ids)
+    assert len(trial_staff) == 1
+    assert {user.assigned_counter_id for user in checkout_staff} == set(response.ids.checkout_counter_ids)
+    assert all(user.store_id == store_id for user in checkout_staff + trial_staff)
+    assert all(user.section_id == section_id for user in checkout_staff)
+    assert all(user.assigned_zone_id is None for user in checkout_staff)
+    assert trial_staff[0].assigned_zone_id == response.ids.trial_zone_id
+    assert trial_staff[0].section_id is None
+    assert trial_staff[0].assigned_counter_id is None
+    assert all(user.password_hash != "demo123" for user in checkout_staff + trial_staff)
+    assert all(verify_password("demo123", user.password_hash) for user in checkout_staff + trial_staff)
+    assert len(demo_service.repository.store_access) == len(checkout_staff) + len(trial_staff)
+
+
 def test_seed_anchors_waiting_queues_to_one_current_timestamp(demo_service: DemoToolsService, monkeypatch: pytest.MonkeyPatch) -> None:
     seeded_at = datetime(2026, 6, 2, 12, 30, tzinfo=timezone.utc)
 
@@ -243,13 +282,17 @@ def test_seed_rejects_existing_demo_store_without_replace(demo_service: DemoTool
 
 def test_seed_replace_recreates_demo_data(demo_service: DemoToolsService) -> None:
     first = demo_service.seed_ml_training_data()
+    first_staff_ids = {user.id for user in demo_service.repository.users}
     second = demo_service.seed_ml_training_data(replace=True)
+    second_staff_ids = {user.id for user in demo_service.repository.users}
 
     assert first.ids.store_id != second.ids.store_id
     assert second.counts.checkout_completed_tokens == CHECKOUT_COMPLETED_SAMPLE_COUNT
     assert second.counts.trial_completed_tokens == TRIAL_COMPLETED_SAMPLE_COUNT
     assert second.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
     assert second.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
+    assert len(second_staff_ids) == 4
+    assert first_staff_ids.isdisjoint(second_staff_ids)
 
 
 def test_cleanup_removes_store_metadata_and_artifacts(demo_service: DemoToolsService) -> None:
@@ -270,6 +313,8 @@ def test_cleanup_removes_store_metadata_and_artifacts(demo_service: DemoToolsSer
     assert response.counts.checkout_waiting_tokens == CHECKOUT_WAITING_SAMPLE_COUNT
     assert response.counts.trial_waiting_tokens == TRIAL_WAITING_SAMPLE_COUNT
     assert status_response.exists is False
+    assert demo_service.repository.users == []
+    assert demo_service.repository.store_access == []
     assert not checkout_artifact_dir.exists()
     assert not trial_artifact_dir.exists()
 

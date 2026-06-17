@@ -9,6 +9,7 @@ from app.models.store import Store
 from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
 from app.models.trial_studio import TrialStudio
 from app.models.trial_zone import TrialZone
+from app.models.user import User, UserStoreAccess
 
 
 class DemoToolsRepository:
@@ -88,6 +89,14 @@ class DemoToolsRepository:
 
     def delete_ml_metadata(self, store_id: int) -> None:
         self.db.execute(delete(MLModelMetadata).where(MLModelMetadata.store_id == store_id))
+
+    def delete_demo_staff(self, store_id: int) -> None:
+        staff_ids = select(User.id).where(
+            User.store_id == store_id,
+            User.email.like("demo.%@example.com"),
+        )
+        self.db.execute(delete(UserStoreAccess).where(UserStoreAccess.user_id.in_(staff_ids)))
+        self.db.execute(delete(User).where(User.id.in_(staff_ids)))
 
     def delete_store(self, store: Store) -> None:
         self.db.delete(store)
