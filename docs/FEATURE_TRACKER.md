@@ -561,6 +561,7 @@ Result:
 - Loads store/section options from public API `GET /api/v1/queue/store-sections`.
 - Includes active stores even when no section is configured yet (section remains optional for that case).
 - Uses QR-only store entry with browser-camera scanning or gallery image upload; the manual store/section selection form is hidden from customers, and a valid Checkout customer QR redirects to its complete encoded URL.
+- Redirects customers back to QR scan when an encoded Checkout store or section is no longer available, with a warning message.
 - Supports installable PWA behavior with manifest/service-worker caching for home-screen install.
 - Calls `POST /api/v1/queue/join`.
 - Allows customer cancellation from token status through `POST /api/v1/queue/tokens/{token_id}/customer-cancel` with a reusable in-app confirmation modal.
@@ -932,6 +933,7 @@ Trial Queue frontend parity:
 - Trial store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
 - Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: QR-only store entry with camera scan or gallery upload, complete encoded Trial customer URL redirect, create token, mobile lookup, and token status screens.
+- Trial customer token creation redirects back to QR scan with a warning when the encoded store or trial zone is no longer available.
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
 - Checkout and Trial customer headers link the brand logo back to the public landing page.
 - Checkout and Trial customer token status cards include a compact manual refresh icon that reloads the latest token status from the backend.

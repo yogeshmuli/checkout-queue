@@ -1,6 +1,7 @@
 import { ArrowLeft, ShoppingBasket } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
@@ -13,7 +14,13 @@ export function CreateToken() {
   const [form, setForm] = useState(defaultForm);
   const [stores, setStores] = useState([]);
   const [storesLoading, setStoresLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
+  const invalidQrRedirectedRef = useRef(false);
   const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const { setLastToken } = useQueueStore();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -26,16 +33,13 @@ export function CreateToken() {
     }));
   }, [location.search]);
 
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const { setLastToken } = useQueueStore();
-  const navigate = useNavigate();
-
   useEffect(() => {
     async function loadStoreNames() {
       setStoresLoading(true);
+      setStoresLoaded(false);
       try {
         setStores(await listTrialStoreZones());
+        setStoresLoaded(true);
       } catch (error) {
         showApiErrorToast(error);
         setMessage(getErrorMessage(error));
@@ -52,6 +56,22 @@ export function CreateToken() {
     () => selectedStore?.zones?.find((zone) => String(zone.id) === String(form.trial_zone_id)),
     [form.trial_zone_id, selectedStore]
   );
+
+  useEffect(() => {
+    if (!storesLoaded || invalidQrRedirectedRef.current) return;
+    if (!form.store_id && !form.trial_zone_id) return;
+
+    const missingStore = Boolean(form.store_id) && !selectedStore;
+    const missingZone = Boolean(form.trial_zone_id) && !selectedZone;
+    if (!missingStore && !missingZone) return;
+
+    invalidQrRedirectedRef.current = true;
+    const warning = missingStore
+      ? 'Selected store is no longer available. Please scan a valid trial QR code.'
+      : 'Selected trial zone is no longer available. Please scan a valid trial QR code.';
+    toast.warn(warning, { toastId: 'trial-invalid-customer-qr' });
+    navigate('/app/trial/customer', { replace: true, state: { warning } });
+  }, [form.store_id, form.trial_zone_id, navigate, selectedStore, selectedZone, storesLoaded]);
 
   const storeLabel = selectedStore?.name || (form.store_id ? `Store #${form.store_id}` : 'Store not selected');
   const zoneLabel = selectedZone

@@ -1,6 +1,7 @@
 import { ArrowLeft, ShoppingBasket } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
@@ -25,8 +26,13 @@ export function CreateToken() {
   const [form, setForm] = useState(defaultForm);
   const [stores, setStores] = useState([]);
   const [storesLoading, setStoresLoading] = useState(false);
+  const [storesLoaded, setStoresLoaded] = useState(false);
+  const invalidQrRedirectedRef = useRef(false);
   const location = useLocation();
-  debugger
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const { setLastToken } = useQueueStore();
+  const navigate = useNavigate();
 
   // Prefill store_id and section_id from query params if present.
   useEffect(() => {
@@ -39,16 +45,14 @@ export function CreateToken() {
       section_id: section_id || f.section_id,
     }));
   }, [location.search]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const { setLastToken } = useQueueStore();
-  const navigate = useNavigate();
 
   useEffect(() => {
     async function loadStoreNames() {
       setStoresLoading(true);
+      setStoresLoaded(false);
       try {
         setStores(await listStoreSections());
+        setStoresLoaded(true);
       } catch (error) {
         showApiErrorToast(error);
         setMessage(getErrorMessage(error));
@@ -65,6 +69,22 @@ export function CreateToken() {
     () => selectedStore?.sections?.find((section) => String(section.id) === String(form.section_id)),
     [form.section_id, selectedStore]
   );
+
+  useEffect(() => {
+    if (!storesLoaded || invalidQrRedirectedRef.current) return;
+    if (!form.store_id && !form.section_id) return;
+
+    const missingStore = Boolean(form.store_id) && !selectedStore;
+    const missingSection = Boolean(form.section_id) && !selectedSection;
+    if (!missingStore && !missingSection) return;
+
+    invalidQrRedirectedRef.current = true;
+    const warning = missingStore
+      ? 'Selected store is no longer available. Please scan a valid checkout QR code.'
+      : 'Selected checkout section is no longer available. Please scan a valid checkout QR code.';
+    toast.warn(warning, { toastId: 'checkout-invalid-customer-qr' });
+    navigate('/app/checkout/customer', { replace: true, state: { warning } });
+  }, [form.section_id, form.store_id, navigate, selectedSection, selectedStore, storesLoaded]);
 
   const storeLabel = selectedStore?.name || (form.store_id ? `Store #${form.store_id}` : 'Store not selected');
   const sectionLabel = selectedSection

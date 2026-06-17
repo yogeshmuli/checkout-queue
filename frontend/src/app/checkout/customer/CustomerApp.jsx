@@ -7,7 +7,6 @@ import { TokenStatus } from './pages/TokenStatus.jsx';
 import { StoreSectionSelect } from './pages/StoreSectionSelect.jsx';
 
 export function CustomerApp() {
-  debugger
   return (
     <Routes>
       <Route path="/" element={<StoreSectionSelect />} />
