@@ -57,7 +57,7 @@ const canManageDemoTools = user?.default_role === 'SUPER_ADMIN';
           </div>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 mb-5">
           {modules.map((module) => {
             const Icon = moduleIcons[module.id] || ShoppingBag;
             return (

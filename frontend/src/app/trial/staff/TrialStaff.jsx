@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { cancelTrialToken, completeTrialToken, getTrialZoneStudios, startTrialToken, updateTrialStudioStatus } from '../../../api/trial/queueApi.js';
+import { callNextTrialTokenForZone, cancelTrialToken, completeTrialToken, getTrialZoneStudios, startTrialToken, updateTrialStudioStatus } from '../../../api/trial/queueApi.js';
 import { listTrialZones } from '../../../api/trial/zonesApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { useAuthStore } from '../../../store/authStore.js';
@@ -8,25 +8,25 @@ import { Studio } from './pages/Studio.jsx';
 import { STUDIO_QUEUE_REFRESH_MS } from './utils/staffUtils.js';
 
 export function TrialStaff() {
-  
   const { clearSession, user, accessToken } = useAuthStore();
   const assignedZoneId = user?.assigned_zone_id ? String(user.assigned_zone_id) : '';
   const isManager = user?.default_role === 'MANAGER';
   const [zones, setZones] = useState([]);
   const [zoneId, setZoneId] = useState(assignedZoneId || localStorage.getItem('trial_zone_id') || '');
   const [zoneQueue, setZoneQueue] = useState(null);
-  const [selectedStudioId, setSelectedStudioId] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const studios = useMemo(() => zoneQueue?.studios || [], [zoneQueue]);
-  const selectedStudio = useMemo(
-    () => studios.find((studio) => String(studio.studio_id) === String(selectedStudioId)) || null,
-    [selectedStudioId, studios]
-  );
-  const tokens = useMemo(() => selectedStudio?.tokens || [], [selectedStudio]);
+  const tokens = useMemo(() => zoneQueue?.tokens || [], [zoneQueue]);
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
-  const currentToken = useMemo(() => tokens.find((token) => token.status === 'SERVING' || token.status === 'CALLED'), [tokens]);
+  const calledToken = useMemo(() => tokens.find((token) => token.status === 'CALLED') || null, [tokens]);
+  const servingTokens = useMemo(() => tokens.filter((token) => token.status === 'SERVING'), [tokens]);
+  const activeStudios = useMemo(() => studios.filter((studio) => studio.is_active), [studios]);
+  const vacantActiveStudios = useMemo(
+    () => activeStudios.filter((studio) => !servingTokens.some((token) => String(token.assigned_studio_id) === String(studio.studio_id))),
+    [activeStudios, servingTokens]
+  );
 
   const loadZones = useCallback(async () => {
     if (!accessToken || !isManager) return;
@@ -61,7 +61,6 @@ export function TrialStaff() {
     if (assignedZoneId) {
       setZoneId(assignedZoneId);
       setZoneQueue(null);
-      setSelectedStudioId('');
       localStorage.setItem('trial_zone_id', assignedZoneId);
     }
   }, [assignedZoneId]);
@@ -73,7 +72,6 @@ export function TrialStaff() {
     const nextZoneId = String(zones[0].id);
     setZoneId(nextZoneId);
     setZoneQueue(null);
-    setSelectedStudioId('');
     localStorage.setItem('trial_zone_id', nextZoneId);
   }, [isManager, zoneId, zones]);
 
@@ -83,28 +81,9 @@ export function TrialStaff() {
     return () => window.clearInterval(intervalId);
   }, [loadZoneQueue]);
 
-  useEffect(() => {
-    if (!studios.length || !zoneId) {
-      setSelectedStudioId('');
-      return;
-    }
-    if (studios.some((studio) => String(studio.studio_id) === String(selectedStudioId))) return;
-    const rememberedStudioId = localStorage.getItem(`trial_zone_${zoneId}_studio_id`);
-    const rememberedStudio = studios.find((studio) => String(studio.studio_id) === String(rememberedStudioId));
-    const nextStudio = rememberedStudio || studios.find((studio) => studio.is_active) || studios[0];
-    setSelectedStudioId(String(nextStudio.studio_id));
-  }, [selectedStudioId, studios, zoneId]);
-
-  function selectStudio(studioId) {
-    const nextStudioId = String(studioId);
-    setSelectedStudioId(nextStudioId);
-    if (zoneId) localStorage.setItem(`trial_zone_${zoneId}_studio_id`, nextStudioId);
-  }
-
   function selectZone(nextZoneId) {
     setZoneId(nextZoneId);
     setZoneQueue(null);
-    setSelectedStudioId('');
     localStorage.setItem('trial_zone_id', nextZoneId);
   }
 
@@ -122,10 +101,14 @@ export function TrialStaff() {
     }
   }
 
-  function startNextToken() {
-    const next = waitingTokens[0];
-    if (!next) return;
-    runAction(() => startTrialToken(next.token_id));
+  function callNextToken() {
+    if (!zoneId || calledToken || waitingTokens.length === 0 || vacantActiveStudios.length === 0) return;
+    runAction(() => callNextTrialTokenForZone(Number(zoneId)));
+  }
+
+  function startCalledToken(studioId) {
+    if (!calledToken || !studioId) return;
+    runAction(() => startTrialToken(calledToken.token_id, studioId));
   }
 
   return (
@@ -136,21 +119,22 @@ export function TrialStaff() {
       setZoneId={selectZone}
       canSelectZone={isManager && !assignedZoneId}
       studios={studios}
-      selectedStudio={selectedStudio}
-      selectStudio={selectStudio}
       clearSession={clearSession}
       loading={loading}
       runAction={runAction}
       updateTrialStudioStatus={updateTrialStudioStatus}
       accessToken={accessToken}
       message={message}
-      currentToken={currentToken}
+      calledToken={calledToken}
+      servingTokens={servingTokens}
+      activeStudios={activeStudios}
+      vacantActiveStudios={vacantActiveStudios}
       completeTrialToken={completeTrialToken}
       cancelTrialToken={cancelTrialToken}
       waitingTokens={waitingTokens}
-      startNextToken={startNextToken}
+      callNextToken={callNextToken}
       loadZoneQueue={loadZoneQueue}
-      startTrialToken={startTrialToken}
+      startCalledToken={startCalledToken}
     />
   );
 }

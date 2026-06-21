@@ -168,7 +168,7 @@ export function CreateToken() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3">
+          {/* <div className="grid grid-cols-1 gap-3">
             <Select
               label="Customer type"
               value={form.customer_type}
@@ -178,7 +178,7 @@ export function CreateToken() {
                 { label: 'Priority', value: 'priority' },
               ]}
             />
-          </div>
+          </div> */}
 
           {message ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
 

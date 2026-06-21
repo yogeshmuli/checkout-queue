@@ -46,7 +46,12 @@ class TrialQueueEventType(str, Enum):
 class TrialQueueEventRequest(BaseModel):
     token_id: int = Field(gt=0)
     event: TrialQueueEventType
+    studio_id: int | None = Field(default=None, gt=0)
     cancellation_reason: str | None = Field(default=None, max_length=255)
+
+
+class TrialTokenStartRequest(BaseModel):
+    studio_id: int = Field(gt=0)
 
 
 class TrialTokenCancelRequest(BaseModel):
@@ -102,6 +107,7 @@ class TrialZoneStudioQueuesResponse(BaseModel):
     zone_id: int
     zone_name: str
     store_id: int
+    tokens: list[TrialQueueTokenResponse] = []
     studios: list[TrialStudioQueueResponse]
 
 

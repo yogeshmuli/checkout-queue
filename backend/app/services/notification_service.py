@@ -182,15 +182,17 @@ class NotificationService:
         return self._tokens_at_configured_next_soon_position(grouped)
 
     def _trial_next_soon_tokens(self) -> list[TrialQueueToken]:
-        grouped: dict[int, list[TrialQueueToken]] = defaultdict(list)
+        grouped: dict[tuple[str, int], list[TrialQueueToken]] = defaultdict(list)
         for token in self.repository.list_active_trial_tokens():
-            if token.assigned_studio_id is not None:
-                grouped[token.assigned_studio_id].append(token)
+            if token.trial_zone_id is not None:
+                grouped[("zone", token.trial_zone_id)].append(token)
+            elif token.assigned_studio_id is not None:
+                grouped[("studio", token.assigned_studio_id)].append(token)
         return self._tokens_at_configured_next_soon_position(grouped)
 
     def _tokens_at_configured_next_soon_position(
         self,
-        grouped_tokens: dict[int, list[QueueToken | TrialQueueToken]],
+        grouped_tokens: dict[object, list[QueueToken | TrialQueueToken]],
     ) -> list[QueueToken | TrialQueueToken]:
         selected_tokens: list[QueueToken | TrialQueueToken] = []
         for tokens in grouped_tokens.values():
@@ -210,7 +212,7 @@ class NotificationService:
 
     def _trial_service_point_name(self, token: TrialQueueToken) -> str:
         if token.assigned_studio_id is None:
-            return "the studio"
+            return "the trial zone"
         studio = self.repository.get_studio(token.assigned_studio_id)
         return studio.name or f"Studio #{studio.id}" if studio else "the studio"
 

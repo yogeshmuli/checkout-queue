@@ -12,7 +12,7 @@ import { SectionHeader } from '../../../common/SectionHeader.jsx';
 const emptyStudio = {
   store_id: '',
   trial_zone_id: '',
-  studio_type: '',
+  studio_type: 'REGULAR',
   name: '',
   is_active: true,
 };
@@ -22,7 +22,8 @@ const FIELD_LIMITS = {
 };
 
 const STUDIOS_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'trial_zone_id', 'studio_type', 'name'];
+const DEFAULT_STUDIO_TYPE = 'REGULAR';
+const FIELD_ORDER = ['store_id', 'trial_zone_id', 'name'];
 
 const STUDIO_TYPE_OPTIONS = [
   { label: 'Select studio type', value: '' },
@@ -133,7 +134,7 @@ export function Studios() {
   function toPayload(values) {
     return {
       trial_zone_id: Number(values.trial_zone_id),
-      studio_type: values.studio_type,
+      studio_type: values.studio_type || DEFAULT_STUDIO_TYPE,
       name: values.name.trim() || null,
       is_active: values.is_active,
     };
@@ -148,10 +149,6 @@ export function Studios() {
 
     if (!values.trial_zone_id) {
       errors.trial_zone_id = 'Trial zone is required.';
-    }
-
-    if (!values.studio_type) {
-      errors.studio_type = 'Studio type is required.';
     }
 
     if (values.name.trim().length > FIELD_LIMITS.name) {
@@ -204,7 +201,7 @@ export function Studios() {
     const nextForm = {
       store_id: relatedZone ? String(relatedZone.store_id) : '',
       trial_zone_id: String(studio.trial_zone_id),
-      studio_type: studio.studio_type || '',
+      studio_type: studio.studio_type || DEFAULT_STUDIO_TYPE,
       name: studio.name || '',
       is_active: Boolean(studio.is_active),
     };
@@ -442,10 +439,10 @@ export function Studios() {
               }}
             />
 
-            <div>
+            {/* <div>
               <Select label="Studio type" value={form.studio_type} options={STUDIO_TYPE_OPTIONS} onChange={(value) => setFormField('studio_type', value)} />
               {formErrors.studio_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.studio_type}</p> : null}
-            </div>
+            </div> */}
 
             <label className="flex items-center justify-between rounded-lg border border-line px-3 py-3">
               <span className="text-sm font-medium text-charcoal">Studio active</span>

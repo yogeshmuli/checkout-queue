@@ -22,6 +22,7 @@ from app.schemas.trial_queue import (
     TrialStoreZoneResponse,
     TrialStudioQueueResponse,
     TrialStudioStatusUpdateRequest,
+    TrialTokenStartRequest,
     TrialZoneStudioQueuesResponse,
 )
 from app.services.notification_service import NotificationService
@@ -45,36 +46,20 @@ class TrialQueueService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active store not found")
         if not self._is_store_open(payload.store_id):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Store is closed for trial queue joining")
-        if payload.trial_zone_id is not None:
-            zone = self.repository.get_zone(payload.trial_zone_id)
-            if zone is None or not zone.is_active or zone.store_id != payload.store_id:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active trial zone not found")
-            if payload.customer_gender is not None and zone.gender not in (TrialZoneGender.UNISEX, payload.customer_gender):
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected trial zone does not support customer gender")
         if self.repository.get_active_token_for_phone(payload.store_id, payload.phone_number) is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active trial token already exists for phone")
 
-        studios = self.repository.list_active_studios(payload.store_id, payload.trial_zone_id)
-        if payload.trial_zone_id is None and payload.customer_gender is not None:
-            eligible_zone_ids = {
-                zone.id
-                for zone in self.repository.list_zones(include_inactive=False, store_id=payload.store_id)
-                if zone.gender in (TrialZoneGender.UNISEX, payload.customer_gender)
-            }
-            studios = [studio for studio in studios if studio.trial_zone_id in eligible_zone_ids]
+        zone = self._select_zone_for_join(payload)
+        studios = self.repository.list_active_studios(payload.store_id, zone.id)
         if not studios:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No active studios available")
         now = datetime.now(timezone.utc)
-        for studio in studios:
-            self._rebuild_studio_schedule(studio.id, now)
-        selected = min(studios, key=lambda studio: self._normalize_to_utc(studio.next_available_time))
-        calling_time = max(now, self._normalize_to_utc(selected.next_available_time))
         config = self.get_config(payload.store_id)
         prediction = TrialPredictionService(self.repository).predict_service_time(
             payload.store_id,
             TrialServiceTimePredictionRequest(
-                trial_zone_id=payload.trial_zone_id,
-                assigned_studio_id=selected.id,
+                trial_zone_id=zone.id,
+                assigned_studio_id=None,
                 item_count=payload.item_count,
                 customer_type=payload.customer_type,
                 requested_at=now,
@@ -82,14 +67,15 @@ class TrialQueueService:
         )
         calculation_method = prediction.calculation_method if prediction is not None else self.CALCULATION_METHOD
         service_minutes = prediction.service_time_minutes if prediction is not None else self._estimate_service_minutes(payload.item_count, config)
+        slots = self._zone_schedule_slots(zone.id, now)
+        calling_time = max(now, min(slots))
         wait_minutes = max(0, math.ceil((calling_time - now).total_seconds() / 60))
-        position = self._calculate_studio_position(selected.id, calling_time)
-        selected.next_available_time = calling_time + timedelta(minutes=service_minutes)
+        position = self._calculate_zone_position(zone.id, calling_time)
         token = TrialQueueToken(
             store_id=payload.store_id,
-            trial_zone_id=payload.trial_zone_id,
-            assigned_studio_id=selected.id,
-            token_number=self._generate_token_number(payload.store_id, payload.trial_zone_id, config),
+            trial_zone_id=zone.id,
+            assigned_studio_id=None,
+            token_number=self._generate_token_number(payload.store_id, zone.id, config),
             phone_number=payload.phone_number,
             status=TrialQueueTokenStatus.WAITING,
             item_count=payload.item_count,
@@ -149,10 +135,12 @@ class TrialQueueService:
     def get_zone_studio_queues(self, zone_id: int, current_user: User | None = None) -> TrialZoneStudioQueuesResponse:
         zone = self.get_zone(zone_id)
         self._ensure_zone_access(zone, current_user)
+        self._rebuild_zone_schedule(zone.id)
         return TrialZoneStudioQueuesResponse(
             zone_id=zone.id,
             zone_name=zone.name,
             store_id=zone.store_id,
+            tokens=[self._build_token_response(token) for token in self.repository.list_active_tokens_for_zone(zone.id)],
             studios=[self.get_studio_queue(studio.id, current_user=current_user) for studio in self.repository.list_studios(include_inactive=True, trial_zone_id=zone.id)],
         )
 
@@ -177,10 +165,28 @@ class TrialQueueService:
             TrialQueueEventType.COMPLETED: TrialQueueTokenStatus.COMPLETED,
             TrialQueueEventType.CANCELLED: TrialQueueTokenStatus.CANCELLED,
         }
-        return self._build_event_response(self.process_queue_event(payload.token_id, status_map[payload.event], payload.cancellation_reason, current_user=current_user))
+        return self._build_event_response(self.process_queue_event(payload.token_id, status_map[payload.event], payload.cancellation_reason, current_user=current_user, studio_id=payload.studio_id))
 
-    def start_token(self, token_id: int, current_user: User | None = None) -> TrialQueueEventResponse:
-        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.SERVING, current_user=current_user))
+    def start_token(self, token_id: int, payload: TrialTokenStartRequest, current_user: User | None = None) -> TrialQueueEventResponse:
+        return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.SERVING, current_user=current_user, studio_id=payload.studio_id))
+
+    def call_next_token_for_zone(self, zone_id: int, current_user: User | None = None) -> TrialQueueEventResponse:
+        zone = self.get_zone(zone_id)
+        self._ensure_zone_access(zone, current_user)
+        if not zone.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone is inactive")
+        if self.repository.get_current_called_token_for_zone(zone.id) is not None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
+        if not self._list_vacant_active_studios(zone):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No vacant active studios available for this trial zone")
+
+        self._rebuild_zone_schedule(zone.id)
+        waiting_tokens = self.repository.list_waiting_tokens_for_zone(zone.id)
+        if not waiting_tokens:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No waiting tokens available for this trial zone")
+
+        updated = self.process_queue_event(waiting_tokens[0].id, TrialQueueTokenStatus.CALLED, current_user=current_user)
+        return self._build_event_response(updated)
 
     def complete_token(self, token_id: int, current_user: User | None = None) -> TrialQueueEventResponse:
         return self._build_event_response(self.process_queue_event(token_id, TrialQueueTokenStatus.COMPLETED, current_user=current_user))
@@ -200,27 +206,21 @@ class TrialQueueService:
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
         self._ensure_customer_action_allowed(token)
-        if token.assigned_studio_id is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is not assigned to a studio")
-
-        studio = self.repository.get_studio(token.assigned_studio_id)
-        if studio is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Studio not found")
+        if token.trial_zone_id is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is not assigned to a zone")
 
         now = datetime.now(timezone.utc)
         token.status = TrialQueueTokenStatus.CANCELLED
         token.cancelled_at = now
         token.cancellation_reason = "Moved to end by customer"
 
-        self._rebuild_studio_schedule(studio.id, now)
-
         service_minutes = self._token_service_minutes(token)
-        calling_time = max(now, self._normalize_to_utc(studio.next_available_time))
+        calling_time = max(now, min(self._zone_schedule_slots(token.trial_zone_id, now)))
         config = self.repository.get_config(token.store_id)
         replacement = TrialQueueToken(
             store_id=token.store_id,
             trial_zone_id=token.trial_zone_id,
-            assigned_studio_id=studio.id,
+            assigned_studio_id=None,
             token_number=self._generate_token_number(token.store_id, token.trial_zone_id, config),
             phone_number=token.phone_number,
             status=TrialQueueTokenStatus.WAITING,
@@ -232,13 +232,12 @@ class TrialQueueService:
             created_at=now,
             updated_at=now,
         )
-        studio.next_available_time = calling_time + timedelta(minutes=service_minutes)
         self.repository.create(replacement)
         self.repository.commit()
         self.repository.refresh(replacement)
         return self._build_token_response(replacement)
 
-    def process_queue_event(self, token_id: int, new_status: TrialQueueTokenStatus, cancellation_reason: str | None = None, current_user: User | None = None) -> TrialQueueToken:
+    def process_queue_event(self, token_id: int, new_status: TrialQueueTokenStatus, cancellation_reason: str | None = None, current_user: User | None = None, studio_id: int | None = None) -> TrialQueueToken:
         token = self.repository.get_token(token_id)
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
@@ -247,6 +246,14 @@ class TrialQueueService:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is already in terminal state")
         if new_status == TrialQueueTokenStatus.CALLED and token.status != TrialQueueTokenStatus.WAITING:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting trial token can be called")
+        if new_status == TrialQueueTokenStatus.CALLED and token.trial_zone_id is not None:
+            called_token = self.repository.get_current_called_token_for_zone(token.trial_zone_id)
+            if called_token is not None and called_token.id != token.id:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
+        if new_status == TrialQueueTokenStatus.SERVING and token.status not in (TrialQueueTokenStatus.WAITING, TrialQueueTokenStatus.CALLED):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting or called trial token can be started")
+        if new_status == TrialQueueTokenStatus.SERVING:
+            self._assign_service_studio(token, studio_id)
         now = datetime.now(timezone.utc)
         token.status = new_status
         if new_status == TrialQueueTokenStatus.CALLED:
@@ -260,8 +267,9 @@ class TrialQueueService:
         elif new_status in (TrialQueueTokenStatus.CANCELLED, TrialQueueTokenStatus.NO_SHOW):
             token.cancelled_at = now
             token.cancellation_reason = cancellation_reason or new_status.value
-        if token.assigned_studio_id is not None:
-            self._rebuild_studio_schedule(token.assigned_studio_id, now)
+        if token.trial_zone_id is not None:
+            self.repository.flush()
+            self._rebuild_zone_schedule(token.trial_zone_id, now)
         self.repository.commit()
         self.repository.refresh(token)
         if new_status == TrialQueueTokenStatus.CALLED and getattr(self.repository, "db", None) is not None:
@@ -288,6 +296,48 @@ class TrialQueueService:
             self.repository.commit()
             self.repository.refresh(config)
         return config
+
+    def _select_zone_for_join(self, payload: TrialQueueJoinRequest) -> TrialZone:
+        if payload.trial_zone_id is not None:
+            zone = self.repository.get_zone(payload.trial_zone_id)
+            if zone is None or not zone.is_active or zone.store_id != payload.store_id:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active trial zone not found")
+            if payload.customer_gender is not None and zone.gender not in (TrialZoneGender.UNISEX, payload.customer_gender):
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected trial zone does not support customer gender")
+            return zone
+
+        zones = [
+            zone
+            for zone in self.repository.list_zones(include_inactive=False, store_id=payload.store_id)
+            if payload.customer_gender is None or zone.gender in (TrialZoneGender.UNISEX, payload.customer_gender)
+        ]
+        if not zones:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active trial zone not found")
+        return zones[0]
+
+    def _assign_service_studio(self, token: TrialQueueToken, studio_id: int | None) -> None:
+        if studio_id is None:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Studio is required to start trial service")
+        if token.trial_zone_id is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is not assigned to a zone")
+        studio = self.repository.get_studio(studio_id)
+        if studio is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Studio not found")
+        if not studio.is_active:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Studio is inactive")
+        if studio.trial_zone_id != token.trial_zone_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Studio does not belong to token trial zone")
+        serving_token = self.repository.get_current_serving_token(studio.id)
+        if serving_token is not None and serving_token.id != token.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Studio is already serving a trial token")
+        token.assigned_studio_id = studio.id
+
+    def _list_vacant_active_studios(self, zone: TrialZone) -> list[TrialStudio]:
+        return [
+            studio
+            for studio in self.repository.list_active_studios(zone.store_id, zone.id)
+            if self.repository.get_current_serving_token(studio.id) is None
+        ]
 
     def _ensure_customer_action_allowed(self, token: TrialQueueToken) -> None:
         if token.status in self.TERMINAL_STATUSES:
@@ -397,15 +447,78 @@ class TrialQueueService:
             return max(1, token.service_time_minutes)
         return self._estimate_service_minutes(token.item_count, self.repository.get_config(token.store_id))
 
+    def _zone_schedule_slots(self, zone_id: int, reference_time: datetime | None = None) -> list[datetime]:
+        slots = list(self._rebuild_zone_schedule(zone_id, reference_time).values())
+        if not slots:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No active studios available")
+        return slots
+
+    def _studio_lane_anchor(self, studio_id: int, reference_time: datetime) -> datetime:
+        serving = self.repository.get_current_serving_token(studio_id)
+        if serving is None:
+            serving = self.repository.get_current_called_token(studio_id)
+        if serving is None:
+            return reference_time
+        start = serving.service_started_at or serving.called_at or serving.calling_time or reference_time
+        return max(reference_time, self._normalize_to_utc(start) + timedelta(minutes=self._token_service_minutes(serving)))
+
+    def _rebuild_zone_schedule(self, zone_id: int, reference_time: datetime | None = None) -> dict[int, datetime]:
+        zone = self.get_zone(zone_id)
+        now = reference_time or datetime.now(timezone.utc)
+        active_studios = self.repository.list_active_studios(zone.store_id, zone.id)
+        if not active_studios:
+            return {}
+
+        studio_cursors = {studio.id: self._studio_lane_anchor(studio.id, now) for studio in active_studios}
+        active_tokens = self.repository.list_active_tokens_for_zone(zone.id)
+        unassigned_called = [
+            token
+            for token in active_tokens
+            if token.status == TrialQueueTokenStatus.CALLED and token.assigned_studio_id is None
+        ]
+        for token in unassigned_called:
+            selected_studio_id = min(studio_cursors, key=lambda studio_id: (studio_cursors[studio_id], studio_id))
+            start = token.called_at or token.calling_time or now
+            studio_cursors[selected_studio_id] = max(studio_cursors[selected_studio_id], self._normalize_to_utc(start), now) + timedelta(
+                minutes=self._token_service_minutes(token)
+            )
+
+        for waiting in self.repository.list_waiting_tokens_for_zone(zone.id):
+            selected_studio_id = min(studio_cursors, key=lambda studio_id: (studio_cursors[studio_id], studio_id))
+            waiting.calling_time = max(now, studio_cursors[selected_studio_id])
+            studio_cursors[selected_studio_id] = waiting.calling_time + timedelta(minutes=self._token_service_minutes(waiting))
+
+        for studio in active_studios:
+            studio.next_available_time = studio_cursors[studio.id]
+
+        return studio_cursors
+
     def _calculate_studio_position(self, studio_id: int, calling_time: datetime) -> int:
         return len([token for token in self.repository.list_waiting_tokens(studio_id) if token.calling_time and self._normalize_to_utc(token.calling_time) <= calling_time]) + 1
+
+    def _calculate_zone_position(self, zone_id: int, calling_time: datetime) -> int:
+        return len([token for token in self.repository.list_waiting_tokens_for_zone(zone_id) if token.calling_time and self._normalize_to_utc(token.calling_time) <= calling_time]) + 1
 
     def _calculate_token_position(self, token: TrialQueueToken) -> int:
         if token.status in self.TERMINAL_STATUSES:
             return 0
-        if token.assigned_studio_id is None or token.calling_time is None:
+        if token.trial_zone_id is None or token.calling_time is None:
             return 1
-        return self._calculate_studio_position(token.assigned_studio_id, self._normalize_to_utc(token.calling_time))
+        if token.status != TrialQueueTokenStatus.WAITING:
+            return 1
+        token_time = self._normalize_to_utc(token.calling_time)
+        token_id = token.id or 0
+        return len(
+            [
+                waiting
+                for waiting in self.repository.list_waiting_tokens_for_zone(token.trial_zone_id)
+                if waiting.calling_time
+                and (
+                    self._normalize_to_utc(waiting.calling_time) < token_time
+                    or (self._normalize_to_utc(waiting.calling_time) == token_time and (waiting.id or 0) <= token_id)
+                )
+            ]
+        )
 
     def _build_token_response(self, token: TrialQueueToken) -> TrialQueueTokenResponse:
         return TrialQueueTokenResponse(

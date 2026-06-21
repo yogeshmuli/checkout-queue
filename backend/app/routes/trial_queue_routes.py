@@ -15,6 +15,7 @@ from app.schemas.trial_queue import (
     TrialStudioQueueResponse,
     TrialStudioStatusUpdateRequest,
     TrialTokenCancelRequest,
+    TrialTokenStartRequest,
     TrialZoneStudioQueuesResponse,
 )
 from app.services.trial_queue_service import TrialQueueService
@@ -59,6 +60,11 @@ def get_trial_zone_studios(zone_id: int, db: Session = Depends(get_db), current_
     return TrialQueueService(db).get_zone_studio_queues(zone_id, current_user=current_user)
 
 
+@router.post("/trial/queue/zones/{zone_id}/call-next", response_model=TrialQueueEventResponse)
+def call_next_trial_token(zone_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
+    return TrialQueueService(db).call_next_token_for_zone(zone_id, current_user=current_user)
+
+
 @router.get("/trial/queue/studios/{studio_id}/tokens", response_model=TrialStudioQueueResponse)
 def get_trial_studio_queue(studio_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialStudioQueueResponse:
     return TrialQueueService(db).get_studio_queue(studio_id, current_user=current_user)
@@ -70,8 +76,8 @@ def update_trial_studio_status(studio_id: int, payload: TrialStudioStatusUpdateR
 
 
 @router.post("/trial/queue/tokens/{token_id}/start", response_model=TrialQueueEventResponse)
-def start_trial_token(token_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
-    return TrialQueueService(db).start_token(token_id, current_user=current_user)
+def start_trial_token(token_id: int, payload: TrialTokenStartRequest, db: Session = Depends(get_db), current_user: User = Depends(require_roles(*trial_staff_roles))) -> TrialQueueEventResponse:
+    return TrialQueueService(db).start_token(token_id, payload, current_user=current_user)
 
 
 @router.post("/trial/queue/tokens/{token_id}/complete", response_model=TrialQueueEventResponse)

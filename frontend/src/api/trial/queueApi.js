@@ -29,8 +29,12 @@ export function updateTrialStudioStatus(studioId, payload) {
   return trialRequest(() => httpClient.patch(`/trial/queue/studios/${studioId}/status`, payload));
 }
 
-export function startTrialToken(tokenId) {
-  return trialRequest(() => httpClient.post(`/trial/queue/tokens/${tokenId}/start`));
+export function callNextTrialTokenForZone(zoneId) {
+  return trialRequest(() => httpClient.post(`/trial/queue/zones/${zoneId}/call-next`));
+}
+
+export function startTrialToken(tokenId, studioId) {
+  return trialRequest(() => httpClient.post(`/trial/queue/tokens/${tokenId}/start`, { studio_id: Number(studioId) }));
 }
 
 export function callTrialToken(tokenId) {

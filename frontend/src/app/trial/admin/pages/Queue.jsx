@@ -295,7 +295,7 @@ export function Queue() {
                 studio={studioById.get(String(token.assigned_studio_id))}
                 loading={loading}
                 onCall={() => runTokenAction(() => callTrialToken(token.token_id), 'Token called')}
-                onStart={() => runTokenAction(() => startTrialToken(token.token_id), 'Token moved to serving')}
+                onStart={() => runTokenAction(() => startTrialToken(token.token_id, token.assigned_studio_id), 'Token moved to serving')}
                 onComplete={() => runTokenAction(() => completeTrialToken(token.token_id), 'Token completed')}
                 onCancel={() => runTokenAction(() => cancelTrialToken(token.token_id, 'Cancelled from admin queue'), 'Token cancelled')}
               />
@@ -318,7 +318,7 @@ function Metric({ label, value }) {
 
 function TokenRow({ token, storeName, zone, studio, loading, onCall, onStart, onComplete, onCancel }) {
   const canCall = token.status === 'WAITING';
-  const canStart = token.status === 'WAITING' || token.status === 'CALLED';
+  const canStart = (token.status === 'WAITING' || token.status === 'CALLED') && Boolean(token.assigned_studio_id);
   const canComplete = token.status === 'SERVING';
   const canCancel = token.status === 'WAITING' || token.status === 'CALLED';
 
@@ -336,7 +336,7 @@ function TokenRow({ token, storeName, zone, studio, loading, onCall, onStart, on
           <p>Phone: {token.phone_number}</p>
           <p>Store: {storeName || `#${token.store_id}`}</p>
           <p>Zone: {zone?.name || 'None'}</p>
-          <p>Studio: {studio?.name || (token.assigned_studio_id ? `#${token.assigned_studio_id}` : 'None')}</p>
+          <p>Studio: {studio?.name || (token.assigned_studio_id ? `#${token.assigned_studio_id}` : 'Pending assignment')}</p>
           <p>Calling: {formatTime(token.calling_time)}</p>
           <p>Items: {token.item_count ?? 'Not set'}</p>
         </div>

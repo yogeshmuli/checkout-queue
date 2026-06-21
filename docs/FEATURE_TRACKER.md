@@ -913,6 +913,7 @@ GET               /api/v1/trial/queue/tokens
 POST              /api/v1/trial/queue/events
 GET/PATCH         /api/v1/trial/queue/studios/{studio_id}/tokens|status
 GET               /api/v1/trial/queue/zones/{zone_id}/studios
+POST              /api/v1/trial/queue/zones/{zone_id}/call-next
 POST              /api/v1/trial/queue/tokens/{token_id}/start|complete|cancel
 POST              /api/v1/ml/trial/stores/{store_id}/train
 GET               /api/v1/ml/trial/stores/{store_id}/metadata
@@ -930,7 +931,7 @@ Trial Queue frontend parity:
 - Trial admin store, zone, studio, and config screens use the same CRUD layout pattern as Checkout admin, including filters, search, create/edit panels, refresh actions, validation, and active/inactive status controls where applicable.
 - Trial admin calendar screen under `/app/trial/admin/calendar` supports store-level weekday hours, timezone, holidays, and promotional event management using Trial Calendar APIs.
 - Trial admin ML screen under `/app/trial/admin/ml` trains and displays the latest Trial Queue RandomForest service-time model for a store.
-- Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel).
+- Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel). Trial tokens wait in a shared zone queue, so new waiting/called tokens can have no studio until service starts.
 - Trial admin dashboard now uses a Smart View layout with sticky header tabs for Live, History, and Foresights; Live shows zone/studio queue cards, History shows collapsible Recharts graphs, and Foresights uses Trial ML metadata when the model is ready.
 - Trial store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
 - Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
@@ -939,11 +940,12 @@ Trial Queue frontend parity:
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.
 - Checkout and Trial customer headers link the brand logo back to the public landing page.
 - Checkout and Trial customer token status cards include a compact manual refresh icon that reloads the latest token status from the backend.
-- Checkout and Trial customer token status cards show custom-modal confirmed cancel and move-last actions for `WAITING` or `CALLED` tokens. Move-last cancels the old token, creates a replacement at the end of the same counter/studio lane, and opens the new status page.
+- Checkout and Trial customer token status cards show custom-modal confirmed cancel and move-last actions for `WAITING` or `CALLED` tokens. Checkout move-last recreates the token at the end of the same counter or shared section queue; Trial move-last recreates the token at the end of the same shared zone queue.
 - Trial customer token creation now captures customer gender and validates compatibility with trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
-- Staff workspace under `/app/trial/staff` loads a zone console for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The responsive console shows every studio in the selected zone as a horizontally scrollable tab-card row that expands across wider screens, preserves the last selected studio, and uses studio-specific queue/status APIs to start waiting tokens, complete/cancel active tokens, and mark studios active or inactive. Assigned trial staff automatically load their `assigned_zone_id`.
-- Trial staff queue APIs enforce assistant zone scope and manager store scope on zone summaries, studio queues, studio status updates, and token actions.
+- Staff workspace under `/app/trial/staff` loads a zone assistant studio board for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The board derives waiting, called, serving, active-studio, and vacant-studio state from one shared zone queue; offers a single zone-level `Call next customer` action only when the zone has a waiting token, no existing called token, and at least one vacant active studio; and lets assistants start the called token from a vacant active studio card.
+- Trial studio cards show active/inactive state, vacant/serving state, and per-studio actions. Serving cards can complete or cancel their assigned token; inactive or occupied cards cannot start service. Starting service records `assigned_studio_id` on the called token, while waiting and called tokens remain zone-level until then. Assigned trial staff automatically load their `assigned_zone_id`.
+- Trial staff queue APIs enforce assistant zone scope and manager store scope on zone summaries, shared zone call-next, studio status updates, and token actions.
 - Checkout and Trial staff consoles show the assigned counter/studio name from staff queue APIs instead of exposing raw lane ids when a name exists.
 - Checkout and Trial staff console headers use the same safe-area-aware sticky header behavior as customer queue screens.
 

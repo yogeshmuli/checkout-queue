@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.counter import Counter
@@ -65,8 +65,16 @@ class NotificationRepository:
     def list_active_trial_tokens(self) -> list[TrialQueueToken]:
         statement = (
             select(TrialQueueToken)
-            .where(TrialQueueToken.status.in_(ACTIVE_TRIAL_STATUSES), TrialQueueToken.assigned_studio_id.is_not(None))
-            .order_by(TrialQueueToken.assigned_studio_id.asc(), TrialQueueToken.calling_time.asc().nulls_last(), TrialQueueToken.id.asc())
+            .where(
+                TrialQueueToken.status.in_(ACTIVE_TRIAL_STATUSES),
+                or_(TrialQueueToken.trial_zone_id.is_not(None), TrialQueueToken.assigned_studio_id.is_not(None)),
+            )
+            .order_by(
+                TrialQueueToken.trial_zone_id.asc().nulls_last(),
+                TrialQueueToken.assigned_studio_id.asc().nulls_last(),
+                TrialQueueToken.calling_time.asc().nulls_last(),
+                TrialQueueToken.id.asc(),
+            )
         )
         return list(self.db.scalars(statement).all())
 
