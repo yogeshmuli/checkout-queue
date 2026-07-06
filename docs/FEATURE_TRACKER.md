@@ -396,6 +396,7 @@ Endpoint:
 ```text
 GET /api/v1/queue/status?token_id={token_id}
 GET /api/v1/queue/status?store_id={store_id}&phone_number={phone_number}
+GET /api/v1/queue/status?phone_number={phone_number}
 ```
 
 Result:
@@ -784,6 +785,7 @@ Implemented migrations:
 - `20260604_0020_add_store_config_default_item_count.py`
 - `20260604_0021_add_shared_queue_flag.py`
 - `20260604_0022_add_next_soon_token_ahead_count.py`
+- `20260604_0023_add_csd_exchange_section_types.py`
 
 ### Authentication
 
@@ -892,10 +894,10 @@ GET /api/v1/analytics/stores/{store_id}?days={days}
 
 The store analytics endpoint powers the admin smart dashboard. It returns live queue totals, counter utilization, section and counter breakdowns, live section cards, active counter sessions, last-token wait and item-ahead estimates, daily token trends, weekly/hourly segments, promotion/sale analysis, customer/item segments, calendar signals, latest ML model metadata, and generated operational insights.
 
-Admin dashboard UI now supports URL-filterable store/range/view state with three tabs:
+Admin dashboard UI now supports URL-filterable store/view state with a History-only range filter and three tabs:
 
-- Live: section-as-zone cards with last token, active/inactive counters, active counter token assignments, estimated wait, estimated items ahead, average wait/items, total cancellations, and last-hour cancellations.
-- History: promotion-day, time/day, date-based, section, customer-type, and item-bucket analytics.
+- Live: section-as-zone cards with last token, active/inactive counters, active counter token assignments, estimated wait, estimated items ahead, average wait/items, total cancellations, and last-hour cancellations without requiring a date range.
+- History: range-based check-in, completion, cancellation, promotion-day, time/day, date-based, section, customer-type, and item-bucket analytics.
 - Foresights: ML status, model sample count, churn/utilization signals, operational insights, and active counter pressure links.
 - Store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
 
@@ -921,6 +923,8 @@ POST              /api/v1/ml/trial/stores/{store_id}/predict-service-time
 ```
 
 The Trial Queue module shares stores, users, authentication, and role guards with Checkout Queue. It keeps its own zones, studios, configs, calendars, events, and trial queue tokens so the module can be sold and enabled separately.
+
+Trial token status lookup supports `token_id`, `store_id` plus `phone_number`, or phone-only fallback to fetch the latest token for a customer phone number, matching Checkout Queue behavior.
 
 Trial Queue frontend parity:
 

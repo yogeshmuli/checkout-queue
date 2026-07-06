@@ -130,6 +130,7 @@ export function Dashboard() {
   const selectedStoreId = filters.store_id || (stores[0] ? String(stores[0].id) : '');
   const selectedStore = stores.find((store) => String(store.id) === String(selectedStoreId));
   const activeView = VIEW_OPTIONS.some((option) => option.value === filters.view) ? filters.view : 'live';
+  const analyticsDays = activeView === 'history' ? Number(filters.days) || 30 : 1;
   const storeOptions = stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) }));
   const foresights = useMemo(() => buildForesights(analytics, metadata), [analytics, metadata]);
 
@@ -148,7 +149,7 @@ export function Dashboard() {
     setMessage('');
     try {
       const [analyticsResponse, metadataResponse] = await Promise.all([
-        getStoreAnalytics(selectedStoreId, { days: Number(filters.days) || 30 }),
+        getStoreAnalytics(selectedStoreId, { days: analyticsDays }),
         getStoreModelMetadata(selectedStoreId).catch(() => null),
       ]);
       setAnalytics(analyticsResponse);
@@ -160,7 +161,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [filters.days, selectedStoreId]);
+  }, [analyticsDays, selectedStoreId]);
 
   useEffect(() => {
     listStores({ include_inactive: true })
@@ -205,9 +206,9 @@ export function Dashboard() {
       />
 
       <section className="rounded-lg border border-line bg-white p-5">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_190px]">
+        <div className={`grid gap-3 ${activeView === 'history' ? 'md:grid-cols-[minmax(0,1fr)_190px]' : ''}`}>
           <Select label="Store" value={selectedStoreId} onChange={(value) => setFilter('store_id', value)} options={storeOptions} disabled={!stores.length} />
-          <Select label="Range" value={filters.days} onChange={(value) => setFilter('days', value)} options={DAY_OPTIONS} />
+          {activeView === 'history' ? <Select label="Range" value={filters.days} onChange={(value) => setFilter('days', value)} options={DAY_OPTIONS} /> : null}
         </div>
         {message ? <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
       </section>
@@ -245,7 +246,7 @@ function SmartHeader({ activeView, lastRefreshed, loading, onRefresh, selectedSt
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Smart View</p>
-            <h1 className="truncate text-2xl font-semibold text-ink">Store Dashboard</h1>
+            <h1 className="truncate text-2xl font-semibold text-ink">Store Insights</h1>
           </div>
         </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -375,14 +376,22 @@ function HistoryView({ analytics }) {
   }
 
   const activeHourly = analytics.hourly_stats.filter((row) => row.total_visits > 0);
+  const rangeTotals = analytics.daily_trends.reduce(
+    (totals, row) => ({
+      checkIns: totals.checkIns + Number(row.token_count || 0),
+      completed: totals.completed + Number(row.completed_count || 0),
+      cancelled: totals.cancelled + Number(row.cancelled_count || 0),
+    }),
+    { checkIns: 0, completed: 0, cancelled: 0 },
+  );
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricTile label="Completed today" value={analytics.metrics.completed_today} />
-        <MetricTile label="Cancelled / no-show" value={analytics.metrics.cancelled_today + analytics.metrics.no_show_today} tone="rose" />
+        <MetricTile label="Check-ins in range" value={rangeTotals.checkIns} />
+        <MetricTile label="Completed in range" value={rangeTotals.completed} />
+        <MetricTile label="Cancelled in range" value={rangeTotals.cancelled} tone="rose" />
         <MetricTile label="Avg service" value={formatMinutes(analytics.metrics.average_service_minutes)} />
-        <MetricTile label="Avg items today" value={formatNumber(analytics.metrics.average_items_today)} tone="amber" />
       </div>
 
       <AnalysisSection title="Promotion Day Analysis" icon={<CalendarDays size={18} />} open={openSections.promotion} onToggle={() => toggle('promotion')}>

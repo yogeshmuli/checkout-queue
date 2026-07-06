@@ -30,10 +30,7 @@ export function TokenLookup() {
     event.preventDefault();
     setMessage('');
 
-    if (!storeId) {
-      setMessage('Please select a store.');
-      return;
-    }
+   
 
     if (!phoneNumber || phoneNumber.length !== 10) {
       setMessage('Please enter a valid 10-digit mobile number.');
@@ -42,7 +39,7 @@ export function TokenLookup() {
 
     setLoading(true);
     try {
-      const token = await getTrialTokenStatus({ store_id: Number(storeId), phone_number: phoneNumber });
+      const token = await getTrialTokenStatus({  phone_number: phoneNumber });
       setLastToken(token);
       navigate(`/app/trial/customer/status/${token.token_id}`);
     } catch (error) {
@@ -90,7 +87,7 @@ export function TokenLookup() {
             <h2 className="font-semibold">Lookup by store + mobile</h2>
           </div>
 
-          <Select label="Store" value={storeId} options={storeOptions} onChange={setStoreId} />
+
           <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
 
           {message ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}

@@ -1,4 +1,4 @@
-import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -23,11 +23,9 @@ const FIELD_LIMITS = {
 
 const SECTION_TYPE_OPTIONS = [
   { label: 'Select section type', value: '' },
-  { label: 'Regular', value: 'REGULAR' },
-  { label: 'Express', value: 'EXPRESS' },
-  { label: 'Self Checkout', value: 'SELF_CHECKOUT' },
+  { label: 'CSD', value: 'CSD' },
   { label: 'Returns', value: 'RETURNS' },
-  { label: 'Priority', value: 'PRIORITY' },
+  { label: 'Exchange', value: 'EXCHANGE' },
 ];
 
 const SECTIONS_PER_PAGE = 8;
@@ -520,7 +518,6 @@ export function Sections() {
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
                     disabled={loading}
                   >
-                    <Trash2 size={16} />
                     {section.is_active ? 'Deactivate' : 'Activate'}
                   </button>
                 </div>

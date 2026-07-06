@@ -36,7 +36,7 @@ import { StoreConfig } from "./pages/StoreConfig.jsx";
 import { Stores } from "./pages/Stores.jsx";
 
 const navItems = [
-  { label: "Dashboard", path: "/app/checkout/admin", Icon: LayoutDashboard },
+  { label: "Insights", path: "/app/checkout/admin", Icon: LayoutDashboard },
   {
     label: "Configuration",
     path: "/app/checkout/admin/stores",

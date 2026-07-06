@@ -117,9 +117,18 @@ class TrialQueueService:
         ]
 
     def get_token_status(self, token_id: int | None = None, store_id: int | None = None, phone_number: str | None = None) -> TrialQueueTokenResponse:
-        token = self.repository.get_token(token_id) if token_id is not None else None
-        if token is None and store_id is not None and phone_number is not None:
+        if token_id is not None:
+            token = self.repository.get_token(token_id)
+        elif store_id is not None and phone_number is not None:
             token = self.repository.get_latest_token_for_phone(store_id, phone_number)
+        elif phone_number is not None:
+            token = self.repository.get_latest_token_by_phone(phone_number)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Provide token_id, or phone_number, or both store_id and phone_number",
+            )
+
         if token is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial token not found")
         return self._build_token_response(token)

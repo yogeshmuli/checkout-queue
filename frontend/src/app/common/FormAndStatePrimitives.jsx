@@ -2,11 +2,13 @@ import { ChevronDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-export function Field({ label, value, onChange }) {
+export function Field({ label, value, onChange,disabled = false, ...rest }) {
   return (
     <label className="block">
       <span className="text-sm font-medium text-charcoal">{label}</span>
       <input
+     { ...rest}
+      disabled={disabled}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red focus:ring-2 focus:ring-brand-soft"

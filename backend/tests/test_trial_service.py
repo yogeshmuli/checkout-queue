@@ -51,6 +51,18 @@ class FakeTrialRepository:
     def get_token(self, token_id: int) -> TrialQueueToken | None:
         return next((token for token in self.tokens if token.id == token_id), None)
 
+    def get_latest_token_for_phone(self, store_id: int, phone_number: str) -> TrialQueueToken | None:
+        matching_tokens = [
+            token
+            for token in self.tokens
+            if token.store_id == store_id and token.phone_number == phone_number
+        ]
+        return max(matching_tokens, key=lambda token: token.id or 0, default=None)
+
+    def get_latest_token_by_phone(self, phone_number: str) -> TrialQueueToken | None:
+        matching_tokens = [token for token in self.tokens if token.phone_number == phone_number]
+        return max(matching_tokens, key=lambda token: token.id or 0, default=None)
+
     def get_store(self, store_id: int) -> Store | None:
         return self.stores.get(store_id)
 
@@ -197,6 +209,53 @@ def test_called_event_rejects_already_called_trial_token(trial_service: TrialSer
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail == "Only waiting trial token can be called"
+
+
+def test_trial_token_status_falls_back_to_latest_phone_lookup_without_store_id(trial_service: TrialService) -> None:
+    now = datetime.now(timezone.utc)
+    trial_service.repository.tokens.extend(
+        [
+            TrialQueueToken(
+                id=2,
+                store_id=1,
+                trial_zone_id=1,
+                assigned_studio_id=None,
+                token_number="T-002",
+                phone_number="9000000002",
+                status=TrialQueueTokenStatus.COMPLETED,
+                calling_time=now,
+                service_time_minutes=10,
+                created_at=now,
+                updated_at=now,
+            ),
+            TrialQueueToken(
+                id=3,
+                store_id=2,
+                trial_zone_id=2,
+                assigned_studio_id=None,
+                token_number="T-003",
+                phone_number="9000000002",
+                status=TrialQueueTokenStatus.WAITING,
+                calling_time=now,
+                service_time_minutes=10,
+                created_at=now,
+                updated_at=now,
+            ),
+        ]
+    )
+
+    response = trial_service.get_token_status(phone_number="9000000002")
+
+    assert response.token_id == 3
+    assert response.store_id == 2
+
+
+def test_trial_token_status_rejects_empty_lookup(trial_service: TrialService) -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        trial_service.get_token_status()
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Provide token_id, or phone_number, or both store_id and phone_number"
 
 
 def test_zone_summary_returns_active_and_inactive_studios(trial_service: TrialService) -> None:

@@ -1,4 +1,4 @@
-import { Pencil, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, RefreshCw, Save, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
@@ -521,7 +521,6 @@ export function Zones() {
                       className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
                       disabled={loading}
                     >
-                      <Trash2 size={16} />
                       {zone.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                   </div>

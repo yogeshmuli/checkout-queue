@@ -9,10 +9,12 @@ from app.models.base import TimestampMixin
 
 
 class CheckoutSectionType(str, enum.Enum):
+    CSD = "CSD"
     REGULAR = "REGULAR"
     EXPRESS = "EXPRESS"
     SELF_CHECKOUT = "SELF_CHECKOUT"
     RETURNS = "RETURNS"
+    EXCHANGE = "EXCHANGE"
     PRIORITY = "PRIORITY"
 
 

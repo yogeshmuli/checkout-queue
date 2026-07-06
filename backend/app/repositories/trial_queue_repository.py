@@ -130,6 +130,14 @@ class TrialQueueRepository(TrialStudioRepository, TrialStoreConfigRepository, Tr
             .limit(1)
         )
 
+    def get_latest_token_by_phone(self, phone_number: str) -> TrialQueueToken | None:
+        return self.db.scalar(
+            select(TrialQueueToken)
+            .where(TrialQueueToken.phone_number == phone_number)
+            .order_by(TrialQueueToken.id.desc())
+            .limit(1)
+        )
+
     def get_active_token_for_phone(self, store_id: int, phone_number: str) -> TrialQueueToken | None:
         return self.db.scalar(
             select(TrialQueueToken).where(
