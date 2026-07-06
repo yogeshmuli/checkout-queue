@@ -601,13 +601,31 @@ class QueueService:
         self,
         counter_id: int,
         calling_time: datetime,
+        token_id: int | None = None,
     ) -> int:
         waiting_tokens = self.repository.list_waiting_tokens(counter_id)
+        normalized_calling_time = self._normalize_to_utc(calling_time)
         tokens_ahead = [
             token
             for token in waiting_tokens
             if token.calling_time is not None
-            and self._normalize_to_utc(token.calling_time) <= calling_time
+            and (
+                (
+                    token_id is None
+                    and self._normalize_to_utc(token.calling_time) <= normalized_calling_time
+                )
+                or (
+                    token_id is not None
+                    and token.id != token_id
+                    and (
+                        self._normalize_to_utc(token.calling_time) < normalized_calling_time
+                        or (
+                            self._normalize_to_utc(token.calling_time) == normalized_calling_time
+                            and (token.id or 0) < token_id
+                        )
+                    )
+                )
+            )
         ]
         return len(tokens_ahead) + 1
 
@@ -618,7 +636,7 @@ class QueueService:
             return self._calculate_shared_position(token)
         if token.assigned_counter_id is None or token.calling_time is None:
             return 1
-        return self._calculate_counter_position(token.assigned_counter_id, self._normalize_to_utc(token.calling_time))
+        return self._calculate_counter_position(token.assigned_counter_id, self._normalize_to_utc(token.calling_time), token.id)
 
     def _estimate_wait_from_calling_time(self, calling_time: datetime | None) -> int:
         if calling_time is None:

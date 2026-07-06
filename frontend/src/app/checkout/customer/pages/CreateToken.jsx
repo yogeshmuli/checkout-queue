@@ -123,6 +123,12 @@ export function CreateToken() {
     setLoading(true);
     setMessage("");
 
+    if (form.is_still_shopping && !form.basket_size) {
+      setLoading(false);
+      setMessage("Select basket size when you are still shopping.");
+      return;
+    }
+
     if (!form.is_still_shopping && !form.item_count && !form.basket_size) {
       setLoading(false);
       setMessage(
@@ -233,11 +239,11 @@ export function CreateToken() {
               type="number"
               min={1}
               placeholder="Enter item count"
-              disabled={Boolean(form.basket_size)}
+              disabled={Boolean(form.basket_size) || form.is_still_shopping}
               onChange={onChangeItemCount}
             />
             <Select
-              label="Basket (optional)"
+              label={form.is_still_shopping ? "Basket" : "Basket (optional)"}
               value={form.basket_size}
               onChange={onChangeBasketSize}
               disabled={Boolean(form.item_count)}
@@ -257,7 +263,11 @@ export function CreateToken() {
               type="checkbox"
               checked={form.is_still_shopping}
               onChange={(event) =>
-                setForm({ ...form, is_still_shopping: event.target.checked })
+                setForm({
+                  ...form,
+                  is_still_shopping: event.target.checked,
+                  item_count: event.target.checked ? "" : form.item_count,
+                })
               }
               className="size-5 accent-brand-red"
             />

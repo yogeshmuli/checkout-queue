@@ -221,6 +221,7 @@ def test_join_queue_creates_waiting_token(queue_service: QueueService) -> None:
     assert response.position == 1
     assert response.estimated_wait_minutes == 0
     assert response.calculation_method == "RULE_BASED"
+    assert queue_service.get_token_status(token_id=response.token_id).position == 1
 
 
 def test_join_queue_rejects_duplicate_active_token(queue_service: QueueService) -> None:
