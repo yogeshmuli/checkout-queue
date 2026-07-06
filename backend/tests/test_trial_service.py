@@ -316,6 +316,41 @@ def test_join_trial_queue_creates_zone_shared_token_without_studio(trial_service
     assert token.trial_zone_id == 1
 
 
+def test_join_trial_queue_requires_gender_for_restricted_zone(trial_service: TrialService) -> None:
+    trial_service.repository.zones[1].gender = TrialZoneGender.MALE
+
+    with pytest.raises(HTTPException) as exc_info:
+        trial_service.join_queue(
+            TrialQueueJoinRequest(
+                store_id=1,
+                trial_zone_id=1,
+                phone_number="9000000002",
+                item_count=3,
+            )
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == "Customer gender is required for selected trial zone"
+
+
+def test_join_trial_queue_rejects_mismatched_gender_for_restricted_zone(trial_service: TrialService) -> None:
+    trial_service.repository.zones[1].gender = TrialZoneGender.MALE
+
+    with pytest.raises(HTTPException) as exc_info:
+        trial_service.join_queue(
+            TrialQueueJoinRequest(
+                store_id=1,
+                trial_zone_id=1,
+                phone_number="9000000002",
+                item_count=3,
+                customer_gender=TrialZoneGender.FEMALE,
+            )
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == "Selected trial zone does not support customer gender"
+
+
 def test_calling_trial_token_keeps_studio_unassigned(trial_service: TrialService) -> None:
     response = trial_service.handle_queue_event(TrialQueueEventRequest(token_id=1, event=TrialQueueEventType.CALLED))
     token = trial_service.repository.get_token(1)

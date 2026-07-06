@@ -311,6 +311,8 @@ class TrialQueueService:
             zone = self.repository.get_zone(payload.trial_zone_id)
             if zone is None or not zone.is_active or zone.store_id != payload.store_id:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active trial zone not found")
+            if zone.gender != TrialZoneGender.UNISEX and payload.customer_gender is None:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Customer gender is required for selected trial zone")
             if payload.customer_gender is not None and zone.gender not in (TrialZoneGender.UNISEX, payload.customer_gender):
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selected trial zone does not support customer gender")
             return zone

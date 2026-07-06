@@ -56,6 +56,10 @@ export function CreateToken() {
     () => selectedStore?.zones?.find((zone) => String(zone.id) === String(form.trial_zone_id)),
     [form.trial_zone_id, selectedStore]
   );
+  const selectedZoneGender = selectedZone?.gender || '';
+  const hasRestrictedGender = Boolean(selectedZoneGender && selectedZoneGender !== 'UNISEX');
+  const genderSelectValue = hasRestrictedGender ? selectedZoneGender : form.customer_gender;
+  const genderLabel = selectedZoneGender === 'UNISEX' ? 'Gender (optional)' : 'Gender';
 
   useEffect(() => {
     if (!storesLoaded || invalidQrRedirectedRef.current) return;
@@ -85,15 +89,17 @@ export function CreateToken() {
     setLoading(true);
     setMessage('');
 
-    if (!form.customer_gender) {
+    const customerGender = hasRestrictedGender ? selectedZoneGender : form.customer_gender || null;
+
+    if (!selectedZoneGender) {
       setLoading(false);
-      setMessage('Please select gender.');
+      setMessage('Please scan a trial zone with gender configured.');
       return;
     }
 
-    if (selectedZone?.gender && selectedZone.gender !== 'UNISEX' && selectedZone.gender !== form.customer_gender) {
+    if (hasRestrictedGender && customerGender !== selectedZoneGender) {
       setLoading(false);
-      setMessage(`Selected trial zone is for ${selectedZone.gender.toLowerCase()} customers.`);
+      setMessage(`Selected trial zone is for ${selectedZoneGender.toLowerCase()} customers.`);
       return;
     }
 
@@ -103,7 +109,7 @@ export function CreateToken() {
         trial_zone_id: form.trial_zone_id ? Number(form.trial_zone_id) : null,
         phone_number: form.phone_number,
         item_count: form.item_count ? Number(form.item_count) : null,
-        customer_gender: form.customer_gender,
+        customer_gender: customerGender,
         customer_type: form.customer_type || 'regular',
       });
       setLastToken(token);
@@ -157,9 +163,10 @@ export function CreateToken() {
           <div className="grid grid-cols-2 gap-3">
             <Field label="Item count" value={form.item_count} onChange={(item_count) => setForm({ ...form, item_count })} />
             <Select
-              label="Gender"
-              value={form.customer_gender}
+              label={genderLabel}
+              value={genderSelectValue}
               onChange={(customer_gender) => setForm({ ...form, customer_gender })}
+              disabled={storesLoading || hasRestrictedGender}
               options={[
                 { label: 'Select gender', value: '' },
                 { label: 'Male', value: 'MALE' },
