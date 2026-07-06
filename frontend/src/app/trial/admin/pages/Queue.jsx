@@ -39,6 +39,29 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
+function minutesBetween(startValue, endValue) {
+  if (!startValue || !endValue) return null;
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return Math.max(0, Math.round((end - start) / 60000));
+}
+
+function getServicePill(token, now) {
+  if (token.status === 'SERVING') {
+    const minutes = minutesBetween(token.service_started_at, now);
+    return minutes == null ? null : `Serving for ${minutes} min`;
+  }
+  if (token.status === 'COMPLETED') {
+    const minutes = minutesBetween(token.service_started_at, token.completed_at);
+    if (minutes != null) return `Served ${minutes} min`;
+  }
+  if (token.status === 'WAITING' && token.service_time_minutes != null) {
+    return `Est. service ${Number(token.service_time_minutes || 0)} min`;
+  }
+  return null;
+}
+
 function formatEnumLabel(value) {
   return String(value || '').replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -52,6 +75,7 @@ export function Queue() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [now, setNow] = useState(() => new Date());
 
   const filters = {
     store_id: searchParams.get('store_id') || '',
@@ -208,6 +232,11 @@ export function Queue() {
     loadTokens();
   }, [loadTokens]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   async function runTokenAction(action, successMessage) {
     setLoading(true);
     setMessage('');
@@ -300,6 +329,7 @@ export function Queue() {
                 storeName={storeNameById.get(String(token.store_id))}
                 zone={zoneById.get(String(token.trial_zone_id))}
                 studio={studioById.get(String(token.assigned_studio_id))}
+                now={now}
                 loading={loading}
                 onCall={() => runTokenAction(() => callTrialToken(token.token_id), 'Token called')}
                 onStart={() => runTokenAction(() => startTrialToken(token.token_id, token.assigned_studio_id), 'Token moved to serving')}
@@ -323,11 +353,13 @@ function Metric({ label, value }) {
   );
 }
 
-function TokenRow({ token, storeName, zone, studio, loading, onCall, onStart, onComplete, onCancel }) {
+function TokenRow({ token, storeName, zone, studio, now, loading, onCall, onStart, onComplete, onCancel }) {
   const canCall = token.status === 'WAITING';
   const canStart = (token.status === 'WAITING' || token.status === 'CALLED') && Boolean(token.assigned_studio_id);
   const canComplete = token.status === 'SERVING';
   const canCancel = token.status === 'WAITING' || token.status === 'CALLED';
+  const servicePill = getServicePill(token, now);
+  const isCompleted = token.status === 'COMPLETED';
 
   return (
     <div className="grid gap-4 p-5 xl:grid-cols-[1fr_auto]">
@@ -335,8 +367,9 @@ function TokenRow({ token, storeName, zone, studio, loading, onCall, onStart, on
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold">{token.token_number}</h3>
           <span className={`rounded-full px-2 py-1 text-xs ${STATUS_STYLES[token.status] || 'bg-slate-100 text-slate-700'}`}>{token.status}</span>
-          <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">Position {token.position}</span>
-          <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{token.estimated_wait_minutes} min wait</span>
+          {!isCompleted ? <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">Position {token.position}</span> : null}
+          {servicePill ? <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-charcoal">{servicePill}</span> : null}
+          {!isCompleted ? <span className="rounded-full bg-brand-blush px-2 py-1 text-xs text-charcoal">{token.estimated_wait_minutes} min wait</span> : null}
         </div>
 
         <div className="mt-2 grid gap-1 text-sm text-charcoal md:grid-cols-2 xl:grid-cols-3">

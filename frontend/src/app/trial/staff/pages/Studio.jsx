@@ -198,7 +198,7 @@ export function Studio({
                               className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-charcoal disabled:opacity-60"
                             >
                               {studio.is_active ? <CirclePause size={18} /> : <CirclePlay size={18} />}
-                              {studio.is_active ? 'Pause' : 'Activate'}
+                              {studio.is_active ? 'Deactivate' : 'Activate'}
                             </button>
                           </>
                         )}

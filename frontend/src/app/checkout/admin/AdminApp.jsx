@@ -19,6 +19,8 @@ import {
 } from "react-router-dom";
 
 import brandLogo from "../../../assets/images/equilateral_logo.png";
+import customerPlaceholder from "../../../assets/images/placeholdercustomer.png";
+
 import { useAuthStore } from "../../../store/authStore.js";
 import { enabledModules } from "../../common/moduleConfig.js";
 import { Alerts } from "./pages/Alerts.jsx";
@@ -76,7 +78,7 @@ export function AdminApp() {
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col   text-white lg:flex">
         <div className="bg-white h-[72px]">
           <img
-            src={brandLogo}
+            src={customerPlaceholder}
             alt="Checkout Queue logo"
             className="h-[72px] w-full rounded-lg bg-white p-2 object-cover"
           />
@@ -172,7 +174,7 @@ export function AdminApp() {
           <div className="mb-5 flex items-center justify-between bg-white -m-4 h-[72px]">
             <div className="flex items-center gap-3 flex-1 " >
               <img
-                src={brandLogo}
+                src={customerPlaceholder}
                 alt="Checkout Queue logo"
                 className="h-[72px] w-full rounded-lg bg-white p-2 object-cover"
               />

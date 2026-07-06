@@ -607,6 +607,7 @@ Result:
 - Lists queue tokens through `GET /api/v1/queue/tokens`.
 - Filters queue tokens by store, section, counter, and token status.
 - Shows token number, phone number, position, wait time, assignment, calling time, and item count.
+- Shows service-time pills for estimated waiting service time, live elapsed serving time, and completed actual service duration in Checkout and Quick Trial admin queues.
 - Lets admin call, start, complete, or cancel tokens from the admin queue screen.
 - Uses bearer-token role guards for queue management actions.
 - Queue filters are URL-backed so links from store, section, counter, and staff rows open the matching queue scope.

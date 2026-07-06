@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../../assets/images/equilateral_logo.png';
+import customerPlaceholder from '../../../assets/images/placeholdercustomer.png';
 import { useAuthStore } from '../../../store/authStore.js';
 import { enabledModules } from '../../common/moduleConfig.js';
 import { NotificationSettings } from '../../common/NotificationSettings.jsx';
@@ -49,7 +50,7 @@ export function AdminApp() {
     <div className="min-h-screen bg-brand-blush text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col text-white lg:flex">
         <div className="h-[72px] bg-white">
-          <img src={brandLogo} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
+          <img src={customerPlaceholder} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
         </div>
         <div className="flex flex-1 flex-col border-r border-brand-deep bg-brand-red px-4 py-5 text-white lg:flex">
           <div className="mb-7 flex flex-col items-start justify-center gap-3 px-2">
@@ -128,7 +129,7 @@ export function AdminApp() {
         >
           <div className="-m-4 mb-5 flex h-[72px] items-center justify-between bg-white">
             <div className="flex flex-1 items-center gap-3">
-              <img src={brandLogo} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
+              <img src={customerPlaceholder} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
             </div>
             <button
               type="button"
