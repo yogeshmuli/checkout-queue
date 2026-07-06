@@ -4,6 +4,7 @@ import { callNextTrialTokenForZone, cancelTrialToken, completeTrialToken, getTri
 import { listTrialZones } from '../../../api/trial/zonesApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { useAuthStore } from '../../../store/authStore.js';
+import { getTrialQueueKey, isCallable } from '../../common/queueCallUtils.js';
 import { Studio } from './pages/Studio.jsx';
 import { STUDIO_QUEUE_REFRESH_MS } from './utils/staffUtils.js';
 
@@ -20,6 +21,7 @@ export function TrialStaff() {
   const studios = useMemo(() => zoneQueue?.studios || [], [zoneQueue]);
   const tokens = useMemo(() => zoneQueue?.tokens || [], [zoneQueue]);
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
+  const nextWaitingToken = useMemo(() => waitingTokens.find((token) => isCallable(token, tokens, getTrialQueueKey)) || null, [tokens, waitingTokens]);
   const calledToken = useMemo(() => tokens.find((token) => token.status === 'CALLED') || null, [tokens]);
   const servingTokens = useMemo(() => tokens.filter((token) => token.status === 'SERVING'), [tokens]);
   const activeStudios = useMemo(() => studios.filter((studio) => studio.is_active), [studios]);
@@ -101,14 +103,19 @@ export function TrialStaff() {
     }
   }
 
-  function callNextToken() {
-    if (!zoneId || calledToken || waitingTokens.length === 0 || vacantActiveStudios.length === 0) return;
-    runAction(() => callNextTrialTokenForZone(Number(zoneId)));
-  }
-
   function startCalledToken(studioId) {
     if (!calledToken || !studioId) return;
     runAction(() => startTrialToken(calledToken.token_id, studioId));
+  }
+
+  function startNextWaitingToken(studioId) {
+    if (!nextWaitingToken || !studioId) return;
+    runAction(() => startTrialToken(nextWaitingToken.token_id, studioId));
+  }
+
+  function callNextToken() {
+    if (!zoneId || calledToken || !nextWaitingToken || vacantActiveStudios.length === 0) return;
+    runAction(() => callNextTrialTokenForZone(Number(zoneId)));
   }
 
   return (
@@ -132,9 +139,11 @@ export function TrialStaff() {
       completeTrialToken={completeTrialToken}
       cancelTrialToken={cancelTrialToken}
       waitingTokens={waitingTokens}
-      callNextToken={callNextToken}
+      nextWaitingToken={nextWaitingToken}
       loadZoneQueue={loadZoneQueue}
       startCalledToken={startCalledToken}
+      startNextWaitingToken={startNextWaitingToken}
+      callNextToken={callNextToken}
     />
   );
 }

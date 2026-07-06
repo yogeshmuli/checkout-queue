@@ -18,12 +18,16 @@ export function Counter({
   completeToken,
   requestCancelToken,
   waitingTokens,
+  callableWaitingTokenIds,
   callNextToken,
+  startNextToken,
+  callWaitingToken,
   loadCounterQueue,
 }) {
   const counterLabel = counterName || (activeCounterId ? `Counter #${activeCounterId}` : 'Counter');
   const currentTokenCalled = currentToken?.status === 'CALLED';
   const currentTokenServing = currentToken?.status === 'SERVING';
+  const canCallWaitingToken = Boolean(accessToken && activeCounterId && counterActive && !currentToken && !loading);
 
   return (
     <main className="min-h-screen text-white animate-fadeIn">
@@ -123,15 +127,26 @@ export function Counter({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              disabled={!accessToken || !activeCounterId || !counterActive || waitingTokens.length === 0 || loading}
-              onClick={callNextToken}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              <Megaphone size={18} />
-              Call next customer
-            </button>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={!accessToken || !activeCounterId || !counterActive || waitingTokens.length === 0 || loading}
+                onClick={callNextToken}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Megaphone size={18} />
+                Call next
+              </button>
+              <button
+                type="button"
+                disabled={!accessToken || !activeCounterId || !counterActive || waitingTokens.length === 0 || loading}
+                onClick={startNextToken}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Play size={18} />
+                Start next
+              </button>
+            </div>
           )}
         </section>
 
@@ -145,7 +160,7 @@ export function Counter({
           <div className="mt-3 space-y-3">
             {waitingTokens.length === 0 ? <p className="text-sm text-muted">No waiting tokens for this counter.</p> : null}
             {waitingTokens.map((token) => (
-              <div key={token.token_id} className="flex items-center justify-between rounded-lg border border-line p-3">
+              <div key={token.token_id} className="flex items-center justify-between gap-3 rounded-lg border border-line p-3">
                 <div>
                   <p className="font-semibold">{token.token_number}</p>
                   <p className="text-sm text-charcoal">
@@ -153,9 +168,21 @@ export function Counter({
                   </p>
                   <p className="text-xs text-muted">Call {formatTime(token.calling_time)}</p>
                 </div>
-                <button type="button" onClick={() => requestCancelToken(token)} className="rounded-lg border border-rose-200 p-2 text-rose-700" title="Cancel token">
-                  <XCircle size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => callWaitingToken(token)}
+                    disabled={!canCallWaitingToken || !callableWaitingTokenIds.has(String(token.token_id))}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    title="Call token"
+                  >
+                    <Megaphone size={18} />
+                    Call
+                  </button>
+                  <button type="button" onClick={() => requestCancelToken(token)} className="rounded-lg border border-rose-200 p-2 text-rose-700" title="Cancel token">
+                    <XCircle size={18} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

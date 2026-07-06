@@ -8,6 +8,7 @@ import { listStores } from '../../../../api/trial/storeApi.js';
 import { listTrialStudios } from '../../../../api/trial/studiosApi.js';
 import { listTrialZones } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { getTrialQueueKey, isCallable } from '../../../common/queueCallUtils.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
 const STATUS_OPTIONS = [
@@ -331,6 +332,7 @@ export function Queue() {
                 studio={studioById.get(String(token.assigned_studio_id))}
                 now={now}
                 loading={loading}
+                callable={isCallable(token, tokens, getTrialQueueKey)}
                 onCall={() => runTokenAction(() => callTrialToken(token.token_id), 'Token called')}
                 onStart={() => runTokenAction(() => startTrialToken(token.token_id, token.assigned_studio_id), 'Token moved to serving')}
                 onComplete={() => runTokenAction(() => completeTrialToken(token.token_id), 'Token completed')}
@@ -353,8 +355,8 @@ function Metric({ label, value }) {
   );
 }
 
-function TokenRow({ token, storeName, zone, studio, now, loading, onCall, onStart, onComplete, onCancel }) {
-  const canCall = token.status === 'WAITING';
+function TokenRow({ token, storeName, zone, studio, now, loading, callable, onCall, onStart, onComplete, onCancel }) {
+  const canCall = callable;
   const canStart = (token.status === 'WAITING' || token.status === 'CALLED') && Boolean(token.assigned_studio_id);
   const canComplete = token.status === 'SERVING';
   const canCancel = token.status === 'WAITING' || token.status === 'CALLED';

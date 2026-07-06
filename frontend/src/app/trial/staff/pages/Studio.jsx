@@ -1,4 +1,4 @@
-import { CheckCircle2, CirclePause, CirclePlay, LogOut, RefreshCcw, XCircle } from 'lucide-react';
+import { CheckCircle2, CirclePause, CirclePlay, LogOut, Megaphone, RefreshCcw, XCircle } from 'lucide-react';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
@@ -24,13 +24,15 @@ export function Studio({
   completeTrialToken,
   cancelTrialToken,
   waitingTokens,
-  callNextToken,
+  nextWaitingToken,
   loadZoneQueue,
   startCalledToken,
+  startNextWaitingToken,
+  callNextToken,
 }) {
   const zoneLabel = zoneName || (zoneId ? `Zone #${zoneId}` : 'Zone console');
   const calledCount = calledToken ? 1 : 0;
-  const canCallNext = Boolean(accessToken && zoneId && !calledToken && waitingTokens.length > 0 && vacantActiveStudios.length > 0 && !loading);
+  const canCallNext = Boolean(accessToken && zoneId && !calledToken && nextWaitingToken && vacantActiveStudios.length > 0 && !loading);
   const servingTokenByStudioId = new Map(servingTokens.map((token) => [String(token.assigned_studio_id), token]));
 
   return (
@@ -76,15 +78,6 @@ export function Studio({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={callNextToken}
-                    disabled={!canCallNext}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    <RefreshCcw size={18} />
-                    Call next customer
-                  </button>
-                  <button
-                    type="button"
                     onClick={loadZoneQueue}
                     disabled={!accessToken || !zoneId || loading}
                     className="rounded-lg border border-line px-3 py-3 text-sm font-medium text-charcoal disabled:opacity-60"
@@ -114,6 +107,29 @@ export function Studio({
                   </div>
                 </div>
               ) : null}
+              {!calledToken && nextWaitingToken ? (
+                <div className="mt-4 rounded-lg border border-line bg-slate-50 p-3">
+                  <p className="text-sm font-semibold text-charcoal">Next waiting customer</p>
+                  <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-3xl font-bold text-ink">{nextWaitingToken.token_number}</p>
+                      <p className="text-sm text-charcoal">{nextWaitingToken.item_count || 0} items · {nextWaitingToken.phone_number}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      <p className="text-sm text-muted">Start directly from any vacant active studio.</p>
+                      <button
+                        type="button"
+                        onClick={callNextToken}
+                        disabled={!canCallNext}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand-red px-3 py-2 text-sm font-semibold text-brand-red disabled:opacity-60"
+                      >
+                        <RefreshCcw size={16} />
+                        Call customer
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="mt-5 rounded-lg bg-white p-4 text-ink glass-panel">
@@ -127,7 +143,8 @@ export function Studio({
                 {studios.map((studio) => {
                   const servingToken = servingTokenByStudioId.get(String(studio.studio_id)) || null;
                   const isVacantActive = studio.is_active && !servingToken;
-                  const canStartHere = Boolean(calledToken && isVacantActive && accessToken && !loading);
+                  const assignableToken = calledToken || nextWaitingToken;
+                  const canStartHere = Boolean(assignableToken && isVacantActive && accessToken && !loading);
 
                   return (
                     <article key={studio.studio_id} className="rounded-lg border border-line bg-white p-4">
@@ -152,8 +169,18 @@ export function Studio({
                           </>
                         ) : (
                           <>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Vacant</p>
-                            <p className="mt-2 text-sm text-charcoal">{studio.is_active ? 'Ready for the next called customer.' : 'Studio is not accepting customers.'}</p>
+                            {isVacantActive && assignableToken ? (
+                              <>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted">{calledToken ? 'Called customer' : 'Next waiting customer'}</p>
+                                <p className="mt-1 text-3xl font-bold text-ink">{assignableToken.token_number}</p>
+                                <p className="mt-1 text-sm text-charcoal">{assignableToken.item_count || 0} items · {assignableToken.phone_number}</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Vacant</p>
+                                <p className="mt-2 text-sm text-charcoal">{studio.is_active ? 'Ready for the next customer.' : 'Studio is not accepting customers.'}</p>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -184,12 +211,12 @@ export function Studio({
                           <>
                             <button
                               type="button"
-                              onClick={() => startCalledToken(studio.studio_id)}
+                              onClick={() => (calledToken ? startCalledToken(studio.studio_id) : startNextWaitingToken(studio.studio_id))}
                               disabled={!canStartHere}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                             >
                               <CirclePlay size={18} />
-                              Start here
+                              {calledToken ? 'Start here' : 'Assign next'}
                             </button>
                             <button
                               type="button"
@@ -213,24 +240,40 @@ export function Studio({
               <h2 className="font-semibold">Waiting queue</h2>
               <div className="mt-3 space-y-3">
                 {waitingTokens.length === 0 ? <p className="text-sm text-muted">No waiting tokens for this zone.</p> : null}
-                {waitingTokens.map((token) => (
-                  <div key={token.token_id} className="flex items-center justify-between rounded-lg border border-line p-3">
-                    <div>
-                      <p className="font-semibold">{token.token_number}</p>
-                      <p className="text-sm text-charcoal">{token.item_count || 0} items · {token.estimated_wait_minutes}m wait</p>
-                      <p className="text-xs text-muted">Call {formatTime(token.calling_time)}</p>
+                {waitingTokens.map((token) => {
+                  const isNextCallableToken = String(token.token_id) === String(nextWaitingToken?.token_id);
+
+                  return (
+                    <div key={token.token_id} className="flex items-center justify-between gap-3 rounded-lg border border-line p-3">
+                      <div>
+                        <p className="font-semibold">{token.token_number}</p>
+                        <p className="text-sm text-charcoal">{token.item_count || 0} items · {token.estimated_wait_minutes}m wait</p>
+                        <p className="text-xs text-muted">Call {formatTime(token.calling_time)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={callNextToken}
+                          disabled={!canCallNext || !isNextCallableToken}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          title="Call token"
+                        >
+                          <Megaphone size={18} />
+                          Call
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runAction(() => cancelTrialToken(token.token_id, 'Cancelled from waiting queue'))}
+                          disabled={loading}
+                          className="rounded-lg border border-rose-200 p-2 text-rose-700 disabled:opacity-60"
+                          title="Cancel token"
+                        >
+                          <XCircle size={18} />
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => runAction(() => cancelTrialToken(token.token_id, 'Cancelled from waiting queue'))}
-                      disabled={loading}
-                      className="rounded-lg border border-rose-200 p-2 text-rose-700 disabled:opacity-60"
-                      title="Cancel token"
-                    >
-                      <XCircle size={18} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </>

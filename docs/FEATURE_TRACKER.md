@@ -383,7 +383,7 @@ CASHIER
 Result:
 
 - Updates queue token status for `CALLED`, `SERVING`, `COMPLETED`, and `CANCELLED` events.
-- Lets counter staff call the next eligible waiting token for their active counter with one counter-scoped action.
+- Lets counter staff call the next eligible waiting token for their active counter, directly start serving the next waiting token without calling first, or call a specific waiting token from the staff waiting-queue row. Staff and admin UIs disable direct call controls for waiting tokens that are not the next callable token in their queue.
 - Sets event timestamps (`called_at`, `completed_at`, `cancelled_at`) and cancellation reason when applicable.
 - Returns updated token event state for frontend synchronization.
 
@@ -950,8 +950,8 @@ Trial Queue frontend parity:
 - Checkout and Trial customer token status cards show custom-modal confirmed cancel and move-last actions for `WAITING` or `CALLED` tokens. Checkout move-last recreates the token at the end of the same counter or shared section queue; Trial move-last recreates the token at the end of the same shared zone queue.
 - Trial customer token creation pre-populates gender from restricted trial zones, keeps gender optional for unisex zones, and backend validation rejects missing or mismatched gender for restricted zones before queue join.
 - `TRIAL_ZONE_ASSISTANT` users are treated as Trial staff during login/context selection and are authorized for Trial staff queue APIs.
-- Staff workspace under `/app/trial/staff` loads a zone assistant studio board for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The board derives waiting, called, serving, active-studio, and vacant-studio state from one shared zone queue; offers a single zone-level `Call next customer` action only when the zone has a waiting token, no existing called token, and at least one vacant active studio; and lets assistants start the called token from a vacant active studio card.
-- Trial studio cards show active/inactive state, vacant/serving state, and per-studio actions. Serving cards can complete or cancel their assigned token; inactive or occupied cards cannot start service. Starting service records `assigned_studio_id` on the called token, while waiting and called tokens remain zone-level until then. Assigned trial staff automatically load their `assigned_zone_id`.
+- Staff workspace under `/app/trial/staff` loads a zone assistant studio board for `TRIAL_ZONE_ASSISTANT` users and store-scoped managers. The board derives waiting, called, serving, active-studio, and vacant-studio state from one shared zone queue; shows only the next callable waiting customer in the same area used for called customers; lets assistants either call that customer first or assign the next waiting token directly to any vacant active studio; and shows waiting-row Call buttons with only the upcoming callable customer enabled.
+- Trial studio cards show active/inactive state, vacant/serving state, and per-studio actions. Serving cards can complete or cancel their assigned token; inactive or occupied cards cannot start service. Starting service records `assigned_studio_id` on the called or next waiting token, while waiting and called tokens remain zone-level until then. Assigned trial staff automatically load their `assigned_zone_id`.
 - Trial staff queue APIs enforce assistant zone scope and manager store scope on zone summaries, shared zone call-next, studio status updates, and token actions.
 - Checkout and Trial staff consoles show the assigned counter/studio name from staff queue APIs instead of exposing raw lane ids when a name exists.
 - Checkout and Trial staff console headers use the same safe-area-aware sticky header behavior as customer queue screens.

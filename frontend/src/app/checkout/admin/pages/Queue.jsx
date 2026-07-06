@@ -8,6 +8,7 @@ import { callToken, cancelToken, completeToken, listQueueTokens, startToken } fr
 import { listSections } from '../../../../api/checkout/sectionApi.js';
 import { listStores } from '../../../../api/checkout/storeApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { getCheckoutQueueKey, isCallable } from '../../../common/queueCallUtils.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
 
 const STATUS_OPTIONS = [
@@ -335,6 +336,7 @@ export function Queue() {
                 counter={counterById.get(String(token.assigned_counter_id))}
                 now={now}
                 loading={loading}
+                callable={isCallable(token, tokens, getCheckoutQueueKey)}
                 onCall={() => runTokenAction(() => callToken(token.token_id), 'Token called')}
                 onStart={() => runTokenAction(() => startToken(token.token_id), 'Token moved to serving')}
                 onComplete={() => runTokenAction(() => completeToken(token.token_id), 'Token completed')}
@@ -357,8 +359,8 @@ function Metric({ label, value }) {
   );
 }
 
-function TokenRow({ token, storeName, section, counter, now, loading, onCall, onStart, onComplete, onCancel }) {
-  const canCall = token.status === 'WAITING';
+function TokenRow({ token, storeName, section, counter, now, loading, callable, onCall, onStart, onComplete, onCancel }) {
+  const canCall = callable;
   const canStart = token.status === 'WAITING' || token.status === 'CALLED';
   const canComplete = token.status === 'SERVING';
   const canCancel = token.status === 'WAITING' || token.status === 'CALLED';

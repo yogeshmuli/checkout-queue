@@ -3,15 +3,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import {
   callNextTokenForCounter,
+  callToken,
   cancelToken,
   completeToken,
   getCounterQueue,
+  startNextTokenForCounter,
   startToken,
   updateCounterStatus,
 } from '../../../api/checkout/queueApi.js';
 import { useAuthStore } from '../../../store/authStore.js';
 import { useQueueStore } from '../../../store/queueStore.js';
 import { ConfirmationModal } from '../../common/ConfirmationModal.jsx';
+import { getCheckoutQueueKey, isCallable } from '../../common/queueCallUtils.js';
 import { Counter } from './pages/Counter.jsx';
 
 const COUNTER_QUEUE_REFRESH_MS = 30000;
@@ -28,6 +31,10 @@ export function StaffApp() {
   const tokens = useMemo(() => counterQueue?.tokens || [], [counterQueue]);
   const currentToken = tokens.find((token) => token.status === 'SERVING' || token.status === 'CALLED');
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
+  const callableWaitingTokenIds = useMemo(
+    () => new Set(waitingTokens.filter((token) => isCallable(token, tokens, getCheckoutQueueKey)).map((token) => String(token.token_id))),
+    [tokens, waitingTokens]
+  );
   const counterActive = counterQueue?.is_active ?? true;
   const counterName = counterQueue?.counter_name || '';
 
@@ -76,6 +83,16 @@ export function StaffApp() {
     runAction(() => callNextTokenForCounter(activeCounterId));
   }
 
+  function startNextToken() {
+    if (!activeCounterId) return;
+    runAction(() => startNextTokenForCounter(activeCounterId));
+  }
+
+  function callWaitingToken(token) {
+    if (!token || !isCallable(token, tokens, getCheckoutQueueKey)) return;
+    runAction(() => callToken(token.token_id));
+  }
+
   function requestCancelToken(token) {
     setTokenToCancel(token);
   }
@@ -109,7 +126,10 @@ export function StaffApp() {
       completeToken={completeToken}
       requestCancelToken={requestCancelToken}
       waitingTokens={waitingTokens}
+      callableWaitingTokenIds={callableWaitingTokenIds}
       callNextToken={callNextToken}
+      startNextToken={startNextToken}
+      callWaitingToken={callWaitingToken}
       loadCounterQueue={loadCounterQueue}
     />
     <ConfirmationModal
