@@ -226,7 +226,7 @@ export function Queue() {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-5">
-        <SectionHeader eyebrow="Queue operations" title="Live trial queue control" />
+        <SectionHeader eyebrow="Queue operations" title="Live Quick Trial control" />
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Metric label="Total" value={statusCounts.total || 0} />

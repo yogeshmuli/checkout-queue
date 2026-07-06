@@ -1,30 +1,19 @@
 import { ArrowLeft, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import brandLogo from '../../../../assets/images/equilateral_logo.png';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { getTrialTokenStatus, listTrialStoreZones } from '../../../../api/trial/queueApi.js';
-import { Field, Select } from '../../../common/FormAndStatePrimitives.jsx';
+import { getTrialTokenStatus } from '../../../../api/trial/queueApi.js';
+import { Field } from '../../../common/FormAndStatePrimitives.jsx';
 import { useQueueStore } from '../../../../store/queueStore.js';
 
 export function TokenLookup() {
-  const [storeId, setStoreId] = useState('');
-  const [stores, setStores] = useState([]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
   const { setLastToken } = useQueueStore();
-
-  useEffect(() => {
-    listTrialStoreZones()
-      .then(setStores)
-      .catch((error) => {
-        showApiErrorToast(error);
-        setMessage(getErrorMessage(error));
-      });
-  }, []);
 
   async function submitLookup(event) {
     event.preventDefault();
@@ -51,11 +40,6 @@ export function TokenLookup() {
     }
   }
 
-  const storeOptions = [
-    { label: 'Select store', value: '' },
-    ...stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) })),
-  ];
-
   return (
     <main className="min-h-screen animate-fadeIn px-4 py-5">
       <section className="mx-auto max-w-md">
@@ -71,20 +55,20 @@ export function TokenLookup() {
               <ArrowLeft size={18} />
             </button>
             <Link to="/" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Go to landing page">
-              <img src={brandLogo} alt="Trial Queue logo" className="h-full w-full object-cover" />
+              <img src={brandLogo} alt="Quick Trial logo" className="h-full w-full object-cover" />
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Trial queue</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Quick Trial</p>
               <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Find token status</h1>
             </div>
           </div>
-          <p className="mt-3 text-sm text-white/95">Select store and mobile number to find your latest token.</p>
+          <p className="mt-3 text-sm text-white/95">Enter your mobile number to find your latest token.</p>
         </header>
 
         <form className="mt-5 space-y-4 rounded-lg bg-white p-5 text-ink shadow-soft" onSubmit={submitLookup}>
           <div className="flex items-center gap-2">
             <Search size={20} className="text-brand-red" />
-            <h2 className="font-semibold">Lookup by store + mobile</h2>
+            <h2 className="font-semibold">Lookup by mobile</h2>
           </div>
 
 

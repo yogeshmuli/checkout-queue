@@ -469,7 +469,7 @@ export function Zones() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       <ResourceLink to={`/app/trial/admin/zones?store_id=${zone.store_id}`} label="Store zones" />
                       <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${zone.id}`} label="Studios" />
-                      <ResourceLink to={`/app/trial/admin/queue?trial_zone_id=${zone.id}`} label="Trial queue" />
+                      <ResourceLink to={`/app/trial/admin/queue?trial_zone_id=${zone.id}`} label="Quick Trial" />
                       <QrDownloadButton
                         filename={`trial-store-${zone.store_id}-zone-${zone.id}-qr.png`}
                         value={buildPublicAppUrl('/app/trial/customer/create', {

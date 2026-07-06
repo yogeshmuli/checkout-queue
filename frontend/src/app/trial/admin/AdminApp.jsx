@@ -49,13 +49,13 @@ export function AdminApp() {
     <div className="min-h-screen bg-brand-blush text-ink">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col text-white lg:flex">
         <div className="h-[72px] bg-white">
-          <img src={brandLogo} alt="Trial Queue logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
+          <img src={brandLogo} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
         </div>
         <div className="flex flex-1 flex-col border-r border-brand-deep bg-brand-red px-4 py-5 text-white lg:flex">
           <div className="mb-7 flex flex-col items-start justify-center gap-3 px-2">
             <div>
               <p className="font-semibold">Admin Portal</p>
-              <p className="text-xs text-red-100">Trial Queue</p>
+              <p className="text-xs text-red-100">Quick Trial</p>
             </div>
           </div>
           <nav className="flex-1 space-y-1">
@@ -87,7 +87,7 @@ export function AdminApp() {
                 <Menu size={18} />
               </button>
               <div className="min-w-0">
-                <p className="truncate text-xs sm:text-sm">Retail trial operations</p>
+                <p className="truncate text-xs sm:text-sm">Quick Trial</p>
                 <h1 className="truncate text-sm font-semibold sm:text-lg">Admin workspace</h1>
               </div>
             </div>
@@ -128,7 +128,7 @@ export function AdminApp() {
         >
           <div className="-m-4 mb-5 flex h-[72px] items-center justify-between bg-white">
             <div className="flex flex-1 items-center gap-3">
-              <img src={brandLogo} alt="Trial Queue logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
+              <img src={brandLogo} alt="Quick Trial logo" className="h-[72px] w-full rounded-lg bg-white p-2 object-cover" />
             </div>
             <button
               type="button"
@@ -166,7 +166,7 @@ export function AdminApp() {
             <Route path="config" element={<Config />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="ml" element={<MachineLearning />} />
-            <Route path="notifications" element={<NotificationSettings moduleLabel="Trial Queue" />} />
+            <Route path="notifications" element={<NotificationSettings moduleLabel="Quick Trial" />} />
             <Route path="queue" element={<Queue />} />
             <Route path="*" element={<Navigate to="/app/trial/admin" replace />} />
           </Routes>

@@ -36,7 +36,7 @@ export function StoreZoneSelect() {
   function handleQrPayload(rawValue) {
     const destination = getQrDestination(rawValue || '');
     if (!destination) {
-      setScanMessage('Invalid QR. Use a trial queue QR code and try again.');
+      setScanMessage('Invalid QR. Use a Quick Trial QR code and try again.');
       return;
     }
     stopScanning();
@@ -120,7 +120,7 @@ export function StoreZoneSelect() {
               <ArrowLeft size={18} />
             </button>
             <Link to="/" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Go to landing page">
-              <img src={brandLogo} alt="Trial Queue logo" className="h-full w-full object-cover" />
+              <img src={brandLogo} alt="Quick Trial logo" className="h-full w-full object-cover" />
             </Link>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Trial customer</p>
@@ -179,7 +179,7 @@ export function StoreZoneSelect() {
             </button>
           </div>
 
-          <p className="text-xs text-muted">Use the Trial Queue QR code displayed at your store.</p>
+          <p className="text-xs text-muted">Use the Quick Trial QR code displayed at your store.</p>
         </section>
 
         <Link to="/app/trial/customer/status" className="mt-4 block rounded-lg bg-brand-blush px-3 py-2 text-center text-sm font-medium text-brand-red">

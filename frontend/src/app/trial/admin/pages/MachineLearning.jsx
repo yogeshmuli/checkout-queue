@@ -169,7 +169,7 @@ export function MachineLearning() {
       <section className="rounded-lg border border-line bg-white p-5">
         <SectionHeader eyebrow="Trial features" title="What the model learns" />
         <div className="mt-4 space-y-3 text-sm leading-6 text-charcoal">
-          <p>Trial Queue uses ML only when a trained trial model is ready for the selected store. Otherwise, token creation falls back to trial store config.</p>
+          <p>Quick Trial uses ML only when a trained trial model is ready for the selected store. Otherwise, token creation falls back to trial store config.</p>
           <p>Training uses completed trial tokens plus zone load, active studios, recent cancellations, recent average trial time, hour/day, weekend flag, trial promotion days, zone type, zone gender, studio type, and customer type.</p>
         </div>
       </section>

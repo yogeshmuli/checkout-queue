@@ -462,7 +462,7 @@ export function Stores() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <ResourceLink to={`/app/trial/admin/zones?store_id=${store.id}`} label="Trial zones" />
                     <ResourceLink to={`/app/trial/admin/studios?store_id=${store.id}`} label="Studios" />
-                    <ResourceLink to={`/app/trial/admin/queue?store_id=${store.id}`} label="Trial queue" />
+                    <ResourceLink to={`/app/trial/admin/queue?store_id=${store.id}`} label="Quick Trial" />
                     <ResourceLink to={`/app/trial/admin/config?store_id=${store.id}`} label="Trial config" />
                     <ResourceLink to={`/app/trial/admin/calendar?store_id=${store.id}`} label="Trial calendar" />
                   </div>

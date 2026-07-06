@@ -163,10 +163,10 @@ export function TokenStatus() {
               <ArrowLeft size={18} />
             </button>
             <Link to="/" className="flex h-12 w-28 shrink-0 items-center justify-center rounded-md border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Go to landing page">
-              <img src={brandLogo} alt="Trial Queue logo" className="h-full w-full object-cover" />
+              <img src={brandLogo} alt="Quick Trial logo" className="h-full w-full object-cover" />
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Trial queue</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-white/90 sm:text-sm">Quick Trial</p>
               <h1 className="text-xl font-semibold leading-tight sm:text-2xl">Token status</h1>
             </div>
           </div>

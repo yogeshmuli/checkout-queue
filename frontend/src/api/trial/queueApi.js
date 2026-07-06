@@ -53,7 +53,7 @@ export function completeTrialToken(tokenId) {
 export function cancelTrialToken(tokenId, cancellationReason) {
   return trialRequest(() =>
     httpClient.post(`/trial/queue/tokens/${tokenId}/cancel`, {
-      cancellation_reason: cancellationReason || 'Cancelled from trial queue',
+      cancellation_reason: cancellationReason || 'Cancelled from Quick Trial',
     })
   );
 }

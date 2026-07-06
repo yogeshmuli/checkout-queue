@@ -38,7 +38,7 @@ export function Studio({
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-5 animate-slideUp">
         <header className="customer-sticky-header flex items-center justify-between rounded-lg bg-brand-red px-4 py-3 shadow-brand">
           <div className="flex items-center gap-3">
-            <img src={brandLogo} alt="Trial Queue logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
+            <img src={brandLogo} alt="Quick Trial logo" className="h-10 w-24 rounded-lg bg-white p-1 object-cover" />
             <div>
               <p className="text-sm text-red-100">Zone console</p>
               <h1 className="text-2xl font-semibold text-white">{zoneLabel}</h1>

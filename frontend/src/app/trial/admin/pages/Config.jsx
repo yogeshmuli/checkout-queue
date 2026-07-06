@@ -157,7 +157,7 @@ export function Config() {
         min_service_minutes: Number(form.min_service_minutes),
       };
       setForm(toForm(await updateTrialConfig(storeId, payload)));
-      setMessage('Trial queue config saved');
+      setMessage('Quick Trial config saved');
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -169,7 +169,7 @@ export function Config() {
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-line bg-white p-5">
-        <SectionHeader eyebrow="Trial queue config" title="Token and service-time rules" />
+        <SectionHeader eyebrow="Quick Trial config" title="Token and service-time rules" />
         <div className="mt-5 max-w-xl">
           <Select label="Store" value={storeId} options={storeOptions} onChange={setStoreId} disabled={!stores.length} />
         </div>
@@ -253,7 +253,7 @@ function NoStoresCard() {
   return (
     <section className="rounded-lg border border-dashed border-line bg-white p-5">
       <p className="text-sm font-medium text-charcoal">No stores available.</p>
-      <p className="mt-1 text-sm text-muted">Create a store first, then trial queue configuration will appear here.</p>
+      <p className="mt-1 text-sm text-muted">Create a store first, then Quick Trial configuration will appear here.</p>
     </section>
   );
 }

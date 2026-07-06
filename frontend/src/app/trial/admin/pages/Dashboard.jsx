@@ -767,7 +767,7 @@ function ForesightsView({ analytics }) {
           <BrainCircuit size={28} />
         </div>
         <h2 className="mt-4 text-xl font-semibold">AI Model Initializing...</h2>
-        <p className="mt-2 text-sm text-muted">Collect more data or train the Trial Queue ML model to unlock predictive foresights.</p>
+        <p className="mt-2 text-sm text-muted">Collect more data or train the Quick Trial ML model to unlock predictive foresights.</p>
       </section>
     );
   }

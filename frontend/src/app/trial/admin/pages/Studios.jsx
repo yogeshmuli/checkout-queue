@@ -560,7 +560,7 @@ export function Studios() {
                     <div className="mt-3 flex flex-wrap gap-2">
                       {zone ? <ResourceLink to={`/app/trial/admin/zones?store_id=${zone.store_id}`} label="Store zones" /> : null}
                       <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${studio.trial_zone_id}`} label="Zone studios" />
-                      <ResourceLink to={`/app/trial/admin/queue?studio_id=${studio.id}`} label="Trial queue" />
+                      <ResourceLink to={`/app/trial/admin/queue?studio_id=${studio.id}`} label="Quick Trial" />
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
