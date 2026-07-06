@@ -19,7 +19,7 @@ import { Studios } from './pages/Studios.jsx';
 import { Zones } from './pages/Zones.jsx';
 
 const navItems = [
-  { label: 'Dashboard', path: '/app/trial/admin', Icon: LayoutDashboard },
+  { label: 'Insights', path: '/app/trial/admin', Icon: LayoutDashboard },
   { label: 'Configuration', path: '/app/trial/admin/stores', Icon: SlidersHorizontal, activePaths: configurationPaths },
   { label: 'Queue', path: '/app/trial/admin/queue', Icon: Activity },
   { label: 'Intelligence hub', path: '/app/trial/admin/ml', Icon: BrainCircuit },

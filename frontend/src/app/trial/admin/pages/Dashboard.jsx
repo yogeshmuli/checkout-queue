@@ -549,7 +549,7 @@ function SmartHeader({ activeView, lastRefreshed, loading, onRefresh, selectedSt
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-red">Smart View</p>
-            <h1 className="truncate text-2xl font-semibold text-ink">Store Dashboard</h1>
+            <h1 className="truncate text-2xl font-semibold text-ink">Store Insights</h1>
           </div>
         </div>
 

@@ -786,6 +786,8 @@ Implemented migrations:
 - `20260604_0021_add_shared_queue_flag.py`
 - `20260604_0022_add_next_soon_token_ahead_count.py`
 - `20260604_0023_add_csd_exchange_section_types.py`
+- `20260604_0024_gender_like_trial_zone_types.py`
+- `20260604_0025_restore_trial_zone_type_values.py`
 
 ### Authentication
 
@@ -938,7 +940,7 @@ Trial Queue frontend parity:
 - Trial admin queue screen under `/app/trial/admin/queue` now follows Checkout queue UX with live metrics, store/zone/studio/status filters, search, include-closed toggle, and token lifecycle actions (call/start/complete/cancel). Trial tokens wait in a shared zone queue, so new waiting/called tokens can have no studio until service starts.
 - Trial admin dashboard now uses a Smart View layout with sticky header tabs for Live, History, and Foresights; Live shows zone/studio queue cards, History shows collapsible Recharts graphs, and Foresights uses Trial ML metadata when the model is ready.
 - Trial store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
-- Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI, with required type fields (`zone_type`, `studio_type`) and trial-zone gender (`MALE`/`FEMALE`/`UNISEX`) for richer configuration.
+- Trial zones and studios can be created, edited, deactivated, and reactivated from admin UI; trial zones capture gender (`MALE`/`FEMALE`/`UNISEX`) while the backend assigns the default zone type, and studios keep required studio type values.
 - Customer workspace under `/app/trial/customer` now follows a routed flow similar to Checkout customer app: QR-only store entry with camera scan or gallery upload, complete encoded Trial customer URL redirect, create token, mobile lookup, and token status screens.
 - Trial customer token creation redirects back to QR scan with a warning when the encoded store or trial zone is no longer available.
 - Checkout and Trial customer routes are public; auth is enforced only for admin and staff module routes.

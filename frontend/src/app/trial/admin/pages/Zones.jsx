@@ -13,7 +13,6 @@ import { SectionHeader } from '../../../common/SectionHeader.jsx';
 const emptyZone = {
   store_id: '',
   name: '',
-  zone_type: '',
   gender: '',
   is_active: true,
 };
@@ -23,14 +22,7 @@ const FIELD_LIMITS = {
 };
 
 const ZONES_PER_PAGE = 8;
-const FIELD_ORDER = ['store_id', 'name', 'zone_type', 'gender'];
-
-const ZONE_TYPE_OPTIONS = [
-  { label: 'Select zone type', value: '' },
-  { label: 'Regular', value: 'REGULAR' },
-  { label: 'Express', value: 'EXPRESS' },
-  { label: 'Priority', value: 'PRIORITY' },
-];
+const FIELD_ORDER = ['store_id', 'name', 'gender'];
 
 const GENDER_OPTIONS = [
   { label: 'Select gender', value: '' },
@@ -38,10 +30,6 @@ const GENDER_OPTIONS = [
   { label: 'Female', value: 'FEMALE' },
   { label: 'Unisex', value: 'UNISEX' },
 ];
-
-function getZoneTypeLabel(zoneType) {
-  return ZONE_TYPE_OPTIONS.find((option) => option.value === zoneType)?.label || zoneType;
-}
 
 function getGenderLabel(gender) {
   return GENDER_OPTIONS.find((option) => option.value === gender)?.label || gender;
@@ -105,7 +93,6 @@ export function Zones() {
     return {
       store_id: Number(values.store_id),
       name: values.name.trim(),
-      zone_type: values.zone_type,
       gender: values.gender,
       is_active: values.is_active,
     };
@@ -122,10 +109,6 @@ export function Zones() {
       errors.name = 'Trial zone name is required.';
     } else if (values.name.trim().length > FIELD_LIMITS.name) {
       errors.name = `Trial zone name must be at most ${FIELD_LIMITS.name} characters.`;
-    }
-
-    if (!values.zone_type) {
-      errors.zone_type = 'Zone type is required.';
     }
 
     if (!values.gender) {
@@ -169,7 +152,6 @@ export function Zones() {
     const nextForm = {
       store_id: String(zone.store_id),
       name: zone.name || '',
-      zone_type: zone.zone_type || '',
       gender: zone.gender || '',
       is_active: Boolean(zone.is_active),
     };
@@ -377,11 +359,6 @@ export function Zones() {
             />
 
             <div>
-              <Select label="Zone type" value={form.zone_type} options={ZONE_TYPE_OPTIONS} onChange={(value) => setFormField('zone_type', value)} />
-              {formErrors.zone_type ? <p className="mt-1 text-xs text-rose-700">{formErrors.zone_type}</p> : null}
-            </div>
-
-            <div>
               <Select label="Gender" value={form.gender} options={GENDER_OPTIONS} onChange={(value) => setFormField('gender', value)} />
               {formErrors.gender ? <p className="mt-1 text-xs text-rose-700">{formErrors.gender}</p> : null}
             </div>
@@ -488,7 +465,6 @@ export function Zones() {
                       {isEditing ? <span className="rounded-full bg-brand-red px-2 py-1 text-xs font-semibold text-white">Editing</span> : null}
                     </div>
                     <p className="mt-1 text-sm text-charcoal">Store: {storeNameById.get(String(zone.store_id)) || `#${zone.store_id}`}</p>
-                    <p className="mt-1 text-sm text-charcoal">Type: {getZoneTypeLabel(zone.zone_type)}</p>
                     <p className="mt-1 text-sm text-charcoal">Gender: {getGenderLabel(zone.gender)}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <ResourceLink to={`/app/trial/admin/zones?store_id=${zone.store_id}`} label="Store zones" />

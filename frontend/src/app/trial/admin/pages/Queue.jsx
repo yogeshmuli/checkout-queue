@@ -39,6 +39,10 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
+function formatEnumLabel(value) {
+  return String(value || '').replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function Queue() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [tokens, setTokens] = useState([]);
@@ -94,7 +98,7 @@ export function Queue() {
     ...zones
       .filter((zone) => !filters.store_id || String(zone.store_id) === filters.store_id)
       .map((zone) => ({
-        label: `${zone.name} (${zone.zone_type})`,
+        label: `${zone.name} (${formatEnumLabel(zone.gender)})`,
         value: String(zone.id),
       })),
   ];
@@ -112,10 +116,13 @@ export function Queue() {
         }
         return true;
       })
-      .map((studio) => ({
-        label: studio.name ? `${studio.name} (${studio.studio_type})` : `Studio #${studio.id} (${studio.studio_type})`,
-        value: String(studio.id),
-      })),
+      .map((studio) => {
+        const zone = zoneById.get(String(studio.trial_zone_id));
+        return {
+          label: `${studio.name} (${zone?.name || `Zone #${studio.trial_zone_id}`})`,
+          value: String(studio.id),
+        };
+      }),
   ];
 
   const normalizedQuery = query.trim().toLowerCase();

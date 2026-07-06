@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.trial_zone import TrialZone
+from app.models.trial_zone import TrialZone, TrialZoneType
 from app.repositories.trial_zone_repository import TrialZoneRepository
 from app.schemas.trial_zone import TrialZoneCreateRequest, TrialZoneUpdateRequest
 
@@ -18,7 +18,7 @@ class TrialZoneService:
         zone = TrialZone(
             store_id=payload.store_id,
             name=name,
-            zone_type=payload.zone_type,
+            zone_type=TrialZoneType.REGULAR,
             gender=payload.gender,
             is_active=payload.is_active,
         )
