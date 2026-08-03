@@ -893,9 +893,12 @@ POST /api/v1/ml/stores/{store_id}/predict-service-time
 
 ```text
 GET /api/v1/analytics/stores/{store_id}?days={days}
+GET /api/v1/trial/analytics/stores/{store_id}?days={days}
 ```
 
 The store analytics endpoint powers the admin smart dashboard. It returns live queue totals, counter utilization, section and counter breakdowns, live section cards, active counter sessions, last-token wait and item-ahead estimates, daily token trends, weekly/hourly segments, promotion/sale analysis, customer/item segments, calendar signals, latest ML model metadata, and generated operational insights.
+
+The Trial analytics endpoint provides the equivalent server-computed dashboard payload with Trial-specific zones, studios, and active studio sessions. The Trial admin dashboard uses this single endpoint for live and historical analytics instead of downloading queue resources and aggregating them in the browser.
 
 Admin dashboard UI now supports URL-filterable store/view state with a History-only range filter and three tabs:
 

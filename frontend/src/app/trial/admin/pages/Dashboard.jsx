@@ -34,13 +34,10 @@ import {
   YAxis,
 } from 'recharts';
 
+import { getTrialStoreAnalytics } from '../../../../api/trial/analyticsApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { getTrialCalendar } from '../../../../api/trial/calendarApi.js';
 import { getTrialStoreModelMetadata } from '../../../../api/trial/mlApi.js';
-import { listTrialQueueTokens } from '../../../../api/trial/queueApi.js';
 import { listStores } from '../../../../api/trial/storeApi.js';
-import { listTrialStudios } from '../../../../api/trial/studiosApi.js';
-import { listTrialZones } from '../../../../api/trial/zonesApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { MetricTile } from '../../../common/MetricTile.jsx';
 
@@ -56,14 +53,6 @@ const DAY_OPTIONS = [
   { label: 'Last 90 Days', value: '90' },
 ];
 
-const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const ITEM_BUCKETS = [
-  { label: '0-5', test: (count) => count <= 5 },
-  { label: '6-15', test: (count) => count >= 6 && count <= 15 },
-  { label: '16-30', test: (count) => count >= 16 && count <= 30 },
-  { label: '31+', test: (count) => count >= 31 },
-];
-const ACTIVE_STATUSES = new Set(['WAITING', 'CALLED', 'SERVING']);
 const COLORS = ['#ff3b30', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2'];
 
 function formatDate(value) {
@@ -98,321 +87,36 @@ function formatNumber(value) {
   return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 1 }).format(Number(value || 0));
 }
 
-function asDate(value) {
-  return value ? new Date(value) : null;
-}
-
-function dateKey(value) {
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-function startOfDay(value) {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function latestToken(tokens) {
-  return [...tokens].sort((first, second) => {
-    const firstDate = asDate(first.created_at)?.getTime() || 0;
-    const secondDate = asDate(second.created_at)?.getTime() || 0;
-    return secondDate - firstDate || Number(second.token_id || 0) - Number(first.token_id || 0);
-  })[0];
-}
-
-function average(values) {
-  const filtered = values.map(Number).filter((value) => Number.isFinite(value));
-  if (!filtered.length) return 0;
-  return filtered.reduce((sum, value) => sum + value, 0) / filtered.length;
-}
-
-function percent(numerator, denominator) {
-  if (!denominator) return 0;
-  return (Number(numerator || 0) / Number(denominator || 0)) * 100;
-}
-
-function waitMinutes(token) {
-  const serviceStart = asDate(token.service_started_at);
-  const created = asDate(token.created_at);
-  if (serviceStart && created) return Math.max((serviceStart - created) / 60000, 0);
-  return Number(token.estimated_wait_minutes || 0);
-}
-
-function serviceMinutes(token) {
-  const serviceStart = asDate(token.service_started_at);
-  const completed = asDate(token.completed_at);
-  if (serviceStart && completed) return Math.max((completed - serviceStart) / 60000, 0);
-  return Number(token.service_time_minutes || 0);
-}
-
-function isCompleted(token) {
-  return token.status === 'COMPLETED';
-}
-
-function isCancelled(token) {
-  return token.status === 'CANCELLED' || token.status === 'NO_SHOW';
-}
-
-function isActiveToken(token) {
-  return ACTIVE_STATUSES.has(token.status);
-}
-
-function getPromotionDates(calendar) {
-  return new Set(
-    (calendar?.events || [])
-      .filter((event) => event.is_active && ['PROMOTION', 'SALE'].includes(event.event_type))
-      .map((event) => event.event_date),
-  );
-}
-
-function buildRangeDays(days) {
-  const today = startOfDay(new Date());
-  return Array.from({ length: days }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (days - index - 1));
-    return date;
-  });
-}
-
-function buildAnalytics({ zones, studios, tokens, calendar, metadata, days }) {
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const rangeStart = buildRangeDays(days)[0];
-  const promotionDates = getPromotionDates(calendar);
-  const periodTokens = tokens.filter((token) => asDate(token.created_at) >= rangeStart);
-  const activeTokens = tokens.filter(isActiveToken);
-  const todayTokens = tokens.filter((token) => asDate(token.created_at) >= todayStart);
-  const completedTokens = periodTokens.filter(isCompleted);
-  const cancelledTokens = periodTokens.filter(isCancelled);
-
-  const studiosByZoneId = new Map();
-  for (const studio of studios) {
-    const key = String(studio.trial_zone_id || '');
-    studiosByZoneId.set(key, [...(studiosByZoneId.get(key) || []), studio]);
-  }
-
-  const activeStudioIds = new Set(studios.filter((studio) => studio.is_active).map((studio) => Number(studio.id)));
-  const busyStudioIds = new Set(activeTokens.map((token) => Number(token.assigned_studio_id)).filter(Boolean));
-
-  const zoneRows = zones.map((zone) => {
-    const zoneStudios = studiosByZoneId.get(String(zone.id)) || [];
-    const zoneActiveStudios = zoneStudios.filter((studio) => studio.is_active);
-    const zoneTokens = periodTokens.filter((token) => Number(token.trial_zone_id) === Number(zone.id));
-    const zoneActiveTokens = activeTokens.filter((token) => Number(token.trial_zone_id) === Number(zone.id));
-    const zoneTodayTokens = todayTokens.filter((token) => Number(token.trial_zone_id) === Number(zone.id));
-    const zoneCancelled = zoneTokens.filter(isCancelled);
-    const zoneLastToken = latestToken([...zoneTokens, ...zoneActiveTokens]);
-    const zoneLastCallingTime = asDate(zoneLastToken?.calling_time);
-    const itemsAhead = zoneLastToken
-      ? zoneActiveTokens
-          .filter((token) => {
-            if (token.token_id === zoneLastToken.token_id) return false;
-            const tokenCallingTime = asDate(token.calling_time);
-            if (tokenCallingTime && zoneLastCallingTime) return tokenCallingTime <= zoneLastCallingTime;
-            return Number(token.token_id || 0) <= Number(zoneLastToken.token_id || 0);
-          })
-          .reduce((sum, token) => sum + Number(token.item_count || 0), 0)
-      : 0;
-
-    return {
-      zone,
-      studios: zoneStudios,
-      activeStudios: zoneActiveStudios,
-      inactiveStudios: zoneStudios.filter((studio) => !studio.is_active),
-      activeSessions: zoneActiveStudios.map((studio) => {
-        const assignedToken = latestToken(zoneActiveTokens.filter((token) => Number(token.assigned_studio_id) === Number(studio.id) && ['CALLED', 'SERVING'].includes(token.status)));
-        return { studio, assignedToken };
-      }),
-      lastToken: zoneLastToken,
-      lastActiveToken: latestToken(zoneActiveTokens.filter((token) => ['CALLED', 'SERVING'].includes(token.status))),
-      estimatedWait: zoneLastToken?.estimated_wait_minutes || waitMinutes(zoneLastToken || {}),
-      itemsAhead,
-      averageWait: average(zoneActiveTokens.map(waitMinutes)),
-      averageItems: average(zoneTodayTokens.map((token) => token.item_count || 0)),
-      totalCancel: zoneCancelled.length,
-      cancelLastHour: zoneCancelled.filter((token) => {
-        const cancelledAt = asDate(token.cancelled_at || token.updated_at);
-        return cancelledAt && now - cancelledAt <= 60 * 60 * 1000;
-      }).length,
-      completedToday: zoneTodayTokens.filter(isCompleted).length,
-      waitingTokens: zoneActiveTokens.filter((token) => token.status === 'WAITING').length,
-      servingTokens: zoneActiveTokens.filter((token) => ['CALLED', 'SERVING'].includes(token.status)).length,
-    };
-  });
-
-  const dailyTrends = buildRangeDays(days).map((day) => {
-    const key = dateKey(day);
-    const dayTokens = periodTokens.filter((token) => dateKey(token.created_at) === key);
-    const completed = dayTokens.filter(isCompleted);
-    const cancelled = dayTokens.filter(isCancelled);
-    return {
-      day: key,
-      token_count: dayTokens.length,
-      completed_count: completed.length,
-      cancelled_count: cancelled.length,
-      cancel_rate: percent(cancelled.length, dayTokens.length),
-      average_wait_minutes: average(dayTokens.map(waitMinutes)),
-      average_service_minutes: average(completed.map(serviceMinutes)),
-    };
-  });
-
-  const weeklyStats = WEEKDAYS.map((dayName, weekday) => {
-    const dayTokens = periodTokens.filter((token) => {
-      const day = asDate(token.created_at)?.getDay();
-      return day === (weekday + 1) % 7;
-    });
-    const cancelled = dayTokens.filter(isCancelled);
-    return {
-      day_name: dayName,
-      total_visits: dayTokens.length,
-      avg_wait_time: average(dayTokens.map(waitMinutes)),
-      avg_service_time: average(dayTokens.filter(isCompleted).map(serviceMinutes)),
-      cancellations: cancelled.length,
-      cancellation_rate: percent(cancelled.length, dayTokens.length),
-    };
-  });
-
-  const hourlyStats = Array.from({ length: 24 }, (_, hour) => {
-    const hourTokens = periodTokens.filter((token) => asDate(token.created_at)?.getHours() === hour);
-    return {
-      hour,
-      total_visits: hourTokens.length,
-      avg_wait_time: average(hourTokens.map(waitMinutes)),
-      avg_service_time: average(hourTokens.filter(isCompleted).map(serviceMinutes)),
-    };
-  });
-
-  const promotionStats = [
-    { day_type: 'Promotion/Sale Day', tokens: periodTokens.filter((token) => promotionDates.has(dateKey(token.created_at))) },
-    { day_type: 'Regular Day', tokens: periodTokens.filter((token) => !promotionDates.has(dateKey(token.created_at))) },
-  ].map((row) => {
-    const completed = row.tokens.filter(isCompleted);
-    const cancelled = row.tokens.filter(isCancelled);
-    return {
-      day_type: row.day_type,
-      avg_footfall: row.tokens.length,
-      avg_wait_time: average(row.tokens.map(waitMinutes)),
-      avg_items: average(row.tokens.map((token) => token.item_count || 0)),
-      avg_service_time: average(completed.map(serviceMinutes)),
-      cancellations: cancelled.length,
-      completion_rate: percent(completed.length, row.tokens.length),
-    };
-  });
-
-  const zoneStats = zoneRows.map((row) => {
-    const zoneTokens = periodTokens.filter((token) => Number(token.trial_zone_id) === Number(row.zone.id));
-    return {
-      zone_name: row.zone.name,
-      total_trials: zoneTokens.filter(isCompleted).length,
-      cancellations: zoneTokens.filter(isCancelled).length,
-      avg_wait_time: average(zoneTokens.map(waitMinutes)),
-      avg_service_time: average(zoneTokens.filter(isCompleted).map(serviceMinutes)),
-      total_items: zoneTokens.reduce((sum, token) => sum + Number(token.item_count || 0), 0),
-    };
-  });
-
-  const customerTypes = [...new Set(periodTokens.map((token) => token.customer_type || 'regular'))];
-  const customerStats = (customerTypes.length ? customerTypes : ['regular']).map((customerType) => {
-    const customerTokens = periodTokens.filter((token) => (token.customer_type || 'regular') === customerType);
-    return {
-      customer_type: customerType,
-      count: customerTokens.length,
-      avg_wait: average(customerTokens.map(waitMinutes)),
-      avg_service: average(customerTokens.filter(isCompleted).map(serviceMinutes)),
-      total_items: customerTokens.reduce((sum, token) => sum + Number(token.item_count || 0), 0),
-      cancellations: customerTokens.filter(isCancelled).length,
-    };
-  });
-
-  const itemStats = ITEM_BUCKETS.map((bucket) => {
-    const bucketTokens = periodTokens.filter((token) => bucket.test(Number(token.item_count || 0)));
-    return {
-      range: bucket.label,
-      count: bucketTokens.length,
-      avg_wait: average(bucketTokens.map(waitMinutes)),
-      avg_service: average(bucketTokens.filter(isCompleted).map(serviceMinutes)),
-    };
-  });
-
-  const totalActiveStudios = studios.filter((studio) => studio.is_active).length;
-  const metrics = {
-    waiting_tokens: activeTokens.filter((token) => token.status === 'WAITING').length,
-    serving_tokens: activeTokens.filter((token) => ['CALLED', 'SERVING'].includes(token.status)).length,
-    completed_today: todayTokens.filter(isCompleted).length,
-    cancelled_today: todayTokens.filter(isCancelled).length,
-    active_studios: totalActiveStudios,
-    total_studios: studios.length,
-    active_zones: zones.filter((zone) => zone.is_active).length,
-    total_zones: zones.length,
-    average_wait_minutes: average(activeTokens.map(waitMinutes)),
-    average_service_minutes: average(completedTokens.map(serviceMinutes)),
-    average_items_today: average(todayTokens.map((token) => token.item_count || 0)),
-    cancellations_last_hour: cancelledTokens.filter((token) => {
-      const cancelledAt = asDate(token.cancelled_at || token.updated_at);
-      return cancelledAt && now - cancelledAt <= 60 * 60 * 1000;
-    }).length,
-    studio_utilization_percent: percent(busyStudioIds.size, activeStudioIds.size),
-  };
-
-  const busiestZone = [...zoneRows].sort((first, second) => second.waitingTokens + second.servingTokens - (first.waitingTokens + first.servingTokens))[0];
+function buildForesights(analytics, metadata) {
+  const metrics = analytics?.metrics || {};
   const featureImportance = Object.entries(metadata?.feature_importance || {})
     .map(([feature, value]) => ({ feature: feature.replaceAll('_', ' '), value: Number(value || 0) }))
     .sort((first, second) => second.value - first.value)
     .slice(0, 6);
-  const predictedWaits = Array.from({ length: 4 }, (_, index) => {
-    const hour = (now.getHours() + index + 1) % 24;
-    const base = metrics.average_wait_minutes || average(dailyTrends.slice(-7).map((row) => row.average_wait_minutes));
-    return { label: formatHour(hour), value: Math.max(0, base + index * 1.5 + (metrics.waiting_tokens > metrics.active_studios ? 2 : 0)) };
+  const baseWait = Number(metrics.average_wait_minutes || 0);
+  const predictedWaits = Array.from({ length: 4 }, (_, index) => ({
+    label: formatHour((new Date().getHours() + index + 1) % 24),
+    value: Math.max(0, baseWait + index * 1.5 + (metrics.waiting_tokens > metrics.active_studios ? 2 : 0)),
+  }));
+  const cancellationPressure = Number(metrics.cancelled_today || 0) + Number(metrics.no_show_today || 0);
+  const churnRisk =
+    cancellationPressure > 5 || baseWait >= 25
+      ? { level: 'High', tone: 'rose', message: 'Wait time or cancellation pressure is elevated. Add staff or reduce quoted wait.' }
+      : cancellationPressure > 0 || baseWait >= 15
+        ? { level: 'Medium', tone: 'amber', message: 'Traffic is healthy but sensitive. Watch high-wait zones closely.' }
+        : { level: 'Low', tone: 'mint', message: 'Cancellation pressure is currently controlled.' };
+  const anomalyZones = (analytics?.zones || []).map((zone) => {
+    const currentWait = Number(zone.average_wait_minutes || 0);
+    const delta = currentWait - (baseWait || currentWait);
+    return { zoneName: zone.zone_name, currentWait, predictedWait: baseWait || currentWait, status: delta > 8 ? 'Anomaly' : delta > 3 ? 'Slight deviation' : 'Normal' };
   });
-
-  return {
-    metrics,
-    zoneRows,
-    dailyTrends,
-    weeklyStats,
-    hourlyStats,
-    promotionStats,
-    zoneStats,
-    customerStats,
-    itemStats,
-    ml: {
-      metadata,
-      featureImportance,
-      predictedWaits,
-      churnRisk: buildChurnRisk(metrics, completedTokens.length, cancelledTokens.length),
-      anomalyZones: zoneRows.map((row) => {
-        const predicted = metrics.average_wait_minutes || row.averageWait;
-        const delta = row.averageWait - predicted;
-        return {
-          zoneName: row.zone.name,
-          currentWait: row.averageWait,
-          predictedWait: predicted,
-          status: delta > 8 ? 'Anomaly' : delta > 3 ? 'Slight deviation' : 'Normal',
-        };
-      }),
-      busiestZone,
-    },
-  };
-}
-
-function buildChurnRisk(metrics, completedCount, cancelledCount) {
-  const cancellationRate = percent(cancelledCount, completedCount + cancelledCount);
-  if (cancellationRate >= 30 || metrics.average_wait_minutes >= 25) {
-    return { level: 'High', tone: 'rose', message: 'Wait time or cancellation pressure is elevated. Add staff or reduce quoted wait.' };
-  }
-  if (cancellationRate >= 15 || metrics.average_wait_minutes >= 15) {
-    return { level: 'Medium', tone: 'amber', message: 'Traffic is healthy but sensitive. Watch high-wait zones closely.' };
-  }
-  return { level: 'Low', tone: 'mint', message: 'Cancellation pressure is currently controlled.' };
+  return { featureImportance, predictedWaits, churnRisk, anomalyZones };
 }
 
 export function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stores, setStores] = useState([]);
-  const [zones, setZones] = useState([]);
-  const [studios, setStudios] = useState([]);
-  const [tokens, setTokens] = useState([]);
-  const [calendar, setCalendar] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [metadata, setMetadata] = useState(null);
   const [loading, setLoading] = useState(false);
   const [storesLoaded, setStoresLoaded] = useState(false);
@@ -430,11 +134,7 @@ export function Dashboard() {
   const activeView = VIEW_OPTIONS.some((option) => option.value === filters.view) ? filters.view : 'live';
   const analyticsDays = activeView === 'history' ? Number(filters.days) || 30 : 1;
   const storeOptions = stores.map((store) => ({ label: `${store.name} (${store.store_number})`, value: String(store.id) }));
-
-  const analytics = useMemo(
-    () => buildAnalytics({ zones, studios, tokens, calendar, metadata, days: analyticsDays }),
-    [analyticsDays, calendar, metadata, studios, tokens, zones]
-  );
+  const foresights = useMemo(() => buildForesights(analytics, metadata), [analytics, metadata]);
 
   function setFilter(field, value) {
     setSearchParams((prev) => {
@@ -450,17 +150,11 @@ export function Dashboard() {
     setLoading(true);
     setMessage('');
     try {
-      const [zoneRows, studioRows, tokenRows, calendarData, modelMetadata] = await Promise.all([
-        listTrialZones({ include_inactive: true, store_id: Number(selectedStoreId) }),
-        listTrialStudios({ include_inactive: true, store_id: Number(selectedStoreId) }),
-        listTrialQueueTokens({ include_terminal: true, store_id: Number(selectedStoreId) }),
-        getTrialCalendar(Number(selectedStoreId)).catch(() => null),
+      const [analyticsResponse, modelMetadata] = await Promise.all([
+        getTrialStoreAnalytics(selectedStoreId, { days: analyticsDays }),
         getTrialStoreModelMetadata(Number(selectedStoreId)).catch(() => null),
       ]);
-      setZones(zoneRows);
-      setStudios(studioRows);
-      setTokens(tokenRows);
-      setCalendar(calendarData);
+      setAnalytics(analyticsResponse);
       setMetadata(modelMetadata);
       setLastRefreshed(new Date());
     } catch (error) {
@@ -469,7 +163,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStoreId]);
+  }, [analyticsDays, selectedStoreId]);
 
   useEffect(() => {
     listStores({ include_inactive: true })
@@ -524,9 +218,11 @@ export function Dashboard() {
       {storesLoaded && !stores.length ? <NoStoresCard /> : null}
       {stores.length ? (
         <>
-          {activeView === 'live' ? <LiveView analytics={analytics} selectedStoreId={selectedStoreId} /> : null}
-          {activeView === 'history' ? <HistoryView analytics={analytics} /> : null}
-          {activeView === 'foresights' ? <ForesightsView analytics={analytics} /> : null}
+          {loading && !analytics ? <LoadingState /> : null}
+          {!loading && !analytics ? <EmptyState /> : null}
+          {analytics && activeView === 'live' ? <LiveView analytics={analytics} selectedStoreId={selectedStoreId} /> : null}
+          {analytics && activeView === 'history' ? <HistoryView analytics={analytics} /> : null}
+          {analytics && activeView === 'foresights' ? <ForesightsView analytics={analytics} foresights={foresights} metadata={metadata} /> : null}
         </>
       ) : null}
     </div>
@@ -540,6 +236,14 @@ function NoStoresCard() {
       <p className="mt-1 text-sm text-muted">Create a store first, then dashboard details will appear here.</p>
     </section>
   );
+}
+
+function LoadingState() {
+  return <section className="rounded-lg border border-line bg-white p-8 text-center text-sm text-muted">Loading trial analytics…</section>;
+}
+
+function EmptyState() {
+  return <section className="rounded-lg border border-line bg-white p-8 text-center text-sm text-muted">Select a store to load dashboard analytics.</section>;
 }
 
 function SmartHeader({ activeView, lastRefreshed, loading, onRefresh, selectedStore, selectedStoreId, setFilter }) {
@@ -605,8 +309,8 @@ function LiveView({ analytics, selectedStoreId }) {
       </div>
 
       <div className="space-y-5">
-        {analytics.zoneRows.length ? (
-          analytics.zoneRows.map((row) => <ZoneLiveCard key={row.zone.id} row={row} selectedStoreId={selectedStoreId} />)
+        {analytics.zones.length ? (
+          analytics.zones.map((row) => <ZoneLiveCard key={row.zone_id} row={row} selectedStoreId={selectedStoreId} />)
         ) : (
           <section className="rounded-lg border border-line bg-white p-5 text-sm text-muted">No trial-zone activity available.</section>
         )}
@@ -620,30 +324,30 @@ function ZoneLiveCard({ row, selectedStoreId }) {
     <section className="overflow-hidden rounded-lg border border-line bg-white shadow-soft">
       <div className="flex flex-col gap-4 bg-slate-950 px-5 py-4 text-white xl:flex-row xl:items-center xl:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-red-100">{row.zone.zone_type}</p>
-          <h2 className="text-2xl font-semibold">{row.zone.name}</h2>
-          <p className="mt-1 text-sm text-slate-300">Last token assigned to studio: {row.lastActiveToken?.token_number || '-'}</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-red-100">{row.zone_type}</p>
+          <h2 className="text-2xl font-semibold">{row.zone_name}</h2>
+          <p className="mt-1 text-sm text-slate-300">Last token assigned to studio: {row.last_active_token_number || '-'}</p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-          <DarkMetric label="Last Token" value={row.lastToken?.token_number || '-'} />
-          <DarkMetric label="Active Studios" value={row.activeStudios.length} />
-          <DarkMetric label="Inactive Studios" value={row.inactiveStudios.length} />
+          <DarkMetric label="Last Token" value={row.last_token_number || '-'} />
+          <DarkMetric label="Active Studios" value={row.active_studios} />
+          <DarkMetric label="Inactive Studios" value={row.total_studios - row.active_studios} />
         </div>
       </div>
 
       <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-        <LiveMetric label="Last Token" value={row.lastToken?.token_number || '-'} icon={<Activity size={18} />} />
+        <LiveMetric label="Last Token" value={row.last_token_number || '-'} icon={<Activity size={18} />} />
         <div className="rounded-lg border border-line p-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase text-muted">Active Studios</p>
             <Shirt size={18} className="text-brand-red" />
           </div>
           <div className="mt-3 max-h-36 space-y-2 overflow-y-auto pr-1">
-            {row.activeSessions.length ? (
-              row.activeSessions.map(({ studio, assignedToken }) => (
-                <div key={studio.id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate">{studio.name || `Studio #${studio.id}`}</span>
-                  <span className="shrink-0 font-semibold text-brand-red">{assignedToken?.token_number || '-'}</span>
+            {row.active_studio_sessions.length ? (
+              row.active_studio_sessions.map((session) => (
+                <div key={session.studio_id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">{session.studio_name}</span>
+                  <span className="shrink-0 font-semibold text-brand-red">{session.assigned_token_number || '-'}</span>
                 </div>
               ))
             ) : (
@@ -651,28 +355,38 @@ function ZoneLiveCard({ row, selectedStoreId }) {
             )}
           </div>
         </div>
-        <LiveMetric label="Est. Wait (Last Token)" value={formatMinutes(row.estimatedWait)} icon={<Clock size={18} />} />
-        <LiveMetric label="Est. Total Items" value={`${row.itemsAhead} items`} icon={<Shirt size={18} />} />
+        <LiveMetric label="Est. Wait (Last Token)" value={formatMinutes(row.estimated_wait_last_token_minutes)} icon={<Clock size={18} />} />
+        <LiveMetric label="Est. Total Items" value={`${row.estimated_items_ahead} items`} icon={<Shirt size={18} />} />
       </div>
 
       <div className="grid gap-3 border-t border-line bg-slate-50 p-5 sm:grid-cols-4">
-        <SmallMetric label="Avg Wait" value={formatShortMinutes(row.averageWait)} />
-        <SmallMetric label="Avg Items" value={formatNumber(row.averageItems)} />
-        <SmallMetric label="Total Cancel" value={row.totalCancel} />
-        <SmallMetric label="Cancel (1h)" value={row.cancelLastHour} />
+        <SmallMetric label="Avg Wait" value={formatShortMinutes(row.average_wait_minutes)} />
+        <SmallMetric label="Avg Items" value={formatNumber(row.average_items_today)} />
+        <SmallMetric label="Total Cancel" value={row.total_cancellations} />
+        <SmallMetric label="Cancel (1h)" value={row.cancellations_last_hour} />
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-line p-5">
         <ResourceLink to={`/app/trial/admin/zones?store_id=${selectedStoreId}`} label="Zones" />
-        <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${row.zone.id}`} label="Studios" />
+        <ResourceLink to={`/app/trial/admin/studios?trial_zone_id=${row.zone_id}`} label="Studios" />
         <ResourceLink to={`/app/trial/admin/staff?store_id=${selectedStoreId}`} label="Staff" />
-        <ResourceLink to={`/app/trial/admin/queue?trial_zone_id=${row.zone.id}`} label="Queue" />
+        <ResourceLink to={`/app/trial/admin/queue?trial_zone_id=${row.zone_id}`} label="Queue" />
       </div>
     </section>
   );
 }
 
-function HistoryView({ analytics }) {
+function HistoryView({ analytics: response }) {
+  const analytics = {
+    ...response,
+    promotionStats: response.promotion_stats,
+    weeklyStats: response.weekly_stats,
+    hourlyStats: response.hourly_stats,
+    dailyTrends: response.daily_trends.map((row) => ({ ...row, cancel_rate: row.token_count ? (row.cancelled_count / row.token_count) * 100 : 0 })),
+    zoneStats: response.zone_stats,
+    customerStats: response.customer_type_stats,
+    itemStats: response.item_bucket_stats,
+  };
   const [openSections, setOpenSections] = useState({
     promotion: true,
     segmented: true,
@@ -769,8 +483,7 @@ function HistoryView({ analytics }) {
   );
 }
 
-function ForesightsView({ analytics }) {
-  const metadata = analytics.ml.metadata;
+function ForesightsView({ foresights, metadata }) {
   if (!metadata || metadata.status !== 'READY') {
     return (
       <section className="rounded-lg border border-line bg-white p-8 text-center">
@@ -800,7 +513,7 @@ function ForesightsView({ analytics }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Model Accuracy" value={metadata.accuracy_score ? formatPercent(metadata.accuracy_score * 100) : 'Ready'} tone="mint" />
         <MetricTile label="MAE" value={metadata.mae != null ? formatShortMinutes(metadata.mae) : '-'} />
-        <MetricTile label="Churn Risk" value={analytics.ml.churnRisk.level} tone={analytics.ml.churnRisk.tone} />
+        <MetricTile label="Churn Risk" value={foresights.churnRisk.level} tone={foresights.churnRisk.tone} />
         <MetricTile label="Training Data" value={metadata.sample_size || 0} tone="amber" />
       </div>
 
@@ -818,13 +531,13 @@ function ForesightsView({ analytics }) {
               </div>
             </div>
           </div>
-          <ChartCard title="Top 6 drivers" rows={analytics.ml.featureImportance} labelKey="feature" valueKey="value" formatter={(value) => Number(value || 0).toFixed(3)} type="bar" dominant />
+          <ChartCard title="Top 6 drivers" rows={foresights.featureImportance} labelKey="feature" valueKey="value" formatter={(value) => Number(value || 0).toFixed(3)} type="bar" dominant />
         </section>
 
         <section className="rounded-lg border border-line bg-white p-5">
           <h3 className="text-lg font-semibold">Zone Anomaly Status</h3>
           <div className="mt-4 space-y-3">
-            {analytics.ml.anomalyZones.map((zone) => (
+            {foresights.anomalyZones.map((zone) => (
               <div key={zone.zoneName} className="rounded-lg border border-line p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-semibold">{zone.zoneName}</p>
@@ -842,11 +555,11 @@ function ForesightsView({ analytics }) {
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-lg border border-line bg-white p-5">
           <h3 className="text-lg font-semibold">Predicted Wait (Next 4 Hours)</h3>
-          <ChartCard title="Upcoming hours" rows={analytics.ml.predictedWaits} labelKey="label" valueKey="value" formatter={formatShortMinutes} type="area" />
+          <ChartCard title="Upcoming hours" rows={foresights.predictedWaits} labelKey="label" valueKey="value" formatter={formatShortMinutes} type="area" />
         </section>
         <section className="rounded-lg border border-line bg-white p-5">
           <h3 className="text-lg font-semibold">Churn Risk</h3>
-          <p className="mt-3 rounded-lg border border-line bg-slate-50 p-4 text-sm text-charcoal">{analytics.ml.churnRisk.message}</p>
+          <p className="mt-3 rounded-lg border border-line bg-slate-50 p-4 text-sm text-charcoal">{foresights.churnRisk.message}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <SmallMetric label="Data quality" value={metadata.data_quality_score != null ? formatPercent(metadata.data_quality_score * 100) : '-'} />
             <SmallMetric label="Last trained" value={metadata.trained_at ? formatDate(metadata.trained_at) : '-'} />
