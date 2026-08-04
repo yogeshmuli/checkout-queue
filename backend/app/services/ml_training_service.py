@@ -5,10 +5,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import joblib
 from fastapi import HTTPException, status
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.feature_extraction import DictVectorizer
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.pipeline import Pipeline
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -16,6 +12,7 @@ from app.models.ml_model_metadata import MLModelMetadata
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.repositories.ml_repository import MLRepository
 from app.schemas.ml import MLModelMetadataResponse
+from app.services.ml_model_fitting import fit_service_time_model
 
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
@@ -40,32 +37,18 @@ class MLTrainingService:
                 detail=f"At least {settings.ML_MIN_TRAINING_SAMPLES} completed checkout records are required for ML training",
             )
 
-        features = [row["features"] for row in rows]
-        actuals = [row["duration_minutes"] for row in rows]
-        model = Pipeline(
-            steps=[
-                ("features", DictVectorizer(sparse=False)),
-                (
-                    "regressor",
-                    RandomForestRegressor(
-                        n_estimators=100,
-                        random_state=42,
-                        min_samples_leaf=1,
-                    ),
-                ),
-            ]
-        )
-        model.fit(features, actuals)
-        predictions = [float(prediction) for prediction in model.predict(features)]
+        return self._train_rows(store_id, rows)
 
-        mae = float(mean_absolute_error(actuals, predictions))
-        r2 = float(r2_score(actuals, predictions)) if len(set(actuals)) > 1 else 0.0
-        mean_actual = sum(actuals) / len(actuals)
-        accuracy_score = max(0.0, min(1.0, 1 - (mae / mean_actual))) if mean_actual else 0.0
-        feature_importance = self._feature_importance(model)
+    def train_uploaded_rows(self, store_id: int, rows: list[dict[str, object]], filename: str, content: bytes, uploaded_by_user_id: int) -> MLModelMetadataResponse:
+        if self.repository.get_store_by_id(store_id) is None:
+            raise HTTPException(status_code=404, detail="Store not found")
+        return self._train_rows(store_id, rows, filename, content, uploaded_by_user_id)
+
+    def _train_rows(self, store_id, rows, filename=None, content=None, uploaded_by_user_id=None):
+        fitted = fit_service_time_model(rows)
 
         trained_at = datetime.now(timezone.utc)
-        model_version = trained_at.strftime("service-time-%Y%m%d%H%M%S")
+        model_version = trained_at.strftime("service-time-%Y%m%d%H%M%S%f")
         artifact_path = self._write_artifact(
             store_id=store_id,
             model_version=model_version,
@@ -75,9 +58,13 @@ class MLTrainingService:
                 "trained_at": trained_at.isoformat(),
                 "sample_size": len(rows),
                 "recent_history_days": RECENT_HISTORY_DAYS,
-                "model": model,
+                "model": fitted.model,
             },
         )
+        source_file_path = None
+        if content is not None:
+            source_file_path = artifact_path.with_name(f"{model_version}-source.xlsx")
+            source_file_path.write_bytes(content)
 
         metadata = MLModelMetadata(
             store_id=store_id,
@@ -87,11 +74,16 @@ class MLTrainingService:
             artifact_path=str(artifact_path),
             sample_size=len(rows),
             trained_at=trained_at,
-            mae=mae,
-            r2_score=r2,
-            accuracy_score=accuracy_score,
+            mae=fitted.mae,
+            r2_score=fitted.r2_score,
+            accuracy_score=fitted.accuracy_score,
             data_quality_score=1.0,
-            feature_importance=json.dumps(feature_importance),
+            feature_importance=json.dumps(fitted.feature_importance),
+            training_source="EXCEL_UPLOAD" if content is not None else "DATABASE",
+            original_filename=Path(filename).name[:255] if filename else None,
+            source_file_path=str(source_file_path) if source_file_path else None,
+            uploaded_by_user_id=uploaded_by_user_id,
+            validation_summary=json.dumps({"valid_rows": len(rows), "invalid_rows": 0}) if content is not None else None,
         )
         self.repository.create_metadata(metadata)
         self.repository.commit()
@@ -195,17 +187,6 @@ class MLTrainingService:
         joblib.dump(artifact, artifact_path)
         return artifact_path
 
-    def _feature_importance(self, model: Pipeline) -> dict[str, float]:
-        vectorizer = model.named_steps["features"]
-        regressor = model.named_steps["regressor"]
-        feature_names = vectorizer.get_feature_names_out()
-        importances = regressor.feature_importances_
-        grouped: dict[str, float] = {}
-        for feature_name, importance in zip(feature_names, importances):
-            base_name = feature_name.split("=", 1)[0]
-            grouped[base_name] = grouped.get(base_name, 0.0) + float(importance)
-        return dict(sorted(grouped.items()))
-
     def _normalize_to_utc(self, value: datetime) -> datetime:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
@@ -239,4 +220,9 @@ class MLTrainingService:
             data_quality_score=metadata.data_quality_score,
             feature_importance=feature_importance,
             error_message=metadata.error_message,
+            training_source=metadata.training_source,
+            original_filename=metadata.original_filename,
+            source_file_path=metadata.source_file_path,
+            uploaded_by_user_id=metadata.uploaded_by_user_id,
+            validation_summary=json.loads(metadata.validation_summary) if metadata.validation_summary else None,
         )

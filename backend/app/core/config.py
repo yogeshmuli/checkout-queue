@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     ML_MODEL_DIR: str = "ml_models"
     ML_MIN_TRAINING_SAMPLES: int = 50
+    ML_TRAINING_UPLOAD_MAX_BYTES: int = 10 * 1024 * 1024
+    ML_TRAINING_UPLOAD_MAX_ROWS: int = 10000
     ENABLE_CHECKOUT_QUEUE: bool = True
     ENABLE_TRIAL_QUEUE: bool = True
     ENABLE_DEMO_TOOLS: bool = True

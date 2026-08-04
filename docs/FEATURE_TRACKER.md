@@ -994,6 +994,19 @@ POST /api/v1/ml/stores/{demo_store_id}/train
 POST /api/v1/ml/trial/stores/{demo_store_id}/train
 ```
 
+### Store-specific Excel ML training
+
+Checkout and Trial administrators can select a store on the ML screen, download an `.xlsx` template populated with that store's valid section/counter or zone/studio IDs, and upload a completed dataset to train a replacement model. Uploads are restricted to `SUPER_ADMIN`, `STORE_ADMIN`, and `MANAGER`, validated as a complete workbook, and never mixed with database records. A successful upload becomes the latest `READY` model for that store; an invalid upload leaves the previous model active.
+
+```text
+GET  /api/v1/ml/stores/{store_id}/training-template
+POST /api/v1/ml/stores/{store_id}/train-upload
+GET  /api/v1/ml/trial/stores/{store_id}/training-template
+POST /api/v1/ml/trial/stores/{store_id}/train-upload
+```
+
+The accepted source workbook is retained beside its model artifact. Model metadata records whether training used database history or an Excel upload, plus the source filename, uploader, and validation counts. Upload size and row limits are configured through `ML_TRAINING_UPLOAD_MAX_BYTES` and `ML_TRAINING_UPLOAD_MAX_ROWS`.
+
 ## Implemented Frontend Routes
 
 ```text

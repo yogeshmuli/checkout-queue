@@ -18,6 +18,19 @@ class MLRepository:
     def get_store_by_id(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)
 
+    def list_sections_for_training(self, store_id: int) -> list[CheckoutSection]:
+        return list(self.db.scalars(select(CheckoutSection).where(CheckoutSection.store_id == store_id).order_by(CheckoutSection.id)).all())
+
+    def list_counters_for_training(self, store_id: int) -> list[Counter]:
+        statement = select(Counter).join(CheckoutSection).where(CheckoutSection.store_id == store_id).order_by(Counter.id)
+        return list(self.db.scalars(statement).all())
+
+    def get_section_for_training(self, section_id: int) -> CheckoutSection | None:
+        return self.db.get(CheckoutSection, section_id)
+
+    def get_counter_for_training(self, counter_id: int) -> Counter | None:
+        return self.db.get(Counter, counter_id)
+
     def list_completed_training_tokens(self, store_id: int) -> list[QueueToken]:
         statement = (
             select(QueueToken)

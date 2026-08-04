@@ -136,3 +136,23 @@ def test_train_store_model_creates_metadata_and_artifact(ml_service: MLTrainingS
     assert metadata.feature_importance is not None
     assert "item_count" in metadata.feature_importance
     assert stored_metadata.artifact_path.endswith(".joblib")
+
+
+def test_uploaded_rows_create_excel_provenance_and_retained_source(ml_service: MLTrainingService) -> None:
+    rows = [
+        {
+            "features": {"item_count": float(index), "section_id": "1", "customer_type": "regular"},
+            "duration_minutes": float(5 + index),
+        }
+        for index in range(3)
+    ]
+
+    metadata = ml_service.train_uploaded_rows(1, rows, "../training.xlsx", b"workbook-content", 42)
+    stored = ml_service.repository.metadata[-1]
+
+    assert metadata.training_source == "EXCEL_UPLOAD"
+    assert metadata.original_filename == "training.xlsx"
+    assert metadata.uploaded_by_user_id == 42
+    assert metadata.validation_summary == {"valid_rows": 3, "invalid_rows": 0}
+    assert stored.source_file_path.endswith("-source.xlsx")
+    assert open(stored.source_file_path, "rb").read() == b"workbook-content"

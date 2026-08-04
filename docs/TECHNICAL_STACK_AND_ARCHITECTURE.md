@@ -818,6 +818,12 @@ Admin UI /app/trial/admin/ml?store_id={store_id}
 
 During `POST /api/v1/trial/queue/join`, `TrialService` asks `TrialPredictionService` for a service-time prediction after selecting the best studio. If a READY trial artifact exists and prediction succeeds, `trial_queue_tokens.service_time_minutes` uses the ML result and `calculation_method=ML_PREDICTED`; otherwise the existing trial store config remains the `RULE_BASED` fallback.
 
+### Excel-sourced store training
+
+Both ML pipelines support database training and explicit Excel-only training. Protected template endpoints generate store-specific workbooks with instructions, training columns, and resource lookup sheets. Upload routes enforce file-size/type limits, while `MLExcelService` performs workbook and row validation and converts accepted rows into the same feature dictionaries used by prediction. The shared model-fitting utility keeps Random Forest construction and metric calculations identical across sources and modules.
+
+Accepted workbooks are stored under the relevant `ML_MODEL_DIR/store_{id}` or `trial_store_{id}` directory alongside the joblib artifact. The `ml_model_metadata` row stores training source, original filename, retained path, uploader, and validation summary. Artifacts are written before the `READY` metadata transaction is committed, so a rejected or failed upload cannot displace the current ready model. Production deployments must persist and protect the `ml_models` volume because it now contains both model artifacts and uploaded training workbooks.
+
 ## 11. Background Jobs
 
 Recommended background jobs:

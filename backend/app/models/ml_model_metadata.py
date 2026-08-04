@@ -24,3 +24,8 @@ class MLModelMetadata(TimestampMixin, Base):
     data_quality_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     feature_importance: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    training_source: Mapped[str] = mapped_column(String(30), default="DATABASE", nullable=False)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True)
+    validation_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

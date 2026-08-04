@@ -1,9 +1,9 @@
-import { BrainCircuit, RefreshCw, Wand2 } from 'lucide-react';
+import { BrainCircuit, Download, RefreshCw, Upload, Wand2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
-import { getTrialStoreModelMetadata, trainTrialStoreModel } from '../../../../api/trial/mlApi.js';
+import { downloadTrialStoreTrainingTemplate, getTrialStoreModelMetadata, trainTrialStoreModel, trainTrialStoreModelFromUpload } from '../../../../api/trial/mlApi.js';
 import { listStores } from '../../../../api/trial/storeApi.js';
 import { Select } from '../../../common/FormAndStatePrimitives.jsx';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
@@ -15,6 +15,8 @@ export function MachineLearning() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [storesLoaded, setStoresLoaded] = useState(false);
+  const [trainingFile, setTrainingFile] = useState(null);
+  const [validationErrors, setValidationErrors] = useState([]);
   const storeId = searchParams.get('store_id') || '';
 
   const storeOptions = useMemo(
@@ -77,6 +79,8 @@ export function MachineLearning() {
   }, [loadMetadata, storeId]);
 
   function selectStore(value) {
+    setTrainingFile(null);
+    setValidationErrors([]);
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (value) {
@@ -98,7 +102,7 @@ export function MachineLearning() {
     setMessage('');
     try {
       setMetadata(await trainTrialStoreModel(storeId));
-      setMessage('Trial model trained');
+      setMessage('Trial model trained from database records.');
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -107,11 +111,35 @@ export function MachineLearning() {
     }
   }
 
+  async function downloadTemplate() {
+    if (!storeId) return;
+    setLoading(true);
+    try {
+      const blob = await downloadTrialStoreTrainingTemplate(storeId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = `trial-store-${storeId}-ml-training.xlsx`; link.click(); URL.revokeObjectURL(url);
+    } catch (error) { showApiErrorToast(error); } finally { setLoading(false); }
+  }
+
+  async function uploadAndTrain() {
+    if (!storeId || !trainingFile) return;
+    setLoading(true); setMessage(''); setValidationErrors([]);
+    try {
+      setMetadata(await trainTrialStoreModelFromUpload(storeId, trainingFile));
+      setMessage('Uploaded trial model trained and activated for this store.');
+      setTrainingFile(null);
+    } catch (error) {
+      const errors = error?.detail?.errors;
+      setValidationErrors(Array.isArray(errors) ? errors : []);
+      setMessage(getErrorMessage(error));
+    } finally { setLoading(false); }
+  }
+
   return (
     <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
       <section className="rounded-lg border border-line bg-white p-5">
         <SectionHeader eyebrow="Trial machine learning" title="Trial service-time prediction" />
-        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
           <Select label="Store" value={storeId} options={storeOptions} onChange={selectStore} disabled={!stores.length} />
           <button
             type="button"
@@ -120,8 +148,9 @@ export function MachineLearning() {
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
           >
             <Wand2 size={17} />
-            Train model
+            Train from database
           </button>
+          <button type="button" onClick={downloadTemplate} disabled={loading || !storeId} className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-3 text-sm font-medium text-charcoal disabled:opacity-60"><Download size={17} /> Excel template</button>
           <button
             type="button"
             onClick={loadMetadata}
@@ -131,6 +160,17 @@ export function MachineLearning() {
             <RefreshCw size={17} />
             Refresh
           </button>
+        </div>
+
+        <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-ink">Train from a specific Excel dataset</p>
+          <p className="mt-1 text-sm text-muted">The uploaded rows train and activate a new trial model only for the selected store.</p>
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => { setTrainingFile(event.target.files?.[0] || null); setValidationErrors([]); }} disabled={loading || !storeId} className="block w-full text-sm text-charcoal file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:font-medium" />
+            <button type="button" onClick={uploadAndTrain} disabled={loading || !storeId || !trainingFile} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><Upload size={17} /> Upload and train</button>
+          </div>
+          {trainingFile ? <p className="mt-2 text-xs text-muted">Selected: {trainingFile.name}</p> : null}
+          {validationErrors.length ? <ul className="mt-3 max-h-48 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{validationErrors.map((error, index) => <li key={`${error.row}-${error.column}-${index}`}>Row {error.row ?? '-'}, {error.column || 'workbook'}: {error.message}</li>)}</ul> : null}
         </div>
 
         {message ? <p className="mt-4 rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">{message}</p> : null}
@@ -158,6 +198,10 @@ export function MachineLearning() {
               <MetadataItem label="Version" value={metadata.model_version} />
               <MetadataItem label="Accuracy" value={metadata.accuracy_score != null ? `${Math.round(metadata.accuracy_score * 100)}%` : '-'} />
               <MetadataItem label="Data quality" value={metadata.data_quality_score != null ? `${Math.round(metadata.data_quality_score * 100)}%` : '-'} />
+              <MetadataItem label="Training source" value={metadata.training_source === 'EXCEL_UPLOAD' ? 'Excel upload' : 'Database'} />
+              <MetadataItem label="Source file" value={metadata.original_filename} />
+              <MetadataItem label="Uploaded by user" value={metadata.uploaded_by_user_id ? `User ${metadata.uploaded_by_user_id}` : '-'} />
+              <MetadataItem label="Trained at" value={metadata.trained_at ? new Date(metadata.trained_at).toLocaleString() : '-'} />
             </dl>
           </div>
         ) : null}

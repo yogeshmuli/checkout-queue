@@ -17,6 +17,18 @@ class MLModelMetadataResponse(BaseModel):
     data_quality_score: float | None
     feature_importance: dict[str, float] | None
     error_message: str | None
+    training_source: str = "DATABASE"
+    original_filename: str | None = None
+    source_file_path: str | None = None
+    uploaded_by_user_id: int | None = None
+    validation_summary: dict[str, int | str] | None = None
+
+
+class MLTrainingValidationError(BaseModel):
+    sheet: str
+    row: int | None = None
+    column: str | None = None
+    message: str
 
 
 class ServiceTimePredictionRequest(BaseModel):
