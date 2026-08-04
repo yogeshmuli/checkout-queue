@@ -53,7 +53,15 @@ const DAY_OPTIONS = [
   { label: 'Last 90 Days', value: '90' },
 ];
 
-const COLORS = ['#ff3b30', '#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2'];
+const COLORS = ['#4f81bd', '#c0504d', '#9bbb59', '#8064a2', '#4bacc6', '#f79646', '#2c4d75'];
+const LINE_COLOR = '#4a7ebb';
+const SECONDARY_LINE_COLOR = '#c0504d';
+const PROMOTION_COLORS = { 'Regular Day': '#6785b5', 'Promotion/Sale Day': '#a3535d' };
+
+function getBarColor(row, index, dominant) {
+  if (PROMOTION_COLORS[row._label]) return PROMOTION_COLORS[row._label];
+  return dominant && index === 0 ? LINE_COLOR : COLORS[index % COLORS.length];
+}
 
 function formatDate(value) {
   return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(value));
@@ -433,8 +441,8 @@ function HistoryView({ analytics: response }) {
       <AnalysisSection title="Segmented Analysis (Time & Day)" icon={<BarChart3 size={18} />} open={openSections.segmented} onToggle={() => toggle('segmented')}>
         <ChartGrid>
           <ChartCard title="Weekly Footfall" rows={analytics.weeklyStats} labelKey="day_name" valueKey="total_visits" type="bar" />
-          <ChartCard title="Weekly Wait Time" rows={analytics.weeklyStats} labelKey="day_name" valueKey="avg_wait_time" formatter={formatShortMinutes} type="line" />
-          <ChartCard title="Hourly Peak Traffic" rows={activeHourly} labelKey="hour" valueKey="total_visits" labelFormatter={formatHour} type="area" />
+          <ChartCard title="Weekly Wait Time" rows={analytics.weeklyStats} labelKey="day_name" valueKey="avg_wait_time" formatter={formatShortMinutes} type="bar" />
+          <ChartCard title="Hourly Peak Traffic" rows={activeHourly} labelKey="hour" valueKey="total_visits" labelFormatter={formatHour} type="bar" />
           <ChartCard title="Hourly Wait Time" rows={activeHourly} labelKey="hour" valueKey="avg_wait_time" labelFormatter={formatHour} formatter={formatShortMinutes} type="line" />
           <ChartCard title="Hourly Service Speed" rows={activeHourly} labelKey="hour" valueKey="avg_service_time" labelFormatter={formatHour} formatter={formatShortMinutes} type="line" />
           <ChartCard title="Cancellation Rate by Day" rows={analytics.weeklyStats} labelKey="day_name" valueKey="cancellation_rate" formatter={formatPercent} type="bar" />
@@ -443,7 +451,7 @@ function HistoryView({ analytics: response }) {
 
       <AnalysisSection title="Date Based Analytics" icon={<Activity size={18} />} open={openSections.date} onToggle={() => toggle('date')}>
         <ChartGrid>
-          <ChartCard title="Check-ins vs Completed" rows={analytics.dailyTrends} labelKey="day" valueKey="token_count" subValueKey="completed_count" type="grouped" />
+          <ChartCard title="Check-ins vs Completed" rows={analytics.dailyTrends} labelKey="day" valueKey="token_count" subValueKey="completed_count" type="line" />
           <ChartCard title="Daily Cancellations" rows={analytics.dailyTrends} labelKey="day" valueKey="cancelled_count" type="bar" />
           <ChartCard title="Daily Avg Wait Time" rows={analytics.dailyTrends} labelKey="day" valueKey="average_wait_minutes" formatter={formatShortMinutes} type="line" />
           <ChartCard title="Daily Avg Service Time" rows={analytics.dailyTrends} labelKey="day" valueKey="average_service_minutes" formatter={formatShortMinutes} type="line" />
@@ -454,8 +462,8 @@ function HistoryView({ analytics: response }) {
         <ChartGrid>
           <ChartCard title="Zone-wise Trials" rows={analytics.zoneStats} labelKey="zone_name" valueKey="total_trials" type="bar" />
           <ChartCard title="Zone-wise Cancellations" rows={analytics.zoneStats} labelKey="zone_name" valueKey="cancellations" type="bar" />
-          <ChartCard title="Avg Wait by Zone" rows={analytics.zoneStats} labelKey="zone_name" valueKey="avg_wait_time" formatter={formatShortMinutes} type="line" />
-          <ChartCard title="Avg Service by Zone" rows={analytics.zoneStats} labelKey="zone_name" valueKey="avg_service_time" formatter={formatShortMinutes} type="line" />
+          <ChartCard title="Avg Wait by Zone" rows={analytics.zoneStats} labelKey="zone_name" valueKey="avg_wait_time" formatter={formatShortMinutes} type="bar" />
+          <ChartCard title="Avg Service by Zone" rows={analytics.zoneStats} labelKey="zone_name" valueKey="avg_service_time" formatter={formatShortMinutes} type="bar" />
           <ChartCard title="Items per Zone" rows={analytics.zoneStats} labelKey="zone_name" valueKey="total_items" type="bar" />
         </ChartGrid>
       </AnalysisSection>
@@ -475,8 +483,8 @@ function HistoryView({ analytics: response }) {
         <ChartGrid>
           <ChartCard title="Items vs Wait Time" rows={analytics.itemStats} labelKey="range" valueKey="avg_wait" formatter={formatShortMinutes} type="area" />
           <ChartCard title="Items vs Service Time" rows={analytics.itemStats} labelKey="range" valueKey="avg_service" formatter={formatShortMinutes} type="line" />
-          <ChartCard title="Wait vs Cancels" rows={analytics.dailyTrends} labelKey="day" valueKey="average_wait_minutes" subValueKey="cancelled_count" formatter={formatShortMinutes} type="grouped" />
-          <ChartCard title="Daily Cancel Rate %" rows={analytics.dailyTrends} labelKey="day" valueKey="cancel_rate" formatter={formatPercent} type="line" />
+          <ChartCard title="Wait vs Cancels" rows={analytics.dailyTrends} labelKey="day" valueKey="average_wait_minutes" subValueKey="cancelled_count" formatter={formatShortMinutes} type="line" />
+          <ChartCard title="Daily Cancel Rate %" rows={analytics.dailyTrends} labelKey="day" valueKey="cancel_rate" formatter={formatPercent} type="line" showAllXAxisLabels />
         </ChartGrid>
       </AnalysisSection>
     </div>
@@ -634,17 +642,17 @@ function ChartGrid({ children }) {
   return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>;
 }
 
-function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter, labelKey, rows, subValueKey, title, type, valueKey }) {
-  const chartRows = normalizeChartRows(rows, labelKey, valueKey, labelFormatter).slice(-14);
+function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter, labelKey, rows, showAllXAxisLabels = false, subValueKey, title, type, valueKey }) {
+  const chartRows = normalizeChartRows(rows, labelKey, valueKey, labelFormatter);
   const hasData = chartRows.some((row) => Number(row[valueKey] || 0) > 0 || Number(row[subValueKey] || 0) > 0);
   const chartType = type === 'grouped' ? 'composed' : type;
-  const showEveryXAxisLabel = chartRows.length <= 8;
+  const showEveryXAxisLabel = showAllXAxisLabels || chartRows.length <= 8;
   const xAxisProps = {
     dataKey: '_label',
-    height: showEveryXAxisLabel ? 46 : 30,
+    height: showAllXAxisLabels ? 64 : showEveryXAxisLabel ? 46 : 30,
     interval: showEveryXAxisLabel ? 0 : 'preserveStartEnd',
     tick: { fontSize: 11 },
-    ...(showEveryXAxisLabel ? { angle: -28, textAnchor: 'end' } : {}),
+    ...(showEveryXAxisLabel ? { angle: showAllXAxisLabels ? -45 : -28, textAnchor: 'end' } : {}),
   };
 
   return (
@@ -653,7 +661,8 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
         <h3 className="font-semibold">{title}</h3>
         <ChartLegend type={type} />
       </div>
-      <div className="mt-4 h-64">
+      <div className="mt-4 h-64 overflow-x-auto">
+        <div className="h-full" style={{ minWidth: showAllXAxisLabels ? `${Math.max(720, chartRows.length * 56)}px` : '100%' }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'line' ? (
@@ -662,7 +671,8 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
                 <XAxis {...xAxisProps} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
-                <Line type="monotone" dataKey={valueKey} stroke="#ff3b30" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey={valueKey} stroke={LINE_COLOR} strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                {subValueKey ? <Line type="monotone" dataKey={subValueKey} stroke={SECONDARY_LINE_COLOR} strokeWidth={3} dot={{ r: 3 }} /> : null}
               </LineChart>
             ) : chartType === 'area' ? (
               <AreaChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
@@ -670,7 +680,7 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
                 <XAxis {...xAxisProps} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
-                <Area type="monotone" dataKey={valueKey} stroke="#ff3b30" fill="#ff3b30" fillOpacity={0.18} strokeWidth={3} />
+                <Area type="monotone" dataKey={valueKey} stroke={LINE_COLOR} fill={COLORS[0]} fillOpacity={0.2} strokeWidth={3} />
               </AreaChart>
             ) : chartType === 'composed' ? (
               <ComposedChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
@@ -679,8 +689,8 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
                 <RechartsLegend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey={valueKey} name={title} fill="#ff3b30" radius={[6, 6, 0, 0]} />
-                {subValueKey ? <Line type="monotone" dataKey={subValueKey} name={formatDataKey(subValueKey)} stroke="#2563eb" strokeWidth={3} dot={{ r: 3 }} /> : null}
+                <Bar dataKey={valueKey} name={title} fill={COLORS[0]} radius={[6, 6, 0, 0]} />
+                {subValueKey ? <Line type="monotone" dataKey={subValueKey} name={formatDataKey(subValueKey)} stroke={SECONDARY_LINE_COLOR} strokeWidth={3} dot={{ r: 3 }} /> : null}
               </ComposedChart>
             ) : (
               <BarChart data={chartRows} margin={{ top: 8, right: 12, bottom: showEveryXAxisLabel ? 18 : 8, left: -18 }}>
@@ -690,7 +700,7 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
                 <Tooltip content={<ChartTooltip formatter={formatter} valueKey={valueKey} subValueKey={subValueKey} />} />
                 <Bar dataKey={valueKey} fill="#ff3b30" radius={[6, 6, 0, 0]}>
                   {chartRows.map((row, index) => (
-                    <Cell key={`${title}-${row._label}`} fill={dominant && index === 0 ? '#ff3b30' : COLORS[index % COLORS.length]} />
+                    <Cell key={`${title}-${row._label}`} fill={getBarColor(row, index, dominant)} />
                   ))}
                 </Bar>
               </BarChart>
@@ -699,6 +709,7 @@ function ChartCard({ dominant = false, formatter = formatNumber, labelFormatter,
         ) : (
           <EmptyChartState />
         )}
+        </div>
       </div>
     </div>
   );

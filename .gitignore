@@ -27,7 +27,6 @@ backend/alembic/versions/*.pyc
 # Environment files
 .env
 backend/.env
-backend/.env.example
 
 # VSCode settings
 .vscode/

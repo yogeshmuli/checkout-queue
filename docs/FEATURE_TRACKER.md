@@ -900,10 +900,18 @@ The store analytics endpoint powers the admin smart dashboard. It returns live q
 
 The Trial analytics endpoint provides the equivalent server-computed dashboard payload with Trial-specific zones, studios, and active studio sessions. The Trial admin dashboard uses this single endpoint for live and historical analytics instead of downloading queue resources and aggregating them in the browser.
 
+Checkout and Trial historical dashboards can independently use a backend-owned static 90-day fixture through `CHECKOUT_ANALYTICS_HISTORY_MODE=static` and `TRIAL_ANALYTICS_HISTORY_MODE=static`. Static history preserves the analytics API contracts, uses the requested real store identity, shifts the fixture so its final date is today, and supports the existing 7/30/90-day filters. Live and Foresights requests remain database-backed.
+
+Static dashboard values are maintained in `backend/app/static_analytics_data.json`, organized by the Excel analysis names. Weekly charts read `segmented_analysis.weekly_patterns` directly, hourly charts read `segmented_analysis.hourly_performance`, and daily charts read `date_based_analytics`, so fixture changes are traceable and editable without modifying Python code.
+
 Admin dashboard UI now supports URL-filterable store/view state with a History-only range filter and three tabs:
 
 - Live: section-as-zone cards with last token, active/inactive counters, active counter token assignments, estimated wait, estimated items ahead, average wait/items, total cancellations, and last-hour cancellations without requiring a date range.
 - History: range-based check-in, completion, cancellation, promotion-day, time/day, date-based, section, customer-type, and item-bucket analytics.
+- Promotion comparison charts use consistent module-wide colors: Regular Day `#6785b5` and Promotion/Sale Day `#7a3e45`.
+- Checkout and Trial History chart types and categorical palettes follow the attached Excel samples: Excel blue/red/green/purple/orange bar and pie colors, blue line/area series, bar-based weekly and zone comparisons, two-line check-in/completion trends, and line-based wait/cancellation trends.
+- History charts render the complete selected API range: all 7, 30, or 90 daily data points are plotted, while X-axis labels are automatically thinned for readability.
+- Daily Cancel Rate charts render every selected date label and use horizontal scrolling for 30/90-day ranges to prevent label overlap.
 - Foresights: ML status, model sample count, churn/utilization signals, operational insights, and active counter pressure links.
 - Store-scoped admin screens such as dashboard, config, calendar, ML, and notifications auto-select the first store when no valid `store_id` is present and hide detail forms when there are no stores.
 

@@ -4,10 +4,12 @@ from datetime import datetime, time, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.trial_calendar import TrialCalendarEventType
 from app.models.trial_queue_token import TrialQueueTokenStatus
 from app.repositories.trial_analytics_repository import TrialAnalyticsRepository
 from app.schemas.trial_analytics import *
+from app.services.static_analytics_provider import StaticAnalyticsProvider
 
 
 class TrialAnalyticsService:
@@ -19,6 +21,12 @@ class TrialAnalyticsService:
         store = self.repository.get_store(store_id)
         if store is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
+        if days > 1 and settings.TRIAL_ANALYTICS_HISTORY_MODE == "static":
+            return StaticAnalyticsProvider().trial(
+                store,
+                days,
+                self.repository.get_latest_model_metadata(store_id),
+            )
         now = datetime.now(timezone.utc)
         start_date = now.date() - timedelta(days=days - 1)
         start_at = datetime.combine(start_date, time.min, tzinfo=timezone.utc)

@@ -5,7 +5,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.trial_queue_token import TrialQueueTokenStatus
+from app.core.config import settings
 from app.services.trial_analytics_service import TrialAnalyticsService
+
+
+@pytest.fixture(autouse=True)
+def use_real_trial_history(monkeypatch):
+    monkeypatch.setattr(settings, "TRIAL_ANALYTICS_HISTORY_MODE", "real")
 
 
 class FakeTrialAnalyticsRepository:

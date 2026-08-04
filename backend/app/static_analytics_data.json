@@ -1,0 +1,1248 @@
+{
+  "_help": {
+    "description": "Editable static analytics fixture. Keys mirror the Excel worksheet and data-point names.",
+    "history_dates": "date_based_analytics rows are shifted so the final row becomes today; source_date is retained only for editing/reference.",
+    "checkout_mapping": "zone_based_analytics rows become Section 1, Section 2, etc. in Checkout.",
+    "weekly_source": "Weekly charts read segmented_analysis.weekly_patterns directly; edit those rows to change weekly charts."
+  },
+  "promotion_day_analysis": [
+    {
+      "day_type": "Regular Day",
+      "avg_footfall": 310.7,
+      "avg_wait_minutes": 6.3,
+      "avg_items": 2.7,
+      "avg_service_minutes": 5.0,
+      "total_cancellations": 59,
+      "completion_rate_percent": 75.4
+    },
+    {
+      "day_type": "Promotion/Sale Day",
+      "avg_footfall": 496.0,
+      "avg_wait_minutes": 11.8,
+      "avg_items": 6.7,
+      "avg_service_minutes": 10.5,
+      "total_cancellations": 134,
+      "completion_rate_percent": 64.1
+    }
+  ],
+  "segmented_analysis": {
+    "weekly_patterns": [
+      {
+        "day_name": "Monday",
+        "avg_visits": 215,
+        "avg_wait_minutes": 6.2,
+        "avg_service_minutes": 4.8,
+        "cancellations": 52,
+        "cancellation_rate_percent": 24.2
+      },
+      {
+        "day_name": "Tuesday",
+        "avg_visits": 207,
+        "avg_wait_minutes": 6.0,
+        "avg_service_minutes": 4.8,
+        "cancellations": 51,
+        "cancellation_rate_percent": 24.5
+      },
+      {
+        "day_name": "Wednesday",
+        "avg_visits": 220,
+        "avg_wait_minutes": 6.3,
+        "avg_service_minutes": 5.2,
+        "cancellations": 53,
+        "cancellation_rate_percent": 24.3
+      },
+      {
+        "day_name": "Thursday",
+        "avg_visits": 232,
+        "avg_wait_minutes": 6.6,
+        "avg_service_minutes": 5.3,
+        "cancellations": 60,
+        "cancellation_rate_percent": 26.0
+      },
+      {
+        "day_name": "Friday",
+        "avg_visits": 269,
+        "avg_wait_minutes": 7.5,
+        "avg_service_minutes": 6.1,
+        "cancellations": 74,
+        "cancellation_rate_percent": 27.5
+      },
+      {
+        "day_name": "Saturday",
+        "avg_visits": 331,
+        "avg_wait_minutes": 7.9,
+        "avg_service_minutes": 6.7,
+        "cancellations": 89,
+        "cancellation_rate_percent": 27.0
+      },
+      {
+        "day_name": "Sunday",
+        "avg_visits": 313,
+        "avg_wait_minutes": 7.8,
+        "avg_service_minutes": 6.6,
+        "cancellations": 85,
+        "cancellation_rate_percent": 27.2
+      }
+    ],
+    "hourly_performance": [
+      {
+        "hour": 9,
+        "traffic": 9,
+        "avg_wait_minutes": 5.2,
+        "avg_service_minutes": 4.3
+      },
+      {
+        "hour": 10,
+        "traffic": 13,
+        "avg_wait_minutes": 5.9,
+        "avg_service_minutes": 5.1
+      },
+      {
+        "hour": 11,
+        "traffic": 21,
+        "avg_wait_minutes": 7.7,
+        "avg_service_minutes": 6.7
+      },
+      {
+        "hour": 12,
+        "traffic": 27,
+        "avg_wait_minutes": 9.1,
+        "avg_service_minutes": 8.3
+      },
+      {
+        "hour": 13,
+        "traffic": 30,
+        "avg_wait_minutes": 9.8,
+        "avg_service_minutes": 8.5
+      },
+      {
+        "hour": 14,
+        "traffic": 27,
+        "avg_wait_minutes": 9.1,
+        "avg_service_minutes": 7.9
+      },
+      {
+        "hour": 15,
+        "traffic": 21,
+        "avg_wait_minutes": 7.7,
+        "avg_service_minutes": 7.1
+      },
+      {
+        "hour": 16,
+        "traffic": 26,
+        "avg_wait_minutes": 8.8,
+        "avg_service_minutes": 7.4
+      },
+      {
+        "hour": 17,
+        "traffic": 37,
+        "avg_wait_minutes": 11.3,
+        "avg_service_minutes": 10.2
+      },
+      {
+        "hour": 18,
+        "traffic": 42,
+        "avg_wait_minutes": 12.4,
+        "avg_service_minutes": 11.2
+      },
+      {
+        "hour": 19,
+        "traffic": 36,
+        "avg_wait_minutes": 11.0,
+        "avg_service_minutes": 9.9
+      },
+      {
+        "hour": 20,
+        "traffic": 24,
+        "avg_wait_minutes": 8.4,
+        "avg_service_minutes": 7.5
+      },
+      {
+        "hour": 21,
+        "traffic": 8,
+        "avg_wait_minutes": 4.9,
+        "avg_service_minutes": 3.7
+      }
+    ]
+  },
+  "date_based_analytics": [
+    {
+      "source_date": "01-10-2024",
+      "is_promotion_day": false,
+      "footfall": 246,
+      "check_ins": 177,
+      "completed": 136,
+      "cancellations": 40,
+      "avg_wait_minutes": 5.3,
+      "avg_service_minutes": 4.3,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "02-10-2024",
+      "is_promotion_day": false,
+      "footfall": 262,
+      "check_ins": 191,
+      "completed": 145,
+      "cancellations": 45,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.9,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "03-10-2024",
+      "is_promotion_day": false,
+      "footfall": 240,
+      "check_ins": 178,
+      "completed": 136,
+      "cancellations": 41,
+      "avg_wait_minutes": 5.6,
+      "avg_service_minutes": 4.3,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "04-10-2024",
+      "is_promotion_day": false,
+      "footfall": 298,
+      "check_ins": 214,
+      "completed": 156,
+      "cancellations": 57,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.0,
+      "avg_items": 2.3
+    },
+    {
+      "source_date": "05-10-2024",
+      "is_promotion_day": false,
+      "footfall": 404,
+      "check_ins": 307,
+      "completed": 229,
+      "cancellations": 77,
+      "avg_wait_minutes": 7.0,
+      "avg_service_minutes": 6.1,
+      "avg_items": 3.3
+    },
+    {
+      "source_date": "06-10-2024",
+      "is_promotion_day": false,
+      "footfall": 384,
+      "check_ins": 310,
+      "completed": 230,
+      "cancellations": 79,
+      "avg_wait_minutes": 7.2,
+      "avg_service_minutes": 5.4,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "07-10-2024",
+      "is_promotion_day": false,
+      "footfall": 268,
+      "check_ins": 212,
+      "completed": 153,
+      "cancellations": 58,
+      "avg_wait_minutes": 6.2,
+      "avg_service_minutes": 4.8,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "08-10-2024",
+      "is_promotion_day": false,
+      "footfall": 235,
+      "check_ins": 177,
+      "completed": 131,
+      "cancellations": 45,
+      "avg_wait_minutes": 5.0,
+      "avg_service_minutes": 4.0,
+      "avg_items": 2.1
+    },
+    {
+      "source_date": "09-10-2024",
+      "is_promotion_day": false,
+      "footfall": 255,
+      "check_ins": 194,
+      "completed": 154,
+      "cancellations": 39,
+      "avg_wait_minutes": 5.5,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.3
+    },
+    {
+      "source_date": "10-10-2024",
+      "is_promotion_day": true,
+      "footfall": 430,
+      "check_ins": 318,
+      "completed": 205,
+      "cancellations": 112,
+      "avg_wait_minutes": 11.0,
+      "avg_service_minutes": 9.8,
+      "avg_items": 7.0
+    },
+    {
+      "source_date": "11-10-2024",
+      "is_promotion_day": false,
+      "footfall": 291,
+      "check_ins": 233,
+      "completed": 168,
+      "cancellations": 64,
+      "avg_wait_minutes": 6.4,
+      "avg_service_minutes": 4.8,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "12-10-2024",
+      "is_promotion_day": false,
+      "footfall": 374,
+      "check_ins": 281,
+      "completed": 203,
+      "cancellations": 77,
+      "avg_wait_minutes": 6.8,
+      "avg_service_minutes": 5.1,
+      "avg_items": 3.4
+    },
+    {
+      "source_date": "13-10-2024",
+      "is_promotion_day": false,
+      "footfall": 380,
+      "check_ins": 291,
+      "completed": 209,
+      "cancellations": 81,
+      "avg_wait_minutes": 7.6,
+      "avg_service_minutes": 6.3,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "14-10-2024",
+      "is_promotion_day": false,
+      "footfall": 261,
+      "check_ins": 196,
+      "completed": 144,
+      "cancellations": 51,
+      "avg_wait_minutes": 5.8,
+      "avg_service_minutes": 4.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "15-10-2024",
+      "is_promotion_day": false,
+      "footfall": 264,
+      "check_ins": 206,
+      "completed": 158,
+      "cancellations": 47,
+      "avg_wait_minutes": 5.4,
+      "avg_service_minutes": 4.6,
+      "avg_items": 2.1
+    },
+    {
+      "source_date": "16-10-2024",
+      "is_promotion_day": false,
+      "footfall": 263,
+      "check_ins": 202,
+      "completed": 153,
+      "cancellations": 48,
+      "avg_wait_minutes": 5.3,
+      "avg_service_minutes": 4.1,
+      "avg_items": 3.0
+    },
+    {
+      "source_date": "17-10-2024",
+      "is_promotion_day": false,
+      "footfall": 280,
+      "check_ins": 230,
+      "completed": 175,
+      "cancellations": 54,
+      "avg_wait_minutes": 5.5,
+      "avg_service_minutes": 4.0,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "18-10-2024",
+      "is_promotion_day": true,
+      "footfall": 445,
+      "check_ins": 326,
+      "completed": 201,
+      "cancellations": 124,
+      "avg_wait_minutes": 11.0,
+      "avg_service_minutes": 9.2,
+      "avg_items": 6.9
+    },
+    {
+      "source_date": "19-10-2024",
+      "is_promotion_day": false,
+      "footfall": 388,
+      "check_ins": 287,
+      "completed": 215,
+      "cancellations": 71,
+      "avg_wait_minutes": 7.7,
+      "avg_service_minutes": 6.0,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "20-10-2024",
+      "is_promotion_day": false,
+      "footfall": 381,
+      "check_ins": 281,
+      "completed": 208,
+      "cancellations": 72,
+      "avg_wait_minutes": 7.4,
+      "avg_service_minutes": 6.1,
+      "avg_items": 3.3
+    },
+    {
+      "source_date": "21-10-2024",
+      "is_promotion_day": false,
+      "footfall": 243,
+      "check_ins": 184,
+      "completed": 144,
+      "cancellations": 39,
+      "avg_wait_minutes": 5.0,
+      "avg_service_minutes": 3.3,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "22-10-2024",
+      "is_promotion_day": false,
+      "footfall": 242,
+      "check_ins": 175,
+      "completed": 132,
+      "cancellations": 42,
+      "avg_wait_minutes": 5.9,
+      "avg_service_minutes": 4.2,
+      "avg_items": 2.1
+    },
+    {
+      "source_date": "23-10-2024",
+      "is_promotion_day": false,
+      "footfall": 240,
+      "check_ins": 194,
+      "completed": 148,
+      "cancellations": 45,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.8,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "24-10-2024",
+      "is_promotion_day": false,
+      "footfall": 257,
+      "check_ins": 211,
+      "completed": 164,
+      "cancellations": 46,
+      "avg_wait_minutes": 5.6,
+      "avg_service_minutes": 4.6,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "25-10-2024",
+      "is_promotion_day": false,
+      "footfall": 283,
+      "check_ins": 214,
+      "completed": 162,
+      "cancellations": 51,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "26-10-2024",
+      "is_promotion_day": false,
+      "footfall": 371,
+      "check_ins": 277,
+      "completed": 198,
+      "cancellations": 78,
+      "avg_wait_minutes": 6.9,
+      "avg_service_minutes": 5.5,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "27-10-2024",
+      "is_promotion_day": true,
+      "footfall": 551,
+      "check_ins": 411,
+      "completed": 265,
+      "cancellations": 145,
+      "avg_wait_minutes": 13.4,
+      "avg_service_minutes": 12.5,
+      "avg_items": 6.2
+    },
+    {
+      "source_date": "28-10-2024",
+      "is_promotion_day": false,
+      "footfall": 253,
+      "check_ins": 186,
+      "completed": 145,
+      "cancellations": 40,
+      "avg_wait_minutes": 6.1,
+      "avg_service_minutes": 4.7,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "29-10-2024",
+      "is_promotion_day": false,
+      "footfall": 262,
+      "check_ins": 194,
+      "completed": 146,
+      "cancellations": 47,
+      "avg_wait_minutes": 5.3,
+      "avg_service_minutes": 4.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "30-10-2024",
+      "is_promotion_day": false,
+      "footfall": 267,
+      "check_ins": 213,
+      "completed": 159,
+      "cancellations": 53,
+      "avg_wait_minutes": 6.3,
+      "avg_service_minutes": 5.4,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "31-10-2024",
+      "is_promotion_day": false,
+      "footfall": 282,
+      "check_ins": 211,
+      "completed": 156,
+      "cancellations": 54,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "01-11-2024",
+      "is_promotion_day": false,
+      "footfall": 288,
+      "check_ins": 239,
+      "completed": 173,
+      "cancellations": 65,
+      "avg_wait_minutes": 6.0,
+      "avg_service_minutes": 4.3,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "02-11-2024",
+      "is_promotion_day": false,
+      "footfall": 424,
+      "check_ins": 347,
+      "completed": 247,
+      "cancellations": 99,
+      "avg_wait_minutes": 8.2,
+      "avg_service_minutes": 6.5,
+      "avg_items": 3.3
+    },
+    {
+      "source_date": "03-11-2024",
+      "is_promotion_day": false,
+      "footfall": 383,
+      "check_ins": 285,
+      "completed": 222,
+      "cancellations": 62,
+      "avg_wait_minutes": 7.1,
+      "avg_service_minutes": 6.2,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "04-11-2024",
+      "is_promotion_day": false,
+      "footfall": 258,
+      "check_ins": 210,
+      "completed": 168,
+      "cancellations": 42,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.5,
+      "avg_items": 3.0
+    },
+    {
+      "source_date": "05-11-2024",
+      "is_promotion_day": true,
+      "footfall": 418,
+      "check_ins": 308,
+      "completed": 200,
+      "cancellations": 107,
+      "avg_wait_minutes": 11.0,
+      "avg_service_minutes": 9.6,
+      "avg_items": 6.5
+    },
+    {
+      "source_date": "06-11-2024",
+      "is_promotion_day": false,
+      "footfall": 245,
+      "check_ins": 193,
+      "completed": 153,
+      "cancellations": 39,
+      "avg_wait_minutes": 5.5,
+      "avg_service_minutes": 3.8,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "07-11-2024",
+      "is_promotion_day": false,
+      "footfall": 255,
+      "check_ins": 189,
+      "completed": 137,
+      "cancellations": 51,
+      "avg_wait_minutes": 5.8,
+      "avg_service_minutes": 4.3,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "08-11-2024",
+      "is_promotion_day": false,
+      "footfall": 317,
+      "check_ins": 237,
+      "completed": 181,
+      "cancellations": 55,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "09-11-2024",
+      "is_promotion_day": false,
+      "footfall": 401,
+      "check_ins": 333,
+      "completed": 243,
+      "cancellations": 89,
+      "avg_wait_minutes": 7.1,
+      "avg_service_minutes": 5.6,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "10-11-2024",
+      "is_promotion_day": false,
+      "footfall": 397,
+      "check_ins": 300,
+      "completed": 221,
+      "cancellations": 78,
+      "avg_wait_minutes": 7.2,
+      "avg_service_minutes": 5.6,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "11-11-2024",
+      "is_promotion_day": false,
+      "footfall": 288,
+      "check_ins": 241,
+      "completed": 191,
+      "cancellations": 49,
+      "avg_wait_minutes": 5.6,
+      "avg_service_minutes": 4.6,
+      "avg_items": 2.3
+    },
+    {
+      "source_date": "12-11-2024",
+      "is_promotion_day": false,
+      "footfall": 270,
+      "check_ins": 222,
+      "completed": 172,
+      "cancellations": 49,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.7,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "13-11-2024",
+      "is_promotion_day": false,
+      "footfall": 268,
+      "check_ins": 224,
+      "completed": 166,
+      "cancellations": 57,
+      "avg_wait_minutes": 6.0,
+      "avg_service_minutes": 5.2,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "14-11-2024",
+      "is_promotion_day": true,
+      "footfall": 475,
+      "check_ins": 349,
+      "completed": 224,
+      "cancellations": 124,
+      "avg_wait_minutes": 10.6,
+      "avg_service_minutes": 9.2,
+      "avg_items": 6.3
+    },
+    {
+      "source_date": "15-11-2024",
+      "is_promotion_day": false,
+      "footfall": 313,
+      "check_ins": 233,
+      "completed": 184,
+      "cancellations": 48,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.4,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "16-11-2024",
+      "is_promotion_day": false,
+      "footfall": 423,
+      "check_ins": 309,
+      "completed": 235,
+      "cancellations": 73,
+      "avg_wait_minutes": 7.6,
+      "avg_service_minutes": 6.5,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "17-11-2024",
+      "is_promotion_day": false,
+      "footfall": 399,
+      "check_ins": 299,
+      "completed": 209,
+      "cancellations": 89,
+      "avg_wait_minutes": 7.6,
+      "avg_service_minutes": 6.2,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "18-11-2024",
+      "is_promotion_day": false,
+      "footfall": 256,
+      "check_ins": 211,
+      "completed": 161,
+      "cancellations": 49,
+      "avg_wait_minutes": 6.1,
+      "avg_service_minutes": 4.8,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "19-11-2024",
+      "is_promotion_day": false,
+      "footfall": 246,
+      "check_ins": 180,
+      "completed": 142,
+      "cancellations": 37,
+      "avg_wait_minutes": 5.4,
+      "avg_service_minutes": 3.7,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "20-11-2024",
+      "is_promotion_day": false,
+      "footfall": 281,
+      "check_ins": 209,
+      "completed": 165,
+      "cancellations": 43,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.8,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "21-11-2024",
+      "is_promotion_day": false,
+      "footfall": 273,
+      "check_ins": 216,
+      "completed": 172,
+      "cancellations": 43,
+      "avg_wait_minutes": 5.5,
+      "avg_service_minutes": 3.8,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "22-11-2024",
+      "is_promotion_day": false,
+      "footfall": 320,
+      "check_ins": 264,
+      "completed": 209,
+      "cancellations": 54,
+      "avg_wait_minutes": 6.0,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.3
+    },
+    {
+      "source_date": "23-11-2024",
+      "is_promotion_day": true,
+      "footfall": 700,
+      "check_ins": 572,
+      "completed": 377,
+      "cancellations": 194,
+      "avg_wait_minutes": 14.2,
+      "avg_service_minutes": 13.3,
+      "avg_items": 6.9
+    },
+    {
+      "source_date": "24-11-2024",
+      "is_promotion_day": false,
+      "footfall": 380,
+      "check_ins": 310,
+      "completed": 222,
+      "cancellations": 87,
+      "avg_wait_minutes": 7.1,
+      "avg_service_minutes": 6.0,
+      "avg_items": 3.3
+    },
+    {
+      "source_date": "25-11-2024",
+      "is_promotion_day": false,
+      "footfall": 256,
+      "check_ins": 190,
+      "completed": 140,
+      "cancellations": 49,
+      "avg_wait_minutes": 5.5,
+      "avg_service_minutes": 3.8,
+      "avg_items": 3.0
+    },
+    {
+      "source_date": "26-11-2024",
+      "is_promotion_day": false,
+      "footfall": 267,
+      "check_ins": 205,
+      "completed": 149,
+      "cancellations": 55,
+      "avg_wait_minutes": 6.3,
+      "avg_service_minutes": 5.0,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "27-11-2024",
+      "is_promotion_day": false,
+      "footfall": 286,
+      "check_ins": 212,
+      "completed": 160,
+      "cancellations": 51,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.4,
+      "avg_items": 2.1
+    },
+    {
+      "source_date": "28-11-2024",
+      "is_promotion_day": false,
+      "footfall": 288,
+      "check_ins": 218,
+      "completed": 166,
+      "cancellations": 51,
+      "avg_wait_minutes": 6.2,
+      "avg_service_minutes": 4.9,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "29-11-2024",
+      "is_promotion_day": false,
+      "footfall": 299,
+      "check_ins": 240,
+      "completed": 186,
+      "cancellations": 53,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.0,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "30-11-2024",
+      "is_promotion_day": false,
+      "footfall": 426,
+      "check_ins": 341,
+      "completed": 247,
+      "cancellations": 93,
+      "avg_wait_minutes": 7.6,
+      "avg_service_minutes": 6.7,
+      "avg_items": 3.2
+    },
+    {
+      "source_date": "01-12-2024",
+      "is_promotion_day": false,
+      "footfall": 388,
+      "check_ins": 318,
+      "completed": 233,
+      "cancellations": 84,
+      "avg_wait_minutes": 7.5,
+      "avg_service_minutes": 6.4,
+      "avg_items": 2.8
+    },
+    {
+      "source_date": "02-12-2024",
+      "is_promotion_day": true,
+      "footfall": 415,
+      "check_ins": 305,
+      "completed": 196,
+      "cancellations": 108,
+      "avg_wait_minutes": 11.2,
+      "avg_service_minutes": 9.7,
+      "avg_items": 6.9
+    },
+    {
+      "source_date": "03-12-2024",
+      "is_promotion_day": false,
+      "footfall": 257,
+      "check_ins": 201,
+      "completed": 153,
+      "cancellations": 47,
+      "avg_wait_minutes": 5.2,
+      "avg_service_minutes": 4.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "04-12-2024",
+      "is_promotion_day": false,
+      "footfall": 277,
+      "check_ins": 214,
+      "completed": 169,
+      "cancellations": 44,
+      "avg_wait_minutes": 5.9,
+      "avg_service_minutes": 4.9,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "05-12-2024",
+      "is_promotion_day": false,
+      "footfall": 294,
+      "check_ins": 217,
+      "completed": 162,
+      "cancellations": 54,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.4,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "06-12-2024",
+      "is_promotion_day": false,
+      "footfall": 327,
+      "check_ins": 264,
+      "completed": 190,
+      "cancellations": 73,
+      "avg_wait_minutes": 6.7,
+      "avg_service_minutes": 5.7,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "07-12-2024",
+      "is_promotion_day": false,
+      "footfall": 401,
+      "check_ins": 311,
+      "completed": 233,
+      "cancellations": 77,
+      "avg_wait_minutes": 7.8,
+      "avg_service_minutes": 6.9,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "08-12-2024",
+      "is_promotion_day": false,
+      "footfall": 385,
+      "check_ins": 309,
+      "completed": 216,
+      "cancellations": 92,
+      "avg_wait_minutes": 7.2,
+      "avg_service_minutes": 6.2,
+      "avg_items": 3.2
+    },
+    {
+      "source_date": "09-12-2024",
+      "is_promotion_day": false,
+      "footfall": 290,
+      "check_ins": 235,
+      "completed": 187,
+      "cancellations": 47,
+      "avg_wait_minutes": 5.7,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.2
+    },
+    {
+      "source_date": "10-12-2024",
+      "is_promotion_day": false,
+      "footfall": 267,
+      "check_ins": 193,
+      "completed": 151,
+      "cancellations": 41,
+      "avg_wait_minutes": 5.6,
+      "avg_service_minutes": 4.0,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "11-12-2024",
+      "is_promotion_day": true,
+      "footfall": 478,
+      "check_ins": 378,
+      "completed": 240,
+      "cancellations": 137,
+      "avg_wait_minutes": 12.7,
+      "avg_service_minutes": 11.3,
+      "avg_items": 6.7
+    },
+    {
+      "source_date": "12-12-2024",
+      "is_promotion_day": false,
+      "footfall": 298,
+      "check_ins": 234,
+      "completed": 173,
+      "cancellations": 60,
+      "avg_wait_minutes": 6.6,
+      "avg_service_minutes": 5.1,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "13-12-2024",
+      "is_promotion_day": false,
+      "footfall": 305,
+      "check_ins": 242,
+      "completed": 179,
+      "cancellations": 62,
+      "avg_wait_minutes": 6.5,
+      "avg_service_minutes": 5.2,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "14-12-2024",
+      "is_promotion_day": false,
+      "footfall": 395,
+      "check_ins": 297,
+      "completed": 211,
+      "cancellations": 85,
+      "avg_wait_minutes": 7.1,
+      "avg_service_minutes": 6.0,
+      "avg_items": 3.0
+    },
+    {
+      "source_date": "15-12-2024",
+      "is_promotion_day": false,
+      "footfall": 391,
+      "check_ins": 314,
+      "completed": 233,
+      "cancellations": 80,
+      "avg_wait_minutes": 7.5,
+      "avg_service_minutes": 6.6,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "16-12-2024",
+      "is_promotion_day": false,
+      "footfall": 279,
+      "check_ins": 207,
+      "completed": 160,
+      "cancellations": 46,
+      "avg_wait_minutes": 5.9,
+      "avg_service_minutes": 4.2,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "17-12-2024",
+      "is_promotion_day": false,
+      "footfall": 283,
+      "check_ins": 229,
+      "completed": 178,
+      "cancellations": 50,
+      "avg_wait_minutes": 5.9,
+      "avg_service_minutes": 5.1,
+      "avg_items": 2.4
+    },
+    {
+      "source_date": "18-12-2024",
+      "is_promotion_day": false,
+      "footfall": 290,
+      "check_ins": 241,
+      "completed": 185,
+      "cancellations": 55,
+      "avg_wait_minutes": 6.0,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.5
+    },
+    {
+      "source_date": "19-12-2024",
+      "is_promotion_day": false,
+      "footfall": 276,
+      "check_ins": 205,
+      "completed": 158,
+      "cancellations": 46,
+      "avg_wait_minutes": 5.8,
+      "avg_service_minutes": 5.0,
+      "avg_items": 2.3
+    },
+    {
+      "source_date": "20-12-2024",
+      "is_promotion_day": true,
+      "footfall": 469,
+      "check_ins": 363,
+      "completed": 232,
+      "cancellations": 130,
+      "avg_wait_minutes": 11.0,
+      "avg_service_minutes": 10.2,
+      "avg_items": 6.4
+    },
+    {
+      "source_date": "21-12-2024",
+      "is_promotion_day": false,
+      "footfall": 396,
+      "check_ins": 315,
+      "completed": 229,
+      "cancellations": 85,
+      "avg_wait_minutes": 7.0,
+      "avg_service_minutes": 5.7,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "22-12-2024",
+      "is_promotion_day": false,
+      "footfall": 394,
+      "check_ins": 299,
+      "completed": 229,
+      "cancellations": 69,
+      "avg_wait_minutes": 7.6,
+      "avg_service_minutes": 6.4,
+      "avg_items": 3.3
+    },
+    {
+      "source_date": "23-12-2024",
+      "is_promotion_day": false,
+      "footfall": 275,
+      "check_ins": 200,
+      "completed": 149,
+      "cancellations": 50,
+      "avg_wait_minutes": 5.4,
+      "avg_service_minutes": 4.1,
+      "avg_items": 3.0
+    },
+    {
+      "source_date": "24-12-2024",
+      "is_promotion_day": false,
+      "footfall": 277,
+      "check_ins": 225,
+      "completed": 165,
+      "cancellations": 59,
+      "avg_wait_minutes": 6.1,
+      "avg_service_minutes": 4.5,
+      "avg_items": 2.9
+    },
+    {
+      "source_date": "25-12-2024",
+      "is_promotion_day": false,
+      "footfall": 260,
+      "check_ins": 191,
+      "completed": 140,
+      "cancellations": 50,
+      "avg_wait_minutes": 5.3,
+      "avg_service_minutes": 3.8,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "26-12-2024",
+      "is_promotion_day": false,
+      "footfall": 298,
+      "check_ins": 241,
+      "completed": 175,
+      "cancellations": 65,
+      "avg_wait_minutes": 5.8,
+      "avg_service_minutes": 4.4,
+      "avg_items": 2.7
+    },
+    {
+      "source_date": "27-12-2024",
+      "is_promotion_day": true,
+      "footfall": 579,
+      "check_ins": 424,
+      "completed": 266,
+      "cancellations": 157,
+      "avg_wait_minutes": 11.9,
+      "avg_service_minutes": 10.4,
+      "avg_items": 7.0
+    },
+    {
+      "source_date": "28-12-2024",
+      "is_promotion_day": false,
+      "footfall": 441,
+      "check_ins": 321,
+      "completed": 244,
+      "cancellations": 76,
+      "avg_wait_minutes": 8.1,
+      "avg_service_minutes": 6.7,
+      "avg_items": 2.6
+    },
+    {
+      "source_date": "29-12-2024",
+      "is_promotion_day": false,
+      "footfall": 434,
+      "check_ins": 343,
+      "completed": 249,
+      "cancellations": 93,
+      "avg_wait_minutes": 7.4,
+      "avg_service_minutes": 5.6,
+      "avg_items": 3.3
+    }
+  ],
+  "zone_based_analytics": [
+    {
+      "zone_name": "Men's Trial",
+      "gender": "MALE",
+      "trials": 6425,
+      "completed": 5044,
+      "cancellations": 1381,
+      "avg_wait_minutes": 7.2,
+      "avg_service_minutes": 5.7,
+      "avg_items": 2.9
+    },
+    {
+      "zone_name": "Women's Trial 1",
+      "gender": "FEMALE",
+      "trials": 7577,
+      "completed": 6175,
+      "cancellations": 1402,
+      "avg_wait_minutes": 8.3,
+      "avg_service_minutes": 6.5,
+      "avg_items": 3.7
+    },
+    {
+      "zone_name": "Women's Trial 2",
+      "gender": "FEMALE",
+      "trials": 4821,
+      "completed": 3712,
+      "cancellations": 1109,
+      "avg_wait_minutes": 7.9,
+      "avg_service_minutes": 6.1,
+      "avg_items": 3.3
+    },
+    {
+      "zone_name": "Unisex Trial",
+      "gender": "UNISEX",
+      "trials": 4134,
+      "completed": 3411,
+      "cancellations": 723,
+      "avg_wait_minutes": 6.6,
+      "avg_service_minutes": 5.1,
+      "avg_items": 2.6
+    }
+  ],
+  "gender_and_item_analytics": {
+    "customer_types": [
+      {
+        "customer_type": "Male",
+        "check_ins": 10811,
+        "cancellations": 2054,
+        "avg_wait_minutes": 7.1,
+        "avg_service_minutes": 5.7,
+        "avg_items": 2.7
+      },
+      {
+        "customer_type": "Female",
+        "check_ins": 12192,
+        "cancellations": 3414,
+        "avg_wait_minutes": 8.4,
+        "avg_service_minutes": 6.8,
+        "avg_items": 3.9
+      }
+    ],
+    "item_buckets": [
+      {
+        "item_range": "1-2 Items",
+        "customers": 5060,
+        "avg_wait_minutes": 4.2,
+        "avg_service_minutes": 3.2
+      },
+      {
+        "item_range": "3-4 Items",
+        "customers": 8741,
+        "avg_wait_minutes": 6.0,
+        "avg_service_minutes": 4.8
+      },
+      {
+        "item_range": "5-6 Items",
+        "customers": 6440,
+        "avg_wait_minutes": 8.1,
+        "avg_service_minutes": 6.3
+      },
+      {
+        "item_range": "7+ Items",
+        "customers": 2760,
+        "avg_wait_minutes": 10.4,
+        "avg_service_minutes": 8.2
+      }
+    ]
+  }
+}

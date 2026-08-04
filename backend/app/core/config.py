@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +20,8 @@ class Settings(BaseSettings):
     ENABLE_TRIAL_QUEUE: bool = True
     ENABLE_DEMO_TOOLS: bool = True
     ENABLE_IN_APP_SCHEDULER: bool = True
+    CHECKOUT_ANALYTICS_HISTORY_MODE: Literal["real", "static"] = "static"
+    TRIAL_ANALYTICS_HISTORY_MODE: Literal["real", "static"] = "static"
     NIGHTLY_QUEUE_CLEANUP_HOUR: int = 0
     NIGHTLY_QUEUE_CLEANUP_MINUTE: int = 5
     SCHEDULER_TIMEZONE: str = "Asia/Kolkata"

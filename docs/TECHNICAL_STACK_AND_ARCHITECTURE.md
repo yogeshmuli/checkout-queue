@@ -587,6 +587,8 @@ DELETE /api/v1/demotools/ml-training-data
 
 Demo Tools are registered only when `ENABLE_DEMO_TOOLS=true` and are restricted to `SUPER_ADMIN`. They create and clean an isolated ML training store identified by `store_number=DEMO-ML-STORE`; cleanup removes that store, demo ML metadata, and demo artifact directories only. Each seed request uses one captured UTC timestamp for historical dates, lane availability, and ten pending tokens per app so Checkout and Trial staff consoles receive deterministic current-time live queues.
 
+Dashboard history has independently configurable Checkout and Trial sources. `CHECKOUT_ANALYTICS_HISTORY_MODE` and `TRIAL_ANALYTICS_HISTORY_MODE` accept `real` (default) or `static`. Static mode is implemented in the service layer using the tracked, human-editable `backend/app/static_analytics_data.json` fixture, whose sections mirror the product analytics workbook. The provider loads it for each request, preserves the public response schemas and real store identity, and shifts daily dates to the current 90-day window. Explicit weekly and hourly JSON rows feed their corresponding charts directly. One-day Live/Foresights requests and ML metadata remain database-backed.
+
 ## 8. Frontend Application Structure
 
 The React app should be organized around product modules and then user roles:

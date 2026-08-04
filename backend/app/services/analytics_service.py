@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.calendar import StoreCalendarEventType
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.repositories.analytics_repository import AnalyticsRepository
@@ -26,6 +27,7 @@ from app.schemas.analytics import (
     AnalyticsZoneStat,
     StoreAnalyticsResponse,
 )
+from app.services.static_analytics_provider import StaticAnalyticsProvider
 
 
 class AnalyticsService:
@@ -37,6 +39,13 @@ class AnalyticsService:
         store = self.repository.get_store(store_id)
         if store is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
+
+        if normalized_days > 1 and settings.CHECKOUT_ANALYTICS_HISTORY_MODE == "static":
+            return StaticAnalyticsProvider().checkout(
+                store,
+                normalized_days,
+                self.repository.get_latest_model_metadata(store_id),
+            )
 
         now = datetime.now(timezone.utc)
         start_date = (now.date() - timedelta(days=normalized_days - 1))
