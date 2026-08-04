@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Checkout Queue API"
     API_VERSION: str = "0.1.0"
     API_PREFIX: str = "/api/v1"
-    DATABASE_URL: str = "postgresql+psycopg2://api-access:admin123@localhost:5432/checkout_queue"
-    # DATABASE_URL :str ="postgresql://neondb_owner:npg_SL4RzfIXWjA1@ep-orange-breeze-aoroj7se-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    # DATABASE_URL: str = "postgresql+psycopg2://api-access:admin123@localhost:5432/checkout_queue"
+    DATABASE_URL :str ="postgresql://neondb_owner:npg_SL4RzfIXWjA1@ep-orange-breeze-aoroj7se-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
     CORS_ORIGINS: list[str] = ["http://localhost:5173","app-qut.netlify.app"]
     SECRET_KEY: str = "change-this-secret-key"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 600
