@@ -562,6 +562,7 @@ class QueueService:
             cancelled_at=token.cancelled_at,
             cancellation_reason=token.cancellation_reason,
             estimated_wait_minutes=self._estimate_wait_from_calling_time(token.calling_time),
+            assigned_counter=token.assigned_counter,
         )
 
  

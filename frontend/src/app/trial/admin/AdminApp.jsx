@@ -191,6 +191,9 @@ function SidebarAccount({ email, onLogout }) {
         <LogOut size={18} className="shrink-0" />
         <span>Logout</span>
       </button>
+      <div className="mt-4 flex h-14 items-center justify-center rounded-lg bg-white p-2">
+        <img src={brandLogo} alt="Equilateral logo" className="h-full w-full object-cover" />
+      </div>
     </div>
   );
 }

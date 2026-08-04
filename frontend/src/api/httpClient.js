@@ -79,17 +79,19 @@ export function getErrorMessage(error) {
   const detail = error?.response?.data?.detail;
   const fallbackMessage = error?.message;
 
+  const cleanMessage = (message) => message.replace(/^Value error,\s*/i, '').trim();
+
   if (typeof detail === 'string' && detail.trim()) {
-    return detail;
+    return cleanMessage(detail);
   }
 
   if (Array.isArray(detail)) {
     const combined = detail
       .map((item) => {
-        if (typeof item === 'string') return item;
+        if (typeof item === 'string') return cleanMessage(item);
         if (item && typeof item === 'object') {
-          if (typeof item.msg === 'string') return item.msg;
-          if (typeof item.message === 'string') return item.message;
+          if (typeof item.msg === 'string') return cleanMessage(item.msg);
+          if (typeof item.message === 'string') return cleanMessage(item.message);
           return JSON.stringify(item);
         }
         return '';
@@ -102,10 +104,10 @@ export function getErrorMessage(error) {
 
   if (detail && typeof detail === 'object') {
     if (typeof detail.message === 'string' && detail.message.trim()) {
-      return detail.message;
+      return cleanMessage(detail.message);
     }
     if (typeof detail.msg === 'string' && detail.msg.trim()) {
-      return detail.msg;
+      return cleanMessage(detail.msg);
     }
     try {
       return JSON.stringify(detail);
@@ -115,7 +117,7 @@ export function getErrorMessage(error) {
   }
 
   if (typeof fallbackMessage === 'string' && fallbackMessage.trim()) {
-    return fallbackMessage;
+    return cleanMessage(fallbackMessage);
   }
 
   return 'Something went wrong';

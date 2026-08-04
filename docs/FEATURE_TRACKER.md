@@ -402,7 +402,8 @@ GET /api/v1/queue/status?phone_number={phone_number}
 Result:
 
 - Returns current token status, assigned counter, position, calling time, and computed wait minutes.
-- Frontend customer view refreshes this status every 30 seconds and includes a compact manual refresh icon on the token status card.
+- Frontend customer view refreshes this status every 30 seconds, includes a compact manual refresh icon, and shows the assigned counter name or a pending-assignment state on the token status card.
+- Frontend API validation feedback removes framework-generated `Value error,` prefixes and displays only the actionable validation message.
 
 ### 13. Staff Can View And Update Counter Queue
 
@@ -607,6 +608,7 @@ Result:
 - Lists queue tokens through `GET /api/v1/queue/tokens`.
 - Filters queue tokens by store, section, counter, and token status.
 - Shows token number, phone number, position, wait time, assignment, calling time, and item count.
+- Orders Checkout admin queue rows by earliest calling time, places unscheduled tokens last, and uses token ID for stable ordering when calling times match.
 - Shows service-time pills for estimated waiting service time, live elapsed serving time, and completed actual service duration in Checkout and Quick Trial admin queues.
 - Lets admin call, start, complete, or cancel tokens from the admin queue screen.
 - Uses bearer-token role guards for queue management actions.
@@ -945,7 +947,7 @@ Trial Queue frontend parity:
 - Admin workspace under `/app/trial/admin` provides a dashboard plus stores, zones, studios, staff, config, and queue views.
 - Trial admin sidebar/header and nested admin routes live in `trial/admin/AdminApp.jsx`, matching the Checkout admin module structure.
 - Checkout and Trial admin headers show a `Change context` action when more than one product module is enabled, returning the user to the shared context selector.
-- Checkout and Trial admin sidebars show the logged-in user email with a standard logout action in desktop and mobile navigation.
+- Checkout and Trial admin sidebars show the logged-in user email, a standard logout action, and the Equilateral logo beneath Logout in desktop and mobile navigation.
 - Trial admin store, zone, studio, and config screens use the same CRUD layout pattern as Checkout admin, including filters, search, create/edit panels, refresh actions, validation, and active/inactive status controls where applicable.
 - Trial admin calendar screen under `/app/trial/admin/calendar` supports store-level weekday hours, timezone, holidays, and promotional event management using Trial Calendar APIs.
 - Trial admin ML screen under `/app/trial/admin/ml` trains and displays the latest Trial Queue RandomForest service-time model for a store.

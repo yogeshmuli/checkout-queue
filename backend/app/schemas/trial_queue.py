@@ -5,12 +5,13 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.models.trial_queue_token import TrialQueueTokenStatus
 from app.models.trial_zone import TrialZoneGender, TrialZoneType
+from app.schemas.trial_studio import TrialStudioResponse
 
 
 class TrialQueueJoinRequest(BaseModel):
     store_id: int
     trial_zone_id: int | None = None
-    phone_number: str = Field(min_length=10, max_length=10)
+    phone_number: str = Field()
     item_count: int | None = Field(default=None, ge=0)
     customer_gender: TrialZoneGender | None = None
     customer_type: str | None = Field(default="regular", max_length=50)
@@ -18,6 +19,10 @@ class TrialQueueJoinRequest(BaseModel):
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, value: str) -> str:
+        if(len(value) >10):
+            raise ValueError("Phone number must be at the max 10 digits")
+        if(len(value)< 10):
+            raise ValueError("Phone number must be at least 10 digits")
         if not value.isdigit():
             raise ValueError("Phone number must contain only digits")
         return value
@@ -80,6 +85,7 @@ class TrialQueueTokenResponse(BaseModel):
     updated_at: datetime
     cancellation_reason: str | None
     estimated_wait_minutes: int
+    assigned_studio: TrialStudioResponse | None = None
 
 
 class TrialQueueEventResponse(BaseModel):

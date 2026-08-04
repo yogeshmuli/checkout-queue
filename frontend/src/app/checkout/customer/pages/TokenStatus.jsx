@@ -207,6 +207,9 @@ export function TokenStatus() {
               <p className="text-sm text-muted">Status</p>
               <p className="mt-1 font-semibold">{lastToken.status}</p>
               <p className="mt-2 text-sm text-charcoal">Calling time: {formatTime(lastToken.calling_time)}</p>
+              <p className="mt-1 text-sm text-charcoal">
+                Counter: {lastToken.assigned_counter?.name || (lastToken.assigned_counter_id ? `#${lastToken.assigned_counter_id}` : 'Pending assignment')}
+              </p>
             </div>
             <p className="mt-4 rounded-lg bg-brand-blush px-3 py-2 text-sm text-charcoal">
               Estimate method: {lastToken.calculation_method}

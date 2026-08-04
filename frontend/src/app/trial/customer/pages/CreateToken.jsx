@@ -115,6 +115,7 @@ export function CreateToken() {
       setLastToken(token);
       navigate(`/app/trial/customer/status/${token.token_id}`);
     } catch (error) {
+      debugger
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
     } finally {

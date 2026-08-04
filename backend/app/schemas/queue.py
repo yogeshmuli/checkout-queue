@@ -4,6 +4,7 @@ from datetime import datetime
 
 from app.models.checkout_section import CheckoutSectionType
 from app.models.queue_token import QueueTokenStatus
+from app.schemas.counter import CounterResponse
 
 
 class QueueJoinRequest(BaseModel):
@@ -85,6 +86,7 @@ class QueueTokenResponse(BaseModel):
     cancelled_at: datetime | None
     cancellation_reason: str | None
     estimated_wait_minutes: int
+    assigned_counter: CounterResponse | None = None
 
 
 class CounterQueueResponse(BaseModel):

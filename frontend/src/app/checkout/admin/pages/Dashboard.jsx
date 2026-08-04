@@ -433,7 +433,7 @@ function HistoryView({ analytics }) {
         </ChartGrid>
       </AnalysisSection>
 
-      <AnalysisSection title="Zone Based Analytics" icon={<Gauge size={18} />} open={openSections.zone} onToggle={() => toggle('zone')}>
+      {/* <AnalysisSection title="Zone Based Analytics" icon={<Gauge size={18} />} open={openSections.zone} onToggle={() => toggle('zone')}>
         <ChartGrid>
           <ChartCard title="Zone-wise Trials" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_trials" type="bar" />
           <ChartCard title="Zone-wise Cancellations" rows={analytics.zone_stats} labelKey="zone_name" valueKey="cancellations" type="bar" />
@@ -441,9 +441,9 @@ function HistoryView({ analytics }) {
           <ChartCard title="Avg Service by Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="avg_service_time" formatter={formatMinutes} type="bar" />
           <ChartCard title="Items per Zone" rows={analytics.zone_stats} labelKey="zone_name" valueKey="total_items" type="bar" />
         </ChartGrid>
-      </AnalysisSection>
+      </AnalysisSection> */}
 
-      <AnalysisSection title="Customer & Item Analytics" icon={<ShoppingBasket size={18} />} open={openSections.customer} onToggle={() => toggle('customer')}>
+      {/* <AnalysisSection title="Customer & Item Analytics" icon={<ShoppingBasket size={18} />} open={openSections.customer} onToggle={() => toggle('customer')}>
         <ChartGrid>
           <ChartCard title="Trials by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="count" type="bar" />
           <ChartCard title="Wait by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="avg_wait" formatter={formatMinutes} type="bar" />
@@ -452,7 +452,7 @@ function HistoryView({ analytics }) {
           <PieLikeCard title="Cancellations by Customer Type" rows={analytics.customer_type_stats} labelKey="customer_type" valueKey="cancellations" />
           <ChartCard title="Item Buckets" rows={analytics.item_bucket_stats} labelKey="range" valueKey="count" type="bar" />
         </ChartGrid>
-      </AnalysisSection>
+      </AnalysisSection> */}
 
       <AnalysisSection title="Item & Cancellation Analytics" icon={<AlertTriangle size={18} />} open={openSections.item} onToggle={() => toggle('item')}>
         <ChartGrid>

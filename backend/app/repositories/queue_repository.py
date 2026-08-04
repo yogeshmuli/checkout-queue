@@ -279,7 +279,6 @@ class QueueRepository:
             statement = statement.where(QueueToken.status.in_(ACTIVE_TOKEN_STATUSES))
 
         statement = statement.order_by(
-            QueueToken.status.asc(),
             QueueToken.calling_time.asc().nulls_last(),
             QueueToken.id.asc(),
         )

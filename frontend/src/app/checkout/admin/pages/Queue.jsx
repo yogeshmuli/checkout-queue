@@ -155,15 +155,21 @@ export function Queue() {
   ];
 
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredTokens = tokens.filter((token) => {
-    if (!normalizedQuery) return true;
-    const section = sectionById.get(String(token.section_id));
-    const counter = counterById.get(String(token.assigned_counter_id));
-    const haystack = `${token.token_number || ''} ${token.phone_number || ''} ${token.status || ''} ${
-      storeNameById.get(String(token.store_id)) || ''
-    } ${section?.name || ''} ${counter?.name || ''} ${counter?.counter_type || ''}`.toLowerCase();
-    return haystack.includes(normalizedQuery);
-  });
+  const filteredTokens = tokens
+    .filter((token) => {
+      if (!normalizedQuery) return true;
+      const section = sectionById.get(String(token.section_id));
+      const counter = counterById.get(String(token.assigned_counter_id));
+      const haystack = `${token.token_number || ''} ${token.phone_number || ''} ${token.status || ''} ${
+        storeNameById.get(String(token.store_id)) || ''
+      } ${section?.name || ''} ${counter?.name || ''} ${counter?.counter_type || ''}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    })
+    .sort((left, right) => {
+      const leftTime = left.calling_time ? new Date(left.calling_time).getTime() : Number.POSITIVE_INFINITY;
+      const rightTime = right.calling_time ? new Date(right.calling_time).getTime() : Number.POSITIVE_INFINITY;
+      return leftTime - rightTime || left.token_id - right.token_id;
+    });
 
   const statusCounts = tokens.reduce(
     (acc, token) => {

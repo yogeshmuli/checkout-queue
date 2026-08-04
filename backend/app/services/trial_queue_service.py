@@ -554,6 +554,7 @@ class TrialQueueService:
             updated_at=token.updated_at,
             cancellation_reason=token.cancellation_reason,
             estimated_wait_minutes=self._estimate_wait(token.calling_time),
+            assigned_studio=token.assigned_studio
         )
 
     def _build_event_response(self, token: TrialQueueToken) -> TrialQueueEventResponse:
