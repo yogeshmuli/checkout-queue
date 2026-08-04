@@ -9,9 +9,9 @@ export async function joinQueue(payload) {
   }
 }
 
-export async function getTokenStatus(params) {
+export async function getTokenStatus(params, requestConfig = {}) {
   try {
-    const response = await httpClient.get('/queue/status', { params });
+    const response = await httpClient.get('/queue/status', { ...requestConfig, params });
     return response.data;
   } catch (error) {
     throw normalizeApiError(error);
@@ -36,9 +36,9 @@ export async function listQueueTokens(params = {}) {
   }
 }
 
-export async function getCounterQueue(counterId) {
+export async function getCounterQueue(counterId, requestConfig = {}) {
   try {
-    const response = await httpClient.get(`/queue/counters/${counterId}/tokens`);
+    const response = await httpClient.get(`/queue/counters/${counterId}/tokens`, requestConfig);
     return response.data;
   } catch (error) {
     throw normalizeApiError(error);

@@ -9,8 +9,8 @@ export function joinTrialQueue(payload) {
   return trialRequest(() => httpClient.post('/trial/queue/join', payload));
 }
 
-export function getTrialTokenStatus(params) {
-  return trialRequest(() => httpClient.get('/trial/queue/status', { params }));
+export function getTrialTokenStatus(params, requestConfig = {}) {
+  return trialRequest(() => httpClient.get('/trial/queue/status', { ...requestConfig, params }));
 }
 
 export function listTrialQueueTokens(params = {}) {
@@ -21,8 +21,8 @@ export function getTrialStudioQueue(studioId) {
   return trialRequest(() => httpClient.get(`/trial/queue/studios/${studioId}/tokens`));
 }
 
-export function getTrialZoneStudios(zoneId) {
-  return trialRequest(() => httpClient.get(`/trial/queue/zones/${zoneId}/studios`));
+export function getTrialZoneStudios(zoneId, requestConfig = {}) {
+  return trialRequest(() => httpClient.get(`/trial/queue/zones/${zoneId}/studios`, requestConfig));
 }
 
 export function updateTrialStudioStatus(studioId, payload) {

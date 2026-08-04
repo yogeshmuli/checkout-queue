@@ -19,6 +19,7 @@ import { PwaRefreshButton } from "./app/common/PwaRefreshButton.jsx";
 import { TrialApp } from "./app/trial/TrialApp.jsx";
 import { useAuthStore } from "./store/authStore.js";
 import DemoToolsFAB from "./app/common/DemoToolsFAB.jsx";
+import { ApiProgressBar } from "./app/common/ApiProgressBar.jsx";
 
 function RequireAuth({ children }) {
   const { accessToken } = useAuthStore();
@@ -73,13 +74,21 @@ export default function App() {
   }, [accessToken, user, setUser, clearSession]);
 
   if (bootstrapping) {
-    return <div className="min-h-screen bg-brand-blush" />;
+    return (
+      <>
+        <ApiProgressBar />
+        <div className="min-h-screen bg-brand-blush" />
+      </>
+    );
   }
 
   return (
-    <Router>
-      <AppRoutes canManageDemoTools={canManageDemoTools} />
-    </Router>
+    <>
+      <ApiProgressBar />
+      <Router>
+        <AppRoutes canManageDemoTools={canManageDemoTools} />
+      </Router>
+    </>
   );
 }
 

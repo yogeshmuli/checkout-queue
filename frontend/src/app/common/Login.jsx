@@ -8,6 +8,7 @@ import { getErrorMessage, showApiErrorToast } from '../../api/httpClient.js';
 import { useAuthStore } from '../../store/authStore.js';
 import { getModuleHomePath } from './moduleConfig.js';
 import { getUserScope } from './roleUtils.js';
+import {FaEye,FaEyeSlash} from "react-icons/fa"
 
 const LOGIN_CONTEXT = {
   checkout: {
@@ -30,7 +31,9 @@ export function Login({ moduleId = null }) {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const context = LOGIN_CONTEXT[moduleId] || LOGIN_CONTEXT.default;
+  
   const redirectPath = user && moduleId ? getModuleHomePath(moduleId, getUserScope(user)) : '/app';
 
   if (accessToken && user) {
@@ -52,6 +55,9 @@ export function Login({ moduleId = null }) {
     } finally {
       setLoading(false);
     }
+  }
+  const togglePasswordVisibility = () => {
+    setShowPassword((prevState) => !prevState);
   }
 
   return (
@@ -78,12 +84,22 @@ export function Login({ moduleId = null }) {
           </label>
           <label className="block">
             <span className="text-sm font-medium text-charcoal">Password</span>
-            <input
-              type="password"
+          <div className="mt-1 flex w-full items-center rounded-lg border border-line px-3 py-2.5 outline-none focus-within:border-brand-red">
+              <input
+              type={showPassword ? 'text' : 'password'}
               value={form.password}
               onChange={(event) => setForm({ ...form, password: event.target.value })}
-              className="mt-1 w-full rounded-lg border border-line px-3 py-2.5 outline-none focus:border-brand-red"
+              className="flex-1 outline-none"
+            
             />
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className=" text-charcoal"
+            >
+              {showPassword ? <FaEyeSlash title="Hide password" /> : <FaEye title="Show password" />}
+            </button>
+          </div>
           </label>
           {message ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{message}</p> : null}
           <button type="submit" disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">

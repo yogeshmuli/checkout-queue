@@ -151,14 +151,14 @@ export function Dashboard() {
     });
   }
 
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async ({ skipGlobalLoader = false } = {}) => {
     if (!selectedStoreId) return;
     setLoading(true);
     setMessage('');
     try {
       const [analyticsResponse, metadataResponse] = await Promise.all([
-        getStoreAnalytics(selectedStoreId, { days: analyticsDays }),
-        getStoreModelMetadata(selectedStoreId).catch(() => null),
+        getStoreAnalytics(selectedStoreId, { days: analyticsDays }, { skipGlobalLoader }),
+        getStoreModelMetadata(selectedStoreId, { skipGlobalLoader }).catch(() => null),
       ]);
       setAnalytics(analyticsResponse);
       setMetadata(metadataResponse);
@@ -197,7 +197,7 @@ export function Dashboard() {
 
   useEffect(() => {
     if (!selectedStoreId) return undefined;
-    const timer = window.setInterval(loadDashboard, 60000);
+    const timer = window.setInterval(() => loadDashboard({ skipGlobalLoader: true }), 60000);
     return () => window.clearInterval(timer);
   }, [loadDashboard, selectedStoreId]);
 

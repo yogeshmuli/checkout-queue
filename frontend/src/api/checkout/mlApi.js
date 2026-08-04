@@ -9,9 +9,9 @@ export async function trainStoreModel(storeId) {
   }
 }
 
-export async function getStoreModelMetadata(storeId) {
+export async function getStoreModelMetadata(storeId, requestConfig = {}) {
   try {
-    const response = await httpClient.get(`/ml/stores/${storeId}/metadata`);
+    const response = await httpClient.get(`/ml/stores/${storeId}/metadata`, requestConfig);
     return response.data;
   } catch (error) {
     throw normalizeApiError(error);

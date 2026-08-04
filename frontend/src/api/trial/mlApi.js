@@ -5,8 +5,8 @@ export function trainTrialStoreModel(storeId) {
   return trialRequest(() => httpClient.post(`/ml/trial/stores/${storeId}/train`));
 }
 
-export function getTrialStoreModelMetadata(storeId) {
-  return trialRequest(() => httpClient.get(`/ml/trial/stores/${storeId}/metadata`));
+export function getTrialStoreModelMetadata(storeId, requestConfig = {}) {
+  return trialRequest(() => httpClient.get(`/ml/trial/stores/${storeId}/metadata`, requestConfig));
 }
 
 export function downloadTrialStoreTrainingTemplate(storeId) {

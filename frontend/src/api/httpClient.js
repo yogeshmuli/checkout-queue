@@ -11,8 +11,35 @@ export const httpClient = axios.create({
 });
 
 let isRedirectingToLogin = false;
+let activeForegroundRequests = 0;
+const apiActivityListeners = new Set();
+
+function publishApiActivity() {
+  apiActivityListeners.forEach((listener) => listener(activeForegroundRequests));
+}
+
+function startForegroundRequest(config) {
+  if (config.skipGlobalLoader || config._globalLoaderTracked) return;
+  config._globalLoaderTracked = true;
+  activeForegroundRequests += 1;
+  publishApiActivity();
+}
+
+function finishForegroundRequest(config) {
+  if (!config?._globalLoaderTracked) return;
+  config._globalLoaderTracked = false;
+  activeForegroundRequests = Math.max(0, activeForegroundRequests - 1);
+  publishApiActivity();
+}
+
+export function subscribeToApiActivity(listener) {
+  apiActivityListeners.add(listener);
+  listener(activeForegroundRequests);
+  return () => apiActivityListeners.delete(listener);
+}
 
 httpClient.interceptors.request.use((config) => {
+  startForegroundRequest(config);
   const token = useAuthStore.getState().accessToken;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -21,8 +48,12 @@ httpClient.interceptors.request.use((config) => {
 });
 
 httpClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    finishForegroundRequest(response.config);
+    return response;
+  },
   (error) => {
+    finishForegroundRequest(error?.config);
     const statusCode = error?.response?.status;
     const { accessToken, clearSession } = useAuthStore.getState();
 

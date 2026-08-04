@@ -1009,6 +1009,8 @@ The accepted source workbook is retained beside its model artifact. Model metada
 
 ## Implemented Frontend Routes
 
+The frontend displays a shared non-blocking progress bar for API requests through the common HTTP client. Foreground requests are counted so concurrent calls keep the bar visible until all complete. Timer-triggered Dashboard, staff-console, and customer token-status polling uses the explicit `skipGlobalLoader` request option; initial loads, manual refreshes, and user actions continue to show progress while preserving their existing local loading states.
+
 ```text
 /
 /app

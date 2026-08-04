@@ -38,12 +38,12 @@ export function StaffApp() {
   const counterActive = counterQueue?.is_active ?? true;
   const counterName = counterQueue?.counter_name || '';
 
-  const loadCounterQueue = useCallback(async () => {
+  const loadCounterQueue = useCallback(async ({ skipGlobalLoader = false } = {}) => {
     if (!accessToken || !activeCounterId) return;
     setLoading(true);
     setMessage('');
     try {
-      setCounterQueue(await getCounterQueue(activeCounterId));
+      setCounterQueue(await getCounterQueue(activeCounterId, { skipGlobalLoader }));
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -54,7 +54,7 @@ export function StaffApp() {
 
   useEffect(() => {
     loadCounterQueue();
-    const intervalId = window.setInterval(loadCounterQueue, COUNTER_QUEUE_REFRESH_MS);
+    const intervalId = window.setInterval(() => loadCounterQueue({ skipGlobalLoader: true }), COUNTER_QUEUE_REFRESH_MS);
     return () => window.clearInterval(intervalId);
   }, [loadCounterQueue]);
 

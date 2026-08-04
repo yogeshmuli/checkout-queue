@@ -116,9 +116,9 @@ export function TokenStatus() {
 
     let cancelled = false;
 
-    const fetchToken = async () => {
+    const fetchToken = async (skipGlobalLoader = false) => {
       try {
-        const token = await getTrialTokenStatus({ token_id: parsedTokenId });
+        const token = await getTrialTokenStatus({ token_id: parsedTokenId }, { skipGlobalLoader });
         if (cancelled) return;
         setLastToken(token);
         setMessage('');
@@ -137,7 +137,7 @@ export function TokenStatus() {
 
     fetchToken();
 
-    const intervalId = window.setInterval(fetchToken, TOKEN_STATUS_REFRESH_MS);
+    const intervalId = window.setInterval(() => fetchToken(true), TOKEN_STATUS_REFRESH_MS);
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);

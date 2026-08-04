@@ -40,13 +40,13 @@ export function TrialStaff() {
     }
   }, [accessToken, isManager, user?.store_id]);
 
-  const loadZoneQueue = useCallback(async () => {
+  const loadZoneQueue = useCallback(async ({ skipGlobalLoader = false } = {}) => {
     if (!accessToken || !zoneId) return;
     setLoading(true);
     setMessage('');
     try {
       localStorage.setItem('trial_zone_id', zoneId);
-      setZoneQueue(await getTrialZoneStudios(Number(zoneId)));
+      setZoneQueue(await getTrialZoneStudios(Number(zoneId), { skipGlobalLoader }));
     } catch (error) {
       showApiErrorToast(error);
       setMessage(getErrorMessage(error));
@@ -79,7 +79,7 @@ export function TrialStaff() {
 
   useEffect(() => {
     loadZoneQueue();
-    const intervalId = window.setInterval(loadZoneQueue, STUDIO_QUEUE_REFRESH_MS);
+    const intervalId = window.setInterval(() => loadZoneQueue({ skipGlobalLoader: true }), STUDIO_QUEUE_REFRESH_MS);
     return () => window.clearInterval(intervalId);
   }, [loadZoneQueue]);
 
