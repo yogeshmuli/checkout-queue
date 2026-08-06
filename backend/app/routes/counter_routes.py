@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.authorization import authorized_store_ids, ensure_store_access
 from app.core.security import require_roles
 from app.models.user import User, UserRole
 from app.schemas.counter import CounterCreateRequest, CounterResponse, CounterUpdateRequest
@@ -22,7 +23,9 @@ def create_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*counter_admin_roles)),
 ) -> CounterResponse:
-    return CounterService(db).create_counter(payload)
+    service = CounterService(db)
+    service.ensure_section_access(payload.section_id, current_user)
+    return service.create_counter(payload)
 
 
 @router.get("", response_model=list[CounterResponse])
@@ -33,10 +36,16 @@ def list_counters(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*counter_admin_roles)),
 ) -> list[CounterResponse]:
-    return CounterService(db).list_counters(
+    service = CounterService(db)
+    if store_id is not None:
+        ensure_store_access(db, current_user, store_id)
+    if section_id is not None:
+        service.ensure_section_access(section_id, current_user)
+    return service.list_counters(
         include_inactive=include_inactive,
         store_id=store_id,
         section_id=section_id,
+        store_ids=authorized_store_ids(db, current_user),
     )
 
 
@@ -46,7 +55,9 @@ def get_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*counter_admin_roles)),
 ) -> CounterResponse:
-    return CounterService(db).get_counter(counter_id)
+    service = CounterService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.get_counter(counter_id)
 
 
 @router.patch("/{counter_id}", response_model=CounterResponse)
@@ -56,7 +67,11 @@ def update_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*counter_admin_roles)),
 ) -> CounterResponse:
-    return CounterService(db).update_counter(counter_id, payload)
+    service = CounterService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    if payload.section_id is not None:
+        service.ensure_section_access(payload.section_id, current_user)
+    return service.update_counter(counter_id, payload)
 
 
 @router.delete("/{counter_id}", response_model=CounterResponse)
@@ -65,4 +80,6 @@ def delete_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*counter_admin_roles)),
 ) -> CounterResponse:
-    return CounterService(db).deactivate_counter(counter_id)
+    service = CounterService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.deactivate_counter(counter_id)

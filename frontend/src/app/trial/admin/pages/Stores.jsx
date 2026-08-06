@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { getErrorMessage, showApiErrorToast } from '../../../../api/httpClient.js';
 import { createStore, deleteStore, listStores, updateStore } from '../../../../api/trial/storeApi.js';
 import { SectionHeader } from '../../../common/SectionHeader.jsx';
+import { useAuthStore } from '../../../../store/authStore.js';
 
 const emptyStore = {
   store_number: '',
@@ -29,6 +30,7 @@ const STORES_PER_PAGE = 8;
 const FIELD_ORDER = ['store_number', 'name', 'address', 'manager_name', 'manager_phone', 'spoc_name', 'spoc_phone'];
 
 export function Stores() {
+  const isSuperAdmin = useAuthStore((state) => state.user?.default_role === 'SUPER_ADMIN');
   const [stores, setStores] = useState([]);
   const [form, setForm] = useState(emptyStore);
   const [initialFormState, setInitialFormState] = useState(emptyStore);
@@ -408,7 +410,7 @@ export function Stores() {
           </div>
           <div className="flex items-center gap-2">
             {isFormOpen ? <MobilePanelJump href="#store-form" label="Go to form" compact /> : null}
-            <button
+            {isSuperAdmin ? <button
               type="button"
               onClick={openCreateForm}
               className="inline-flex size-10 items-center justify-center rounded-lg bg-brand-red text-white sm:size-auto sm:gap-2 sm:px-3 sm:py-2 sm:text-sm sm:font-medium"
@@ -417,7 +419,7 @@ export function Stores() {
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Create store</span>
-            </button>
+            </button> : null}
             <button type="button" onClick={loadStores} className="rounded-lg border border-line p-2 text-charcoal hover:border-brand-red" title="Refresh stores">
               <RefreshCw size={18} />
             </button>
@@ -479,14 +481,14 @@ export function Stores() {
                     <Pencil size={16} />
                     {isEditing ? 'Editing' : 'Edit'}
                   </button>
-                  <button
+                  {isSuperAdmin ? <button
                     type="button"
                     onClick={() => openStatusConfirm(store)}
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-700 disabled:opacity-50"
                     disabled={loading}
                   >
                     {store.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  </button> : null}
                 </div>
               </div>
             );

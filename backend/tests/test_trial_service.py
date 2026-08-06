@@ -386,7 +386,7 @@ def test_call_next_trial_token_calls_first_waiting_zone_token(trial_service: Tri
     assert trial_service.repository.get_token(2).status == TrialQueueTokenStatus.WAITING
 
 
-def test_call_next_trial_token_rejects_zone_with_called_token(trial_service: TrialService) -> None:
+def test_call_next_trial_token_rejects_when_called_tokens_fill_studio_capacity(trial_service: TrialService) -> None:
     now = datetime.now(timezone.utc)
     trial_service.repository.tokens[0].status = TrialQueueTokenStatus.CALLED
     trial_service.repository.tokens[0].called_at = now
@@ -410,11 +410,38 @@ def test_call_next_trial_token_rejects_zone_with_called_token(trial_service: Tri
         trial_service.call_next_token_for_zone(1)
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "Trial zone already has a called token"
+    assert exc_info.value.detail == "Active studio call capacity reached for this trial zone"
     assert trial_service.repository.get_token(2).status == TrialQueueTokenStatus.WAITING
 
 
-def test_call_next_trial_token_rejects_when_no_vacant_active_studio(trial_service: TrialService) -> None:
+def test_call_next_trial_token_allows_one_called_token_per_active_studio(trial_service: TrialService) -> None:
+    now = datetime.now(timezone.utc)
+    trial_service.repository.studios[2].is_active = True
+    trial_service.repository.tokens[0].status = TrialQueueTokenStatus.CALLED
+    trial_service.repository.tokens[0].called_at = now
+    trial_service.repository.tokens.append(
+        TrialQueueToken(
+            id=2,
+            store_id=1,
+            trial_zone_id=1,
+            assigned_studio_id=None,
+            token_number="T-002",
+            phone_number="9000000002",
+            status=TrialQueueTokenStatus.WAITING,
+            calling_time=now + timedelta(minutes=10),
+            service_time_minutes=10,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    response = trial_service.call_next_token_for_zone(1)
+
+    assert response.token_id == 2
+    assert response.status == TrialQueueTokenStatus.CALLED
+
+
+def test_call_next_trial_token_counts_serving_active_studio_as_call_capacity(trial_service: TrialService) -> None:
     now = datetime.now(timezone.utc)
     trial_service.repository.tokens.append(
         TrialQueueToken(
@@ -433,12 +460,10 @@ def test_call_next_trial_token_rejects_when_no_vacant_active_studio(trial_servic
         )
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        trial_service.call_next_token_for_zone(1)
+    response = trial_service.call_next_token_for_zone(1)
 
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "No vacant active studios available for this trial zone"
-    assert trial_service.repository.get_token(1).status == TrialQueueTokenStatus.WAITING
+    assert response.token_id == 1
+    assert response.status == TrialQueueTokenStatus.CALLED
 
 
 def test_start_trial_token_records_active_studio_in_zone(trial_service: TrialService) -> None:

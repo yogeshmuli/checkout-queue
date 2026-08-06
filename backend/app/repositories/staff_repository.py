@@ -24,12 +24,17 @@ class StaffRepository:
         section_id: int | None = None,
         counter_id: int | None = None,
         zone_id: int | None = None,
+        store_ids: set[int] | None = None,
     ) -> list[User]:
         statement = select(User).order_by(User.id.asc())
         if not include_inactive:
             statement = statement.where(User.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(User.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(User.store_id.in_(store_ids))
         if section_id is not None:
             statement = statement.where(User.section_id == section_id)
         if counter_id is not None:

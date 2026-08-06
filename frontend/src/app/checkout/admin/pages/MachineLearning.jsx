@@ -202,7 +202,7 @@ export function MachineLearning() {
               <h3 className="font-semibold">Latest model</h3>
             </div>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <MetadataItem label="Type" value={metadata.model_type} />
+              <MetadataItem label="Type" value={"QUT-Checkout-Model"} />
               <MetadataItem label="Version" value={metadata.model_version} />
               <MetadataItem label="Accuracy" value={metadata.accuracy_score != null ? `${Math.round(metadata.accuracy_score * 100)}%` : '-'} />
               <MetadataItem label="Data quality" value={metadata.data_quality_score != null ? `${Math.round(metadata.data_quality_score * 100)}%` : '-'} />

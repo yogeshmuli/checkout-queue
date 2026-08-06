@@ -1054,6 +1054,16 @@ Trial backend code is organized into Checkout-style domain files for zones, stud
 
 ## Not Implemented Yet
 
+### Store-scoped administration
+
+- `SUPER_ADMIN` users can manage all stores; store creation and activation/deactivation are reserved for this role.
+- `STORE_ADMIN` and `MANAGER` users see only stores with active `user_store_access` assignments in Checkout and Quick Trial.
+- Store-scoped API authorization covers store details, staff, queue tokens, Checkout sections/counters, Trial zones/studios, configuration, calendars, analytics, notifications, and ML operations.
+- Admin store selectors inherit the server-filtered store list, and assigned admins can edit their stores without seeing global store-management actions.
+- Quick Trial zone staff can call multiple waiting customers concurrently up to active studio capacity, including studios currently serving. The queue enables the earliest eligible tokens, reserves one capacity slot per called token, and keeps the earliest-called customer in the primary action card.
+- Called Quick Trial tokens remain visible in the zone queue list with a disabled `Called` status action until they start service or leave the active queue.
+- Checkout staff use the same active-capacity behavior per assigned counter: an active counter permits the next customer to be called even while serving, and called tokens remain in the queue list with a disabled `Called` action.
+
 - Alert configuration.
 - Alert scheduler.
 - Real WhatsApp/SMS provider integrations.

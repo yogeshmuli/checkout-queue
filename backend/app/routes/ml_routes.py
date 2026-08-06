@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.core.security import require_roles
+from app.core.authorization import require_store_roles
 from app.models.user import User, UserRole
 from app.repositories.queue_repository import QueueRepository
 from app.repositories.trial_queue_repository import TrialQueueRepository
@@ -40,7 +40,7 @@ async def _read_training_upload(file: UploadFile) -> tuple[str, bytes]:
 def train_store_model(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     return MLTrainingService(db).train_store_model(store_id)
 
@@ -49,7 +49,7 @@ def train_store_model(
 def download_store_training_template(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ):
     service = MLTrainingService(db)
     content = MLExcelService(service.repository, "checkout").build_template(store_id)
@@ -61,7 +61,7 @@ async def train_store_model_from_upload(
     store_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     filename, content = await _read_training_upload(file)
     service = MLTrainingService(db)
@@ -73,7 +73,7 @@ async def train_store_model_from_upload(
 def get_store_model_metadata(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     return MLTrainingService(db).get_store_metadata(store_id)
 
@@ -83,7 +83,7 @@ def predict_store_service_time(
     store_id: int,
     payload: ServiceTimePredictionRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> ServiceTimePredictionResponse:
     prediction = PredictionService(QueueRepository(db)).predict_service_time(store_id, payload)
     if prediction is None:
@@ -95,7 +95,7 @@ def predict_store_service_time(
 def train_trial_store_model(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     return TrialMLTrainingService(db).train_store_model(store_id)
 
@@ -104,7 +104,7 @@ def train_trial_store_model(
 def download_trial_store_training_template(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ):
     service = TrialMLTrainingService(db)
     content = MLExcelService(service.repository, "trial").build_template(store_id)
@@ -116,7 +116,7 @@ async def train_trial_store_model_from_upload(
     store_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     filename, content = await _read_training_upload(file)
     service = TrialMLTrainingService(db)
@@ -128,7 +128,7 @@ async def train_trial_store_model_from_upload(
 def get_trial_store_model_metadata(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> MLModelMetadataResponse:
     return TrialMLTrainingService(db).get_store_metadata(store_id)
 
@@ -138,7 +138,7 @@ def predict_trial_store_service_time(
     store_id: int,
     payload: TrialServiceTimePredictionRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*ml_admin_roles)),
+    current_user: User = Depends(require_store_roles(*ml_admin_roles)),
 ) -> ServiceTimePredictionResponse:
     prediction = TrialPredictionService(TrialQueueRepository(db)).predict_service_time(store_id, payload)
     if prediction is None:

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { callNextTrialTokenForZone, cancelTrialToken, completeTrialToken, getTrialZoneStudios, startTrialToken, updateTrialStudioStatus } from '../../../api/trial/queueApi.js';
+import { callTrialToken, cancelTrialToken, completeTrialToken, getTrialZoneStudios, startTrialToken, updateTrialStudioStatus } from '../../../api/trial/queueApi.js';
 import { listTrialZones } from '../../../api/trial/zonesApi.js';
 import { getErrorMessage, showApiErrorToast } from '../../../api/httpClient.js';
 import { useAuthStore } from '../../../store/authStore.js';
-import { getTrialQueueKey, isCallable } from '../../common/queueCallUtils.js';
 import { Studio } from './pages/Studio.jsx';
 import { STUDIO_QUEUE_REFRESH_MS } from './utils/staffUtils.js';
 
@@ -21,13 +20,29 @@ export function TrialStaff() {
   const studios = useMemo(() => zoneQueue?.studios || [], [zoneQueue]);
   const tokens = useMemo(() => zoneQueue?.tokens || [], [zoneQueue]);
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
-  const nextWaitingToken = useMemo(() => waitingTokens.find((token) => isCallable(token, tokens, getTrialQueueKey)) || null, [tokens, waitingTokens]);
-  const calledToken = useMemo(() => tokens.find((token) => token.status === 'CALLED') || null, [tokens]);
+  const nextWaitingToken = waitingTokens[0] || null;
+  const calledTokens = useMemo(
+    () => tokens.filter((token) => token.status === 'CALLED').sort((first, second) => {
+      const timeDelta = new Date(first.called_at || first.calling_time || 0).getTime() - new Date(second.called_at || second.calling_time || 0).getTime();
+      return timeDelta || Number(first.token_id) - Number(second.token_id);
+    }),
+    [tokens]
+  );
+  const calledToken = calledTokens[0] || null;
+  const queuedTokens = useMemo(
+    () => [...calledTokens, ...waitingTokens],
+    [calledTokens, waitingTokens]
+  );
   const servingTokens = useMemo(() => tokens.filter((token) => token.status === 'SERVING'), [tokens]);
   const activeStudios = useMemo(() => studios.filter((studio) => studio.is_active), [studios]);
   const vacantActiveStudios = useMemo(
     () => activeStudios.filter((studio) => !servingTokens.some((token) => String(token.assigned_studio_id) === String(studio.studio_id))),
     [activeStudios, servingTokens]
+  );
+  const availableCallSlots = Math.max(0, activeStudios.length - calledTokens.length);
+  const callableWaitingTokenIds = useMemo(
+    () => new Set(waitingTokens.slice(0, availableCallSlots).map((token) => String(token.token_id))),
+    [availableCallSlots, waitingTokens]
   );
 
   const loadZones = useCallback(async () => {
@@ -113,9 +128,9 @@ export function TrialStaff() {
     runAction(() => startTrialToken(nextWaitingToken.token_id, studioId));
   }
 
-  function callNextToken() {
-    if (!zoneId || calledToken || !nextWaitingToken || vacantActiveStudios.length === 0) return;
-    runAction(() => callNextTrialTokenForZone(Number(zoneId)));
+  function callToken(tokenId) {
+    if (!zoneId || !callableWaitingTokenIds.has(String(tokenId))) return;
+    runAction(() => callTrialToken(tokenId));
   }
 
   return (
@@ -133,17 +148,20 @@ export function TrialStaff() {
       accessToken={accessToken}
       message={message}
       calledToken={calledToken}
+      calledTokens={calledTokens}
       servingTokens={servingTokens}
       activeStudios={activeStudios}
       vacantActiveStudios={vacantActiveStudios}
       completeTrialToken={completeTrialToken}
       cancelTrialToken={cancelTrialToken}
       waitingTokens={waitingTokens}
+      queuedTokens={queuedTokens}
       nextWaitingToken={nextWaitingToken}
       loadZoneQueue={loadZoneQueue}
       startCalledToken={startCalledToken}
       startNextWaitingToken={startNextWaitingToken}
-      callNextToken={callNextToken}
+      callableWaitingTokenIds={callableWaitingTokenIds}
+      callToken={callToken}
     />
   );
 }

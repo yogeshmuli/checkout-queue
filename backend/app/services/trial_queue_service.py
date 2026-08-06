@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.authorization import authorized_store_ids, ensure_store_access
 from app.models.trial_queue_token import TrialQueueToken, TrialQueueTokenStatus
 from app.models.trial_store_config import TrialStoreConfig
 from app.models.trial_studio import TrialStudio
@@ -136,9 +137,13 @@ class TrialQueueService:
     def list_queue_tokens(self, store_id=None, trial_zone_id=None, studio_id=None, token_status=None, include_terminal=False, current_user: User | None = None) -> list[TrialQueueTokenResponse]:
         if current_user is not None:
             store_id, trial_zone_id = self._scope_queue_filters(store_id, trial_zone_id, studio_id, current_user)
+        store_ids = authorized_store_ids(getattr(self.repository, "db", None), current_user) if current_user else None
+        args = [store_id, trial_zone_id, studio_id, token_status, include_terminal]
+        if store_ids is not None and hasattr(self.repository, "db"):
+            args.append(store_ids)
         return [
             self._build_token_response(token)
-            for token in self.repository.list_queue_tokens(store_id, trial_zone_id, studio_id, token_status, include_terminal)
+            for token in self.repository.list_queue_tokens(*args)
         ]
 
     def get_zone_studio_queues(self, zone_id: int, current_user: User | None = None) -> TrialZoneStudioQueuesResponse:
@@ -184,10 +189,10 @@ class TrialQueueService:
         self._ensure_zone_access(zone, current_user)
         if not zone.is_active:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone is inactive")
-        if self.repository.get_current_called_token_for_zone(zone.id) is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
-        if not self._list_vacant_active_studios(zone):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No vacant active studios available for this trial zone")
+        active_studios = self.repository.list_active_studios(zone.store_id, zone.id)
+        called_tokens = self._list_called_tokens_for_zone(zone.id)
+        if len(called_tokens) >= len(active_studios):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active studio call capacity reached for this trial zone")
 
         self._rebuild_zone_schedule(zone.id)
         waiting_tokens = self.repository.list_waiting_tokens_for_zone(zone.id)
@@ -256,9 +261,11 @@ class TrialQueueService:
         if new_status == TrialQueueTokenStatus.CALLED and token.status != TrialQueueTokenStatus.WAITING:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting trial token can be called")
         if new_status == TrialQueueTokenStatus.CALLED and token.trial_zone_id is not None:
-            called_token = self.repository.get_current_called_token_for_zone(token.trial_zone_id)
-            if called_token is not None and called_token.id != token.id:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
+            zone = self.get_zone(token.trial_zone_id)
+            active_studios = self.repository.list_active_studios(zone.store_id, zone.id)
+            called_tokens = self._list_called_tokens_for_zone(zone.id)
+            if len(called_tokens) >= len(active_studios):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active studio call capacity reached for this trial zone")
         if new_status == TrialQueueTokenStatus.SERVING and token.status not in (TrialQueueTokenStatus.WAITING, TrialQueueTokenStatus.CALLED):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting or called trial token can be started")
         if new_status == TrialQueueTokenStatus.SERVING:
@@ -350,6 +357,12 @@ class TrialQueueService:
             if self.repository.get_current_serving_token(studio.id) is None
         ]
 
+    def _list_called_tokens_for_zone(self, zone_id: int) -> list[TrialQueueToken]:
+        if hasattr(self.repository, "list_called_tokens_for_zone"):
+            return self.repository.list_called_tokens_for_zone(zone_id)
+        called_token = self.repository.get_current_called_token_for_zone(zone_id)
+        return [called_token] if called_token is not None else []
+
     def _ensure_customer_action_allowed(self, token: TrialQueueToken) -> None:
         if token.status in self.TERMINAL_STATUSES:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial token is already in terminal state")
@@ -370,14 +383,12 @@ class TrialQueueService:
             if store_id is not None and store_id != zone.store_id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
             return zone.store_id, current_user.assigned_zone_id
-        if current_user.default_role == UserRole.MANAGER:
-            if current_user.store_id is None:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager store assignment required")
-            if store_id is not None and store_id != current_user.store_id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
+        if current_user.default_role in (UserRole.STORE_ADMIN, UserRole.MANAGER):
+            if store_id is not None:
+                ensure_store_access(self.repository.db, current_user, store_id)
             if trial_zone_id is not None:
                 self._ensure_zone_access(self.get_zone(trial_zone_id), current_user)
-            return current_user.store_id, trial_zone_id
+            return store_id, trial_zone_id
         return store_id, trial_zone_id
 
     def _ensure_token_access(self, token: TrialQueueToken, current_user: User | None) -> None:
@@ -398,10 +409,10 @@ class TrialQueueService:
             return
         if current_user.default_role == UserRole.TRIAL_ZONE_ASSISTANT and current_user.assigned_zone_id != zone.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Trial zone access denied")
-        if current_user.default_role == UserRole.MANAGER:
-            if current_user.store_id is None:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager store assignment required")
-            if current_user.store_id != zone.store_id:
+        if current_user.default_role in (UserRole.STORE_ADMIN, UserRole.MANAGER):
+            if hasattr(self.repository, "db"):
+                ensure_store_access(self.repository.db, current_user, zone.store_id)
+            elif current_user.store_id != zone.store_id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Store access denied")
 
     def _is_store_open(self, store_id: int) -> bool:

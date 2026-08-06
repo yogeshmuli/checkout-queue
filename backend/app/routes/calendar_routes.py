@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.authorization import require_store_roles
 from app.models.user import User, UserRole
 from app.schemas.calendar import StoreCalendarResponse, StoreCalendarUpdateRequest
 from app.services.calendar_service import CalendarService
@@ -20,7 +20,7 @@ calendar_admin_roles = (
 def get_store_calendar(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*calendar_admin_roles)),
+    current_user: User = Depends(require_store_roles(*calendar_admin_roles)),
 ) -> StoreCalendarResponse:
     return CalendarService(db).get_calendar(store_id)
 
@@ -30,6 +30,6 @@ def update_store_calendar(
     store_id: int,
     payload: StoreCalendarUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*calendar_admin_roles)),
+    current_user: User = Depends(require_store_roles(*calendar_admin_roles)),
 ) -> StoreCalendarResponse:
     return CalendarService(db).update_calendar(store_id, payload)

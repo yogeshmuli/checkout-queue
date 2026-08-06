@@ -18,21 +18,23 @@ export function Studio({
   accessToken,
   message,
   calledToken,
+  calledTokens,
   servingTokens,
   activeStudios,
   vacantActiveStudios,
   completeTrialToken,
   cancelTrialToken,
   waitingTokens,
+  queuedTokens,
   nextWaitingToken,
   loadZoneQueue,
   startCalledToken,
   startNextWaitingToken,
-  callNextToken,
+  callableWaitingTokenIds,
+  callToken,
 }) {
   const zoneLabel = zoneName || (zoneId ? `Zone #${zoneId}` : 'Zone console');
-  const calledCount = calledToken ? 1 : 0;
-  const canCallNext = Boolean(accessToken && zoneId && !calledToken && nextWaitingToken && vacantActiveStudios.length > 0 && !loading);
+  const calledCount = calledTokens.length;
   const servingTokenByStudioId = new Map(servingTokens.map((token) => [String(token.assigned_studio_id), token]));
 
   return (
@@ -103,7 +105,18 @@ export function Studio({
                       <p className="text-3xl font-bold text-ink">{calledToken.token_number}</p>
                       <p className="text-sm text-charcoal">{calledToken.item_count || 0} items · {calledToken.phone_number}</p>
                     </div>
-                    <p className="text-sm text-muted">Start this token from any vacant active studio.</p>
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      <p className="text-sm text-muted">Start this token from any vacant active studio or cancel it.</p>
+                      <button
+                        type="button"
+                        onClick={() => runAction(() => cancelTrialToken(calledToken.token_id, 'Cancelled from zone queue'))}
+                        disabled={loading}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      >
+                        <XCircle size={16} />
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -119,8 +132,8 @@ export function Studio({
                       <p className="text-sm text-muted">Start directly from any vacant active studio.</p>
                       <button
                         type="button"
-                        onClick={callNextToken}
-                        disabled={!canCallNext}
+                        onClick={() => callToken(nextWaitingToken.token_id)}
+                        disabled={!callableWaitingTokenIds.has(String(nextWaitingToken.token_id)) || loading}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand-red px-3 py-2 text-sm font-semibold text-brand-red disabled:opacity-60"
                       >
                         <RefreshCcw size={16} />
@@ -239,9 +252,10 @@ export function Studio({
             <section className="mt-5 flex-1 rounded-lg bg-white p-4 text-ink glass-panel">
               <h2 className="font-semibold">Waiting queue</h2>
               <div className="mt-3 space-y-3">
-                {waitingTokens.length === 0 ? <p className="text-sm text-muted">No waiting tokens for this zone.</p> : null}
-                {waitingTokens.map((token) => {
-                  const isNextCallableToken = String(token.token_id) === String(nextWaitingToken?.token_id);
+                {queuedTokens.length === 0 ? <p className="text-sm text-muted">No waiting or called tokens for this zone.</p> : null}
+                {queuedTokens.map((token) => {
+                  const canCallToken = callableWaitingTokenIds.has(String(token.token_id));
+                  const isCalled = token.status === 'CALLED';
 
                   return (
                     <div key={token.token_id} className="flex items-center justify-between gap-3 rounded-lg border border-line p-3">
@@ -253,13 +267,13 @@ export function Studio({
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={callNextToken}
-                          disabled={!canCallNext || !isNextCallableToken}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                          title="Call token"
+                          onClick={() => callToken(token.token_id)}
+                          disabled={isCalled || !canCallToken || loading}
+                          className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 ${isCalled ? 'bg-amber-500' : 'bg-brand-red'}`}
+                          title={isCalled ? 'Token has been called' : 'Call token'}
                         >
                           <Megaphone size={18} />
-                          Call
+                          {isCalled ? 'Called' : 'Call'}
                         </button>
                         <button
                           type="button"

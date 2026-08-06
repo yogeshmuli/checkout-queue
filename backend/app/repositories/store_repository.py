@@ -13,8 +13,12 @@ class StoreRepository:
         self.db.flush()
         return store
 
-    def list_stores(self, include_inactive: bool = False) -> list[Store]:
+    def list_stores(self, include_inactive: bool = False, store_ids: set[int] | None = None) -> list[Store]:
         statement = select(Store).order_by(Store.id)
+        if store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(Store.id.in_(store_ids))
         if not include_inactive:
             statement = statement.where(Store.is_active.is_(True))
         return list(self.db.scalars(statement).all())
@@ -31,4 +35,3 @@ class StoreRepository:
 
     def refresh(self, instance: object) -> None:
         self.db.refresh(instance)
-

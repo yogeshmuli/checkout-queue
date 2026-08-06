@@ -17,12 +17,17 @@ class TrialStudioRepository(TrialZoneRepository):
         include_inactive: bool = False,
         store_id: int | None = None,
         trial_zone_id: int | None = None,
+        store_ids: set[int] | None = None,
     ) -> list[TrialStudio]:
         statement = select(TrialStudio).join(TrialZone, TrialZone.id == TrialStudio.trial_zone_id).order_by(TrialStudio.id.asc())
         if not include_inactive:
             statement = statement.where(TrialStudio.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(TrialZone.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(TrialZone.store_id.in_(store_ids))
         if trial_zone_id is not None:
             statement = statement.where(TrialStudio.trial_zone_id == trial_zone_id)
         return list(self.db.scalars(statement).all())

@@ -29,7 +29,7 @@ def test_trial_analytics_rejects_disallowed_role():
 
 
 def test_trial_analytics_validates_days_before_service_call():
-    response = TestClient(make_app(UserRole.MANAGER)).get("/trial/analytics/stores/1?days=91")
+    response = TestClient(make_app(UserRole.SUPER_ADMIN)).get("/trial/analytics/stores/1?days=91")
     assert response.status_code == 422
 
 
@@ -38,6 +38,6 @@ def test_trial_analytics_propagates_missing_store(monkeypatch):
         raise HTTPException(status_code=404, detail="Store not found")
 
     monkeypatch.setattr(TrialAnalyticsService, "get_store_analytics", missing)
-    response = TestClient(make_app(UserRole.STORE_ADMIN)).get("/trial/analytics/stores/404?days=7")
+    response = TestClient(make_app(UserRole.SUPER_ADMIN)).get("/trial/analytics/stores/404?days=7")
     assert response.status_code == 404
     assert response.json()["detail"] == "Store not found"

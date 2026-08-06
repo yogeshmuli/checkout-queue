@@ -27,8 +27,11 @@ class TrialZoneService:
         self.repository.refresh(zone)
         return zone
 
-    def list_zones(self, include_inactive: bool = False, store_id: int | None = None) -> list[TrialZone]:
-        return self.repository.list_zones(include_inactive=include_inactive, store_id=store_id)
+    def list_zones(self, include_inactive: bool = False, store_id: int | None = None, store_ids: set[int] | None = None) -> list[TrialZone]:
+        kwargs = {"include_inactive": include_inactive, "store_id": store_id}
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_zones(**kwargs)
 
     def get_zone(self, zone_id: int) -> TrialZone:
         zone = self.repository.get_zone(zone_id)

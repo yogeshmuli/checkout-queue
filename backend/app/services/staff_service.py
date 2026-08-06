@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.authorization import ensure_store_access
 from app.core.security import hash_password
 from app.models.user import User, UserRole, UserStoreAccess
 from app.repositories.staff_repository import StaffRepository
@@ -47,14 +48,18 @@ class StaffService:
         section_id: int | None = None,
         counter_id: int | None = None,
         zone_id: int | None = None,
+        store_ids: set[int] | None = None,
     ) -> list[User]:
-        return self.repository.list_staff(
+        kwargs = dict(
             include_inactive=include_inactive,
             store_id=store_id,
             section_id=section_id,
             counter_id=counter_id,
             zone_id=zone_id,
         )
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_staff(**kwargs)
 
     def get_staff(self, staff_id: int) -> User:
         user = self.repository.get_staff_by_id(staff_id)
@@ -187,3 +192,26 @@ class StaffService:
         else:
             access.role = role
             access.is_active = True
+    def ensure_assignment_resource_access(
+        self,
+        current_user: User,
+        section_id: int | None = None,
+        counter_id: int | None = None,
+        zone_id: int | None = None,
+    ) -> None:
+        if section_id is not None:
+            section = self.repository.get_section_by_id(section_id)
+            if section is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+            ensure_store_access(self.repository.db, current_user, section.store_id)
+        if counter_id is not None:
+            counter = self.repository.get_counter_by_id(counter_id)
+            section = self.repository.get_section_by_id(counter.section_id) if counter is not None else None
+            if section is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counter not found")
+            ensure_store_access(self.repository.db, current_user, section.store_id)
+        if zone_id is not None:
+            zone = self.repository.get_zone_by_id(zone_id)
+            if zone is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trial zone not found")
+            ensure_store_access(self.repository.db, current_user, zone.store_id)

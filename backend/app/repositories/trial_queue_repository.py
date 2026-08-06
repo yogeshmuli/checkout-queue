@@ -190,6 +190,14 @@ class TrialQueueRepository(TrialStudioRepository, TrialStoreConfigRepository, Tr
             .limit(1)
         )
 
+    def list_called_tokens_for_zone(self, zone_id: int) -> list[TrialQueueToken]:
+        statement = (
+            select(TrialQueueToken)
+            .where(TrialQueueToken.trial_zone_id == zone_id, TrialQueueToken.status == TrialQueueTokenStatus.CALLED)
+            .order_by(TrialQueueToken.called_at.asc().nulls_last(), TrialQueueToken.id.asc())
+        )
+        return list(self.db.scalars(statement).all())
+
     def get_current_serving_token(self, studio_id: int) -> TrialQueueToken | None:
         return self.db.scalar(
             select(TrialQueueToken)
@@ -222,10 +230,15 @@ class TrialQueueRepository(TrialStudioRepository, TrialStoreConfigRepository, Tr
         studio_id: int | None = None,
         status: TrialQueueTokenStatus | None = None,
         include_terminal: bool = False,
+        store_ids: set[int] | None = None,
     ) -> list[TrialQueueToken]:
         statement = select(TrialQueueToken)
         if store_id is not None:
             statement = statement.where(TrialQueueToken.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(TrialQueueToken.store_id.in_(store_ids))
         if trial_zone_id is not None:
             statement = statement.where(TrialQueueToken.trial_zone_id == trial_zone_id)
         if studio_id is not None:

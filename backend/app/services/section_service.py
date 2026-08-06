@@ -25,8 +25,11 @@ class SectionService:
         self.repository.refresh(section)
         return section
 
-    def list_sections(self, include_inactive: bool = False, store_id: int | None = None) -> list[CheckoutSection]:
-        return self.repository.list_sections(include_inactive=include_inactive, store_id=store_id)
+    def list_sections(self, include_inactive: bool = False, store_id: int | None = None, store_ids: set[int] | None = None) -> list[CheckoutSection]:
+        kwargs = {"include_inactive": include_inactive, "store_id": store_id}
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_sections(**kwargs)
 
     def get_section(self, section_id: int) -> CheckoutSection:
         section = self.repository.get_section_by_id(section_id)

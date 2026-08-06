@@ -18,6 +18,7 @@ export function Counter({
   completeToken,
   requestCancelToken,
   waitingTokens,
+  queuedTokens,
   callableWaitingTokenIds,
   callNextToken,
   startNextToken,
@@ -27,7 +28,7 @@ export function Counter({
   const counterLabel = counterName || (activeCounterId ? `Counter #${activeCounterId}` : 'Counter');
   const currentTokenCalled = currentToken?.status === 'CALLED';
   const currentTokenServing = currentToken?.status === 'SERVING';
-  const canCallWaitingToken = Boolean(accessToken && activeCounterId && counterActive && !currentToken && !loading);
+  const canCallWaitingToken = Boolean(accessToken && activeCounterId && counterActive && !loading);
 
   return (
     <main className="min-h-screen text-white animate-fadeIn">
@@ -158,8 +159,10 @@ export function Counter({
             </button>
           </div>
           <div className="mt-3 space-y-3">
-            {waitingTokens.length === 0 ? <p className="text-sm text-muted">No waiting tokens for this counter.</p> : null}
-            {waitingTokens.map((token) => (
+            {queuedTokens.length === 0 ? <p className="text-sm text-muted">No waiting or called tokens for this counter.</p> : null}
+            {queuedTokens.map((token) => {
+              const isCalled = token.status === 'CALLED';
+              return (
               <div key={token.token_id} className="flex items-center justify-between gap-3 rounded-lg border border-line p-3">
                 <div>
                   <p className="font-semibold">{token.token_number}</p>
@@ -172,19 +175,20 @@ export function Counter({
                   <button
                     type="button"
                     onClick={() => callWaitingToken(token)}
-                    disabled={!canCallWaitingToken || !callableWaitingTokenIds.has(String(token.token_id))}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                    title="Call token"
+                    disabled={isCalled || !canCallWaitingToken || !callableWaitingTokenIds.has(String(token.token_id))}
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 ${isCalled ? 'bg-amber-500' : 'bg-brand-red'}`}
+                    title={isCalled ? 'Token has been called' : 'Call token'}
                   >
                     <Megaphone size={18} />
-                    Call
+                    {isCalled ? 'Called' : 'Call'}
                   </button>
                   <button type="button" onClick={() => requestCancelToken(token)} className="rounded-lg border border-rose-200 p-2 text-rose-700" title="Cancel token">
                     <XCircle size={18} />
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </section>

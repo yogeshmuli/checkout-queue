@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.authorization import authorized_store_ids, ensure_store_access
 from app.core.security import require_roles
 from app.models.user import User, UserRole
 from app.schemas.store import StoreCreateRequest, StoreResponse, StoreUpdateRequest
@@ -20,7 +21,7 @@ store_admin_roles = (
 def create_store(
     payload: StoreCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*store_admin_roles)),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
 ) -> StoreResponse:
     return StoreService(db).create_store(payload)
 
@@ -31,7 +32,10 @@ def list_stores(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*store_admin_roles)),
 ) -> list[StoreResponse]:
-    return StoreService(db).list_stores(include_inactive=include_inactive)
+    return StoreService(db).list_stores(
+        include_inactive=include_inactive,
+        store_ids=authorized_store_ids(db, current_user),
+    )
 
 
 @router.get("/{store_id}", response_model=StoreResponse)
@@ -40,6 +44,7 @@ def get_store(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*store_admin_roles)),
 ) -> StoreResponse:
+    ensure_store_access(db, current_user, store_id)
     return StoreService(db).get_store(store_id)
 
 
@@ -50,6 +55,7 @@ def update_store(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*store_admin_roles)),
 ) -> StoreResponse:
+    ensure_store_access(db, current_user, store_id)
     return StoreService(db).update_store(store_id, payload)
 
 
@@ -57,7 +63,6 @@ def update_store(
 def delete_store(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*store_admin_roles)),
+    current_user: User = Depends(require_roles(UserRole.SUPER_ADMIN)),
 ) -> StoreResponse:
     return StoreService(db).deactivate_store(store_id)
-

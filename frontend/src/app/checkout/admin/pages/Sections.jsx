@@ -26,6 +26,10 @@ const SECTION_TYPE_OPTIONS = [
   { label: 'CSD', value: 'CSD' },
   { label: 'Returns', value: 'RETURNS' },
   { label: 'Exchange', value: 'EXCHANGE' },
+  {
+    label:'Regular',
+    value:'REGULAR'
+  }
 ];
 
 const SECTIONS_PER_PAGE = 8;

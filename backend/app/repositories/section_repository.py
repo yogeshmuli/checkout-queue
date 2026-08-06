@@ -14,12 +14,16 @@ class SectionRepository:
         self.db.flush()
         return section
 
-    def list_sections(self, include_inactive: bool = False, store_id: int | None = None) -> list[CheckoutSection]:
+    def list_sections(self, include_inactive: bool = False, store_id: int | None = None, store_ids: set[int] | None = None) -> list[CheckoutSection]:
         statement = select(CheckoutSection).order_by(CheckoutSection.id.asc())
         if not include_inactive:
             statement = statement.where(CheckoutSection.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(CheckoutSection.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(CheckoutSection.store_id.in_(store_ids))
         return list(self.db.scalars(statement).all())
 
     def get_section_by_id(self, section_id: int) -> CheckoutSection | None:
