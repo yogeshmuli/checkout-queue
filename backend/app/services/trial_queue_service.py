@@ -189,10 +189,10 @@ class TrialQueueService:
         self._ensure_zone_access(zone, current_user)
         if not zone.is_active:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone is inactive")
-        if self.repository.get_current_called_token_for_zone(zone.id) is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
-        if not self._list_vacant_active_studios(zone):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="No vacant active studios available for this trial zone")
+        active_studios = self.repository.list_active_studios(zone.store_id, zone.id)
+        called_tokens = self._list_called_tokens_for_zone(zone.id)
+        if len(called_tokens) >= len(active_studios):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active studio call capacity reached for this trial zone")
 
         self._rebuild_zone_schedule(zone.id)
         waiting_tokens = self.repository.list_waiting_tokens_for_zone(zone.id)
@@ -261,9 +261,11 @@ class TrialQueueService:
         if new_status == TrialQueueTokenStatus.CALLED and token.status != TrialQueueTokenStatus.WAITING:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting trial token can be called")
         if new_status == TrialQueueTokenStatus.CALLED and token.trial_zone_id is not None:
-            called_token = self.repository.get_current_called_token_for_zone(token.trial_zone_id)
-            if called_token is not None and called_token.id != token.id:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Trial zone already has a called token")
+            zone = self.get_zone(token.trial_zone_id)
+            active_studios = self.repository.list_active_studios(zone.store_id, zone.id)
+            called_tokens = self._list_called_tokens_for_zone(zone.id)
+            if len(called_tokens) >= len(active_studios):
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Active studio call capacity reached for this trial zone")
         if new_status == TrialQueueTokenStatus.SERVING and token.status not in (TrialQueueTokenStatus.WAITING, TrialQueueTokenStatus.CALLED):
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only waiting or called trial token can be started")
         if new_status == TrialQueueTokenStatus.SERVING:
@@ -354,6 +356,12 @@ class TrialQueueService:
             for studio in self.repository.list_active_studios(zone.store_id, zone.id)
             if self.repository.get_current_serving_token(studio.id) is None
         ]
+
+    def _list_called_tokens_for_zone(self, zone_id: int) -> list[TrialQueueToken]:
+        if hasattr(self.repository, "list_called_tokens_for_zone"):
+            return self.repository.list_called_tokens_for_zone(zone_id)
+        called_token = self.repository.get_current_called_token_for_zone(zone_id)
+        return [called_token] if called_token is not None else []
 
     def _ensure_customer_action_allowed(self, token: TrialQueueToken) -> None:
         if token.status in self.TERMINAL_STATUSES:

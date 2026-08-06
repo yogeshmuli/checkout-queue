@@ -14,7 +14,6 @@ import {
 import { useAuthStore } from '../../../store/authStore.js';
 import { useQueueStore } from '../../../store/queueStore.js';
 import { ConfirmationModal } from '../../common/ConfirmationModal.jsx';
-import { getCheckoutQueueKey, isCallable } from '../../common/queueCallUtils.js';
 import { Counter } from './pages/Counter.jsx';
 
 const COUNTER_QUEUE_REFRESH_MS = 30000;
@@ -29,13 +28,23 @@ export function StaffApp() {
   const assignedCounterId = user?.assigned_counter_id ? String(user.assigned_counter_id) : '';
 
   const tokens = useMemo(() => counterQueue?.tokens || [], [counterQueue]);
-  const currentToken = tokens.find((token) => token.status === 'SERVING' || token.status === 'CALLED');
   const waitingTokens = useMemo(() => tokens.filter((token) => token.status === 'WAITING'), [tokens]);
-  const callableWaitingTokenIds = useMemo(
-    () => new Set(waitingTokens.filter((token) => isCallable(token, tokens, getCheckoutQueueKey)).map((token) => String(token.token_id))),
-    [tokens, waitingTokens]
+  const calledTokens = useMemo(
+    () => tokens.filter((token) => token.status === 'CALLED').sort((first, second) => {
+      const timeDelta = new Date(first.called_at || first.calling_time || 0).getTime() - new Date(second.called_at || second.calling_time || 0).getTime();
+      return timeDelta || Number(first.token_id) - Number(second.token_id);
+    }),
+    [tokens]
   );
+  const servingToken = tokens.find((token) => token.status === 'SERVING') || null;
+  const currentToken = servingToken || calledTokens[0] || null;
+  const queuedTokens = useMemo(() => [...calledTokens, ...waitingTokens], [calledTokens, waitingTokens]);
   const counterActive = counterQueue?.is_active ?? true;
+  const availableCallSlots = Math.max(0, (counterActive ? 1 : 0) - calledTokens.length);
+  const callableWaitingTokenIds = useMemo(
+    () => new Set(waitingTokens.slice(0, availableCallSlots).map((token) => String(token.token_id))),
+    [availableCallSlots, waitingTokens]
+  );
   const counterName = counterQueue?.counter_name || '';
 
   const loadCounterQueue = useCallback(async ({ skipGlobalLoader = false } = {}) => {
@@ -89,7 +98,7 @@ export function StaffApp() {
   }
 
   function callWaitingToken(token) {
-    if (!token || !isCallable(token, tokens, getCheckoutQueueKey)) return;
+    if (!token || !callableWaitingTokenIds.has(String(token.token_id))) return;
     runAction(() => callToken(token.token_id));
   }
 
@@ -126,6 +135,7 @@ export function StaffApp() {
       completeToken={completeToken}
       requestCancelToken={requestCancelToken}
       waitingTokens={waitingTokens}
+      queuedTokens={queuedTokens}
       callableWaitingTokenIds={callableWaitingTokenIds}
       callNextToken={callNextToken}
       startNextToken={startNextToken}
