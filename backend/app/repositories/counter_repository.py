@@ -19,12 +19,17 @@ class CounterRepository:
         include_inactive: bool = False,
         store_id: int | None = None,
         section_id: int | None = None,
+        store_ids: set[int] | None = None,
     ) -> list[Counter]:
         statement = select(Counter).join(CheckoutSection, CheckoutSection.id == Counter.section_id).order_by(Counter.id.asc())
         if not include_inactive:
             statement = statement.where(Counter.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(CheckoutSection.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(CheckoutSection.store_id.in_(store_ids))
         if section_id is not None:
             statement = statement.where(Counter.section_id == section_id)
         return list(self.db.scalars(statement).all())

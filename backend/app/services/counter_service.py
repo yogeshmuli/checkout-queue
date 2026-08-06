@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.authorization import ensure_store_access
+from app.models.user import User
 from app.models.counter import Counter, CounterBasketSizeBand
 from app.repositories.counter_repository import CounterRepository
 from app.schemas.counter import CounterCreateRequest, CounterUpdateRequest
@@ -52,12 +54,16 @@ class CounterService:
         include_inactive: bool = False,
         store_id: int | None = None,
         section_id: int | None = None,
+        store_ids: set[int] | None = None,
     ) -> list[Counter]:
-        return self.repository.list_counters(
+        kwargs = dict(
             include_inactive=include_inactive,
             store_id=store_id,
             section_id=section_id,
         )
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_counters(**kwargs)
 
     def get_counter(self, counter_id: int) -> Counter:
         counter = self.repository.get_counter_by_id(counter_id)
@@ -131,3 +137,15 @@ class CounterService:
         self.repository.commit()
         self.repository.refresh(counter)
         return counter
+    def ensure_counter_access(self, counter_id: int, current_user: User) -> None:
+        counter = self.get_counter(counter_id)
+        section = self.repository.get_section_by_id(counter.section_id)
+        if section is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+        ensure_store_access(self.repository.db, current_user, section.store_id)
+
+    def ensure_section_access(self, section_id: int, current_user: User) -> None:
+        section = self.repository.get_section_by_id(section_id)
+        if section is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+        ensure_store_access(self.repository.db, current_user, section.store_id)

@@ -11,10 +11,14 @@ class TrialZoneRepository(TrialBaseRepository):
     def get_zone_by_store_and_name(self, store_id: int, name: str) -> TrialZone | None:
         return self.db.scalar(select(TrialZone).where(TrialZone.store_id == store_id, TrialZone.name == name))
 
-    def list_zones(self, include_inactive: bool = False, store_id: int | None = None) -> list[TrialZone]:
+    def list_zones(self, include_inactive: bool = False, store_id: int | None = None, store_ids: set[int] | None = None) -> list[TrialZone]:
         statement = select(TrialZone).order_by(TrialZone.id.asc())
         if not include_inactive:
             statement = statement.where(TrialZone.is_active.is_(True))
         if store_id is not None:
             statement = statement.where(TrialZone.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(TrialZone.store_id.in_(store_ids))
         return list(self.db.scalars(statement).all())

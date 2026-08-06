@@ -5,9 +5,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.authorization import ensure_store_access
 from app.models.counter import Counter, CounterBasketSizeBand
 from app.models.queue_token import QueueToken, QueueTokenStatus
 from app.models.store_config import StoreConfig
+from app.models.user import User
 from app.repositories.queue_repository import QueueRepository
 from app.schemas.queue import (
     CounterQueueResponse,
@@ -272,14 +274,18 @@ class QueueService:
         counter_id: int | None = None,
         token_status: QueueTokenStatus | None = None,
         include_terminal: bool = False,
+        store_ids: set[int] | None = None,
     ) -> list[QueueTokenResponse]:
-        tokens = self.repository.list_queue_tokens(
+        kwargs = dict(
             store_id=store_id,
             section_id=section_id,
             counter_id=counter_id,
             status=token_status,
             include_terminal=include_terminal,
         )
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        tokens = self.repository.list_queue_tokens(**kwargs)
         return [self._build_token_response(token) for token in tokens]
 
     def update_counter_status(self, counter_id: int, payload: CounterStatusUpdateRequest) -> CounterQueueResponse:
@@ -888,3 +894,23 @@ class QueueService:
                 token.cancellation_reason = "Purged by system"
             counter.next_available_time = datetime.now(timezone.utc)
         self.repository.commit()
+    def ensure_counter_access(self, counter_id: int, current_user: User) -> None:
+        counter = self.repository.get_counter(counter_id)
+        if counter is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Counter not found")
+        section = self.repository.get_section(counter.section_id)
+        if section is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout section not found")
+        ensure_store_access(self.repository.db, current_user, section.store_id)
+
+    def ensure_token_access(self, token_id: int, current_user: User) -> None:
+        token = self.repository.get_token(token_id)
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
+        ensure_store_access(self.repository.db, current_user, token.store_id)
+
+    def ensure_section_access(self, section_id: int, current_user: User) -> None:
+        section = self.repository.get_section(section_id)
+        if section is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout section not found")
+        ensure_store_access(self.repository.db, current_user, section.store_id)

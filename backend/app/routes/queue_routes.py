@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.authorization import authorized_store_ids, ensure_store_access
 from app.core.security import require_roles
 from app.models.user import User, UserRole
 from app.schemas.queue import (
@@ -67,12 +68,20 @@ def list_queue_tokens(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> list[QueueTokenResponse]:
-    return QueueService(db).list_queue_tokens(
+    service = QueueService(db)
+    if store_id is not None:
+        ensure_store_access(db, current_user, store_id)
+    if counter_id is not None:
+        service.ensure_counter_access(counter_id, current_user)
+    elif section_id is not None:
+        service.ensure_section_access(section_id, current_user)
+    return service.list_queue_tokens(
         store_id=store_id,
         section_id=section_id,
         counter_id=counter_id,
         token_status=status,
         include_terminal=include_terminal,
+        store_ids=authorized_store_ids(db, current_user),
     )
 
 
@@ -82,7 +91,9 @@ def get_counter_queue(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> CounterQueueResponse:
-    return QueueService(db).get_counter_queue(counter_id)
+    service = QueueService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.get_counter_queue(counter_id)
 
 
 @router.patch("/counters/{counter_id}/status", response_model=CounterQueueResponse)
@@ -92,7 +103,9 @@ def update_counter_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> CounterQueueResponse:
-    return QueueService(db).update_counter_status(counter_id, payload)
+    service = QueueService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.update_counter_status(counter_id, payload)
 
 
 @router.post("/counters/{counter_id}/call-next", response_model=QueueEventResponse)
@@ -101,7 +114,9 @@ def call_next_token_for_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> QueueEventResponse:
-    return QueueService(db).call_next_token_for_counter(counter_id)
+    service = QueueService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.call_next_token_for_counter(counter_id)
 
 
 @router.post("/counters/{counter_id}/start-next", response_model=QueueEventResponse)
@@ -110,7 +125,9 @@ def start_next_token_for_counter(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> QueueEventResponse:
-    return QueueService(db).start_next_token_for_counter(counter_id)
+    service = QueueService(db)
+    service.ensure_counter_access(counter_id, current_user)
+    return service.start_next_token_for_counter(counter_id)
 
 
 @router.post("/tokens/{token_id}/start", response_model=QueueEventResponse)
@@ -119,7 +136,9 @@ def start_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> QueueEventResponse:
-    return QueueService(db).start_token(token_id)
+    service = QueueService(db)
+    service.ensure_token_access(token_id, current_user)
+    return service.start_token(token_id)
 
 
 @router.post("/tokens/{token_id}/complete", response_model=QueueEventResponse)
@@ -128,7 +147,9 @@ def complete_token(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> QueueEventResponse:
-    return QueueService(db).complete_token(token_id)
+    service = QueueService(db)
+    service.ensure_token_access(token_id, current_user)
+    return service.complete_token(token_id)
 
 
 @router.post("/tokens/{token_id}/cancel", response_model=QueueEventResponse)
@@ -139,7 +160,9 @@ def cancel_token(
     current_user: User = Depends(require_roles(*queue_event_roles)),
 ) -> QueueEventResponse:
     reason = payload.cancellation_reason if payload is not None else None
-    return QueueService(db).cancel_token(token_id, reason)
+    service = QueueService(db)
+    service.ensure_token_access(token_id, current_user)
+    return service.cancel_token(token_id, reason)
 
 
 @router.post("/tokens/{token_id}/customer-cancel", response_model=QueueEventResponse)

@@ -222,10 +222,15 @@ class TrialQueueRepository(TrialStudioRepository, TrialStoreConfigRepository, Tr
         studio_id: int | None = None,
         status: TrialQueueTokenStatus | None = None,
         include_terminal: bool = False,
+        store_ids: set[int] | None = None,
     ) -> list[TrialQueueToken]:
         statement = select(TrialQueueToken)
         if store_id is not None:
             statement = statement.where(TrialQueueToken.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(TrialQueueToken.store_id.in_(store_ids))
         if trial_zone_id is not None:
             statement = statement.where(TrialQueueToken.trial_zone_id == trial_zone_id)
         if studio_id is not None:

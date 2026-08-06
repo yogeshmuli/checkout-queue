@@ -30,8 +30,11 @@ class TrialStudioService(TrialZoneService):
         self.repository.refresh(studio)
         return studio
 
-    def list_studios(self, include_inactive: bool = False, store_id: int | None = None, trial_zone_id: int | None = None) -> list[TrialStudio]:
-        return self.repository.list_studios(include_inactive=include_inactive, store_id=store_id, trial_zone_id=trial_zone_id)
+    def list_studios(self, include_inactive: bool = False, store_id: int | None = None, trial_zone_id: int | None = None, store_ids: set[int] | None = None) -> list[TrialStudio]:
+        kwargs = {"include_inactive": include_inactive, "store_id": store_id, "trial_zone_id": trial_zone_id}
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_studios(**kwargs)
 
     def get_studio(self, studio_id: int) -> TrialStudio:
         studio = self.repository.get_studio(studio_id)

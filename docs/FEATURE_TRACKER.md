@@ -1054,6 +1054,13 @@ Trial backend code is organized into Checkout-style domain files for zones, stud
 
 ## Not Implemented Yet
 
+### Store-scoped administration
+
+- `SUPER_ADMIN` users can manage all stores; store creation and activation/deactivation are reserved for this role.
+- `STORE_ADMIN` and `MANAGER` users see only stores with active `user_store_access` assignments in Checkout and Quick Trial.
+- Store-scoped API authorization covers store details, staff, queue tokens, Checkout sections/counters, Trial zones/studios, configuration, calendars, analytics, notifications, and ML operations.
+- Admin store selectors inherit the server-filtered store list, and assigned admins can edit their stores without seeing global store-management actions.
+
 - Alert configuration.
 - Alert scheduler.
 - Real WhatsApp/SMS provider integrations.

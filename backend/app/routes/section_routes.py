@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.authorization import authorized_store_ids, ensure_store_access
 from app.core.security import require_roles
 from app.models.user import User, UserRole
 from app.schemas.section import SectionCreateRequest, SectionResponse, SectionUpdateRequest
@@ -22,6 +23,7 @@ def create_section(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*section_admin_roles)),
 ) -> SectionResponse:
+    ensure_store_access(db, current_user, payload.store_id)
     return SectionService(db).create_section(payload)
 
 
@@ -32,7 +34,9 @@ def list_sections(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*section_admin_roles)),
 ) -> list[SectionResponse]:
-    return SectionService(db).list_sections(include_inactive=include_inactive, store_id=store_id)
+    if store_id is not None:
+        ensure_store_access(db, current_user, store_id)
+    return SectionService(db).list_sections(include_inactive=include_inactive, store_id=store_id, store_ids=authorized_store_ids(db, current_user))
 
 
 @router.get("/{section_id}", response_model=SectionResponse)
@@ -41,7 +45,9 @@ def get_section(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*section_admin_roles)),
 ) -> SectionResponse:
-    return SectionService(db).get_section(section_id)
+    section = SectionService(db).get_section(section_id)
+    ensure_store_access(db, current_user, section.store_id)
+    return section
 
 
 @router.patch("/{section_id}", response_model=SectionResponse)
@@ -51,7 +57,12 @@ def update_section(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*section_admin_roles)),
 ) -> SectionResponse:
-    return SectionService(db).update_section(section_id, payload)
+    service = SectionService(db)
+    section = service.get_section(section_id)
+    ensure_store_access(db, current_user, section.store_id)
+    if payload.store_id is not None:
+        ensure_store_access(db, current_user, payload.store_id)
+    return service.update_section(section_id, payload)
 
 
 @router.delete("/{section_id}", response_model=SectionResponse)
@@ -60,4 +71,7 @@ def delete_section(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(*section_admin_roles)),
 ) -> SectionResponse:
-    return SectionService(db).deactivate_section(section_id)
+    service = SectionService(db)
+    section = service.get_section(section_id)
+    ensure_store_access(db, current_user, section.store_id)
+    return service.deactivate_section(section_id)

@@ -21,8 +21,11 @@ class StoreService:
         self.repository.refresh(store)
         return store
 
-    def list_stores(self, include_inactive: bool = False) -> list[Store]:
-        return self.repository.list_stores(include_inactive=include_inactive)
+    def list_stores(self, include_inactive: bool = False, store_ids: set[int] | None = None) -> list[Store]:
+        kwargs = {"include_inactive": include_inactive}
+        if store_ids is not None:
+            kwargs["store_ids"] = store_ids
+        return self.repository.list_stores(**kwargs)
 
     def get_store(self, store_id: int) -> Store:
         store = self.repository.get_store_by_id(store_id)
@@ -53,4 +56,3 @@ class StoreService:
         self.repository.commit()
         self.repository.refresh(store)
         return store
-

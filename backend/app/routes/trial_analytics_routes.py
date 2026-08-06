@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.authorization import require_store_roles
 from app.models.user import User, UserRole
 from app.schemas.trial_analytics import TrialStoreAnalyticsResponse
 from app.services.trial_analytics_service import TrialAnalyticsService
@@ -16,6 +16,6 @@ def get_trial_store_analytics(
     store_id: int,
     days: int = Query(default=7, ge=1, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*trial_analytics_roles)),
+    current_user: User = Depends(require_store_roles(*trial_analytics_roles)),
 ) -> TrialStoreAnalyticsResponse:
     return TrialAnalyticsService(db).get_store_analytics(store_id, days)

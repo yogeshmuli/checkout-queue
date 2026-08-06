@@ -265,10 +265,15 @@ class QueueRepository:
         counter_id: int | None = None,
         status: QueueTokenStatus | None = None,
         include_terminal: bool = False,
+        store_ids: set[int] | None = None,
     ) -> list[QueueToken]:
         statement = select(QueueToken)
         if store_id is not None:
             statement = statement.where(QueueToken.store_id == store_id)
+        elif store_ids is not None:
+            if not store_ids:
+                return []
+            statement = statement.where(QueueToken.store_id.in_(store_ids))
         if section_id is not None:
             statement = statement.where(QueueToken.section_id == section_id)
         if counter_id is not None:

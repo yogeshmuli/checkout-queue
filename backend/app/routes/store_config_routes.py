@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_roles
+from app.core.authorization import require_store_roles
 from app.models.user import User, UserRole
 from app.schemas.store_config import StoreConfigResponse, StoreConfigUpdateRequest
 from app.services.store_config_service import StoreConfigService
@@ -20,7 +20,7 @@ store_config_admin_roles = (
 def get_store_config(
     store_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*store_config_admin_roles)),
+    current_user: User = Depends(require_store_roles(*store_config_admin_roles)),
 ) -> StoreConfigResponse:
     return StoreConfigService(db).get_store_config(store_id)
 
@@ -30,6 +30,6 @@ def upsert_store_config(
     store_id: int,
     payload: StoreConfigUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles(*store_config_admin_roles)),
+    current_user: User = Depends(require_store_roles(*store_config_admin_roles)),
 ) -> StoreConfigResponse:
     return StoreConfigService(db).upsert_store_config(store_id, payload)
